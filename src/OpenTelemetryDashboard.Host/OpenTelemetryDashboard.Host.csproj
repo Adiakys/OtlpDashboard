@@ -17,6 +17,8 @@
     <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Persistence\OpenTelemetryDashboard.Persistence.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Persistence.Sqlite\OpenTelemetryDashboard.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\OpenTelemetryDashboard.Persistence.SqlServer\OpenTelemetryDashboard.Persistence.SqlServer.csproj" />
+    <ProjectReference Include="..\OpenTelemetryDashboard.Persistence.PostgreSql\OpenTelemetryDashboard.Persistence.PostgreSql.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Ingestion\OpenTelemetryDashboard.Ingestion.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Api\OpenTelemetryDashboard.Api.csproj" />
   </ItemGroup>

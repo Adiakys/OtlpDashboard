@@ -5,18 +5,27 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetryDashboard.Persistence;
 
-namespace OpenTelemetryDashboard.IntegrationTests;
+namespace OpenTelemetryDashboard.IntegrationTests.Fixtures;
 
 /// <summary>
-/// Boots the <see cref="Program"/> host with an isolated SQLite file under the
-/// system temp directory. Migrations run once per fixture instance.
+/// WebApplicationFactory parametrizzato per provider. Riceve un IDatabaseFixture
+/// e ne usa la connection string + provider name nella configurazione del host.
 /// </summary>
-public sealed class TestHostFixture : WebApplicationFactory<Program>, IAsyncLifetime
+/// <remarks>
+/// Ownership: questa classe NON dispone <see cref="Database"/>. La test class
+/// che usa il fixture è responsabile di implementare <c>IAsyncLifetime</c> e
+/// chiamare <c>DisposeAsync()</c> sia su <see cref="ProviderTestHostFixture"/>
+/// che sul <see cref="IDatabaseFixture"/> sottostante.
+/// </remarks>
+public sealed class ProviderTestHostFixture : WebApplicationFactory<Program>
 {
-    public string DatabasePath { get; } =
-        Path.Combine(Path.GetTempPath(), $"oteldash-test-{Guid.NewGuid():N}.db");
+    public ProviderTestHostFixture(IDatabaseFixture databaseFixture)
+    {
+        ArgumentNullException.ThrowIfNull(databaseFixture);
+        Database = databaseFixture;
+    }
 
-    public string ConnectionString => $"Data Source={DatabasePath}";
+    public IDatabaseFixture Database { get; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -27,8 +36,8 @@ public sealed class TestHostFixture : WebApplicationFactory<Program>, IAsyncLife
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Dashboard:Storage:Provider"] = "Sqlite",
-                ["ConnectionStrings:Sqlite"] = ConnectionString,
+                ["Dashboard:Storage:Provider"] = Database.ProviderName,
+                [Database.ConnectionStringConfigKey] = Database.ConnectionString,
                 ["OpenTelemetryDashboard:Ingestion:Channel:Capacity"] = "1000",
                 ["OpenTelemetryDashboard:Ingestion:Channel:MaxBatchSize"] = "64",
                 ["OpenTelemetryDashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
@@ -36,32 +45,11 @@ public sealed class TestHostFixture : WebApplicationFactory<Program>, IAsyncLife
         });
     }
 
-    public async Task InitializeAsync()
+    public async Task ApplyMigrationsAsync()
     {
-        // Force the host to start so migrations run.
-        _ = Services;
-
         await using var scope = Services.CreateAsyncScope();
         var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
         await using var context = await factory.CreateDbContextAsync();
         await context.Database.MigrateAsync();
     }
-
-    public override async ValueTask DisposeAsync()
-    {
-        await base.DisposeAsync();
-        try
-        {
-            if (File.Exists(DatabasePath))
-            {
-                File.Delete(DatabasePath);
-            }
-        }
-        catch (IOException)
-        {
-            // File still locked on slow shutdown; leave the temp file behind.
-        }
-    }
-
-    Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();
 }

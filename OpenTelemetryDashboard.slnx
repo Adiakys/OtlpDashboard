@@ -11,6 +11,8 @@
     <Project Path="src/OpenTelemetryDashboard.Host/OpenTelemetryDashboard.Host.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Ingestion/OpenTelemetryDashboard.Ingestion.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Persistence.Sqlite/OpenTelemetryDashboard.Persistence.Sqlite.csproj" />
+    <Project Path="src/OpenTelemetryDashboard.Persistence.SqlServer/OpenTelemetryDashboard.Persistence.SqlServer.csproj" />
+    <Project Path="src/OpenTelemetryDashboard.Persistence.PostgreSql/OpenTelemetryDashboard.Persistence.PostgreSql.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Persistence/OpenTelemetryDashboard.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">

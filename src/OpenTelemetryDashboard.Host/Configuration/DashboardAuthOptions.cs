@@ -15,7 +15,8 @@ public sealed class DashboardAuthOptions
 {
     public const string SectionName = "Dashboard";
 
-    /// <summary>Bearer token accepted by the read-side Query API.</summary>
+    /// <summary>Bearer token accepted by the read-side Qu
+    /// +ery API.</summary>
     public string? BrowserToken { get; set; }
 
     public OtlpAuthOptions Otlp { get; set; } = new();

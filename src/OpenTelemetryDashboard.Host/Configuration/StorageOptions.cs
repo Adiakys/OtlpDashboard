@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,16 +12,9 @@ public enum StorageProvider
 
 public sealed class StorageOptions
 {
-    public const string SectionName = "OpenTelemetryDashboard:Storage";
+    public const string SectionName = "Dashboard:Storage";
 
     public StorageProvider Provider { get; set; } = StorageProvider.Sqlite;
-    public SqliteStorageOptions Sqlite { get; set; } = new();
-}
-
-public sealed class SqliteStorageOptions
-{
-    [Required(AllowEmptyStrings = false)]
-    public string ConnectionString { get; set; } = "Data Source=./data/telemetry.db";
 }
 
 public static class StorageOptionsExtensions
@@ -37,7 +29,6 @@ public static class StorageOptionsExtensions
         services
             .AddOptions<StorageOptions>()
             .Bind(configuration.GetSection(StorageOptions.SectionName))
-            .ValidateDataAnnotations()
             .ValidateOnStart();
 
         return services;

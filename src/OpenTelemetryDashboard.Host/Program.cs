@@ -12,8 +12,12 @@ using OpenTelemetryDashboard.Ingestion.Http;
 using OpenTelemetryDashboard.Persistence;
 using OpenTelemetryDashboard.Persistence.Metrics.InMemory;
 using OpenTelemetryDashboard.Persistence.Sqlite;
+using OpenTelemetryDashboard.Persistence.SqlServer;
+using OpenTelemetryDashboard.Persistence.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddIngestionServerOptions(builder.Configuration);
 builder.Services.AddStorageOptions(builder.Configuration);
@@ -68,20 +72,37 @@ builder.Services.AddOtlpIngestion();
 
 // Storage provider is the one value we MUST know at registration time — it
 // dictates which DI extensions are wired. Connection string is resolved
-// lazily via IOptions so test fixtures can override it.
+// lazily via IConfiguration so test fixtures can override it.
 var storageProvider = builder.Configuration
     .GetValue<StorageProvider>($"{StorageOptions.SectionName}:{nameof(StorageOptions.Provider)}");
 
 switch (storageProvider)
 {
     case StorageProvider.Sqlite:
-        builder.Services.AddSqliteTelemetryStore(
-            sp => sp.GetRequiredService<IOptions<StorageOptions>>().Value.Sqlite.ConnectionString);
+        builder.Services.AddSqliteTelemetryStore(ResolveConnectionString("Sqlite"));
+        break;
+    case StorageProvider.SqlServer:
+        builder.Services.AddSqlServerTelemetryStore(ResolveConnectionString("SqlServer"));
+        break;
+    case StorageProvider.PostgreSql:
+        builder.Services.AddPostgreSqlTelemetryStore(ResolveConnectionString("PostgreSql"));
         break;
     default:
         throw new InvalidOperationException(
             $"Storage provider '{storageProvider}' is not supported in this build.");
 }
+
+static Func<IServiceProvider, string> ResolveConnectionString(string name) =>
+    sp =>
+    {
+        var cs = sp.GetRequiredService<IConfiguration>().GetConnectionString(name);
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            throw new InvalidOperationException(
+                $"ConnectionStrings:{name} is missing or empty in configuration.");
+        }
+        return cs;
+    };
 
 builder.Services.AddTelemetryWriter();
 

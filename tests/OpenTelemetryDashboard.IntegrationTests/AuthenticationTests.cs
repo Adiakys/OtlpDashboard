@@ -43,8 +43,8 @@ public sealed class AuthenticationTests : IAsyncLifetime
                 {
                     config.AddInMemoryCollection(new Dictionary<string, string?>
                     {
-                        ["OpenTelemetryDashboard:Storage:Provider"] = "Sqlite",
-                        ["OpenTelemetryDashboard:Storage:Sqlite:ConnectionString"] = $"Data Source={_dbPath}",
+                        ["Dashboard:Storage:Provider"] = "Sqlite",
+                        ["ConnectionStrings:Sqlite"] = $"Data Source={_dbPath}",
                         ["Dashboard:BrowserToken"] = BrowserToken,
                         ["Dashboard:Otlp:ApiKey"] = OtlpApiKey,
                         ["Dashboard:ApplicationName"] = AppName,

@@ -10,11 +10,11 @@ Servizio .NET 10 che riceve telemetria OTLP (traces, logs, metrics) da client in
 
 | Segnale | Trasporto | Storage |
 |---|---|---|
-| Traces  | gRPC 4317 / HTTP 4318 (Protobuf) | **EF Core → SQLite** (provider agnostico) |
-| Logs    | gRPC 4317 / HTTP 4318 (Protobuf) | **EF Core → SQLite** |
+| Traces  | gRPC 4317 / HTTP 4318 (Protobuf) | **EF Core relazionale** — SQLite (default), PostgreSQL 14+, SQL Server 2019+ |
+| Logs    | gRPC 4317 / HTTP 4318 (Protobuf) | **EF Core relazionale** — SQLite (default), PostgreSQL 14+, SQL Server 2019+ |
 | Metrics | gRPC 4317 / HTTP 4318 (Protobuf) | **In-memory ring buffer** (non persistite in v1) |
 
-**Non in scope** (annotati per il futuro): TLS, login form UI (il BrowserToken va passato a mano), provider Postgres/SQL Server/MySQL, metriche persistite, partial-success granulare, sampling server-side, filtri avanzati sulla query API (severity, service, attributi, full-text), streaming live/tailing su UI.
+**Non in scope** (annotati per il futuro): TLS, login form UI (il BrowserToken va passato a mano), provider MySQL, metriche persistite, partial-success granulare, sampling server-side, filtri avanzati sulla query API (severity, service, attributi, full-text), streaming live/tailing su UI.
 
 ---
 
@@ -191,13 +191,13 @@ La conversione `nano ↔ DateTimeOffset` è fornita da `Core.Common.UnixNanoTime
   - configura Kestrel con **due listener**: `:4317` HTTP/2 solo (gRPC cleartext), `:4318` HTTP/1.1+2 (REST + gRPC fallback);
   - `AddGrpc` con `MaxReceiveMessageSize = 16 MiB` (il default 4 MiB silenziava export grossi);
   - `AddRateLimiter` policy `"otlp-http"` (fixed window) agganciata al gruppo HTTP `/v1`;
-  - registra `AddTelemetryCore` + `AddOtlpIngestion` + `AddSqliteTelemetryStore` + `AddTelemetryWriter` + `AddQueryApi`;
+  - registra `AddTelemetryCore` + `AddOtlpIngestion` + il provider EF Core scelto (`AddSqliteTelemetryStore` / `AddPostgreSqlTelemetryStore` / `AddSqlServerTelemetryStore` via `switch` su `StorageOptions.Provider`) + `AddTelemetryWriter` + `AddQueryApi`;
   - esegue `Database.MigrateAsync()` in avvio in ogni environment (idempotente su schema già al corrente; garantisce che i container di produzione creino lo schema al primo boot);
   - `UseDefaultFiles()` + `UseStaticFiles()` servono la SPA Nuxt da `wwwroot/`; `MapFallbackToFile("index.html")` instrada le route SPA deep-link non-API al client-side router;
   - `AddDashboardAuth` registra lo scheme `StaticToken` + le policy `read-api` / `otlp-ingest`; `UseAuthentication()`/`UseAuthorization()` e `.RequireAuthorization(...)` sui map applicano le policy (vedi [Autenticazione](#autenticazione));
   - allunga `HostOptions.ShutdownTimeout` per lasciare al `TelemetryWriter` il tempo di drenare il channel.
 - `Configuration/IngestionServerOptions.cs` — porte, message size, rate limit, shutdown timeout.
-- `Configuration/StorageOptions.cs` — provider scelto (`Sqlite` per ora) + connection string.
+- `Configuration/StorageOptions.cs` — `StorageProvider` enum (`Sqlite`, `PostgreSql`, `SqlServer`); la connection string vive nella sezione standard `.NET ConnectionStrings`.
 - `Configuration/DashboardAuthOptions.cs` — bearer token statici (`BrowserToken`, `Otlp.ApiKey`). Bindato su `Dashboard:*`.
 - `Authentication/StaticTokenAuthenticationHandler.cs` — handler custom `AuthenticationHandler<AuthenticationSchemeOptions>` che valida `Authorization: Bearer …` in tempo costante; assegna `role=browser` o `role=otlp`.
 - `Authentication/AuthServiceCollectionExtensions.cs` — `AddDashboardAuth(configuration)` registra scheme + policy `read-api`/`otlp-ingest`; policy allow-all se il token corrispondente non è configurato (opt-in).
@@ -228,7 +228,7 @@ La conversione `nano ↔ DateTimeOffset` è fornita da `Core.Common.UnixNanoTime
 ### Test
 
 - `tests/OpenTelemetryDashboard.UnitTests` — 63 test su: dominio (`TraceId`/`SpanId` round-trip + `TryParse`, `RingBuffer`, `ResourceHasher`), infrastruttura (`InMemoryMetricStorage` + `Sink`+`Reader`, `TelemetryWriter`, `ResourceCache`, `TelemetryDbContext`) e read API (`CursorCodec` round-trip + cross-tag reject, `QueryValidation` incluso UTC enforcement, `DomainMappings` con round-trip nano↔`DateTimeOffset`).
-- `tests/OpenTelemetryDashboard.IntegrationTests` — 25 test E2E. `TestHostFixture` avvia l'app via `WebApplicationFactory<Program>` con un file SQLite unico per run sotto la temp dir. `OtlpHttpIngestionTests` copre ingestion (Content-Type sbagliato → 415, protobuf malformato → 400, `trace_id` zero droppato silenziosamente, persistenza trace/log, metrica gauge). `QueryApiTests` copre la read-API: `GET /api/v1/logs|traces` con `from`/`to`, paginazione keyset multi-pagina, finestra troppo larga → 400, cursor invalido → 400, dettaglio trace 200/400 (id malformato) / 404 (id sconosciuto), DB vuoto → items=[]. `AuthenticationTests` verifica con entrambi i token configurati: 401 senza header, 200 con token giusto, 403 con token del ruolo sbagliato, `/healthz` sempre pubblico.
+- `tests/OpenTelemetryDashboard.IntegrationTests` — test E2E. `TestHostFixture` avvia l'app via `WebApplicationFactory<Program>` con un file SQLite unico per run sotto la temp dir. `OtlpHttpIngestionTests` copre ingestion (Content-Type sbagliato → 415, protobuf malformato → 400, `trace_id` zero droppato silenziosamente, persistenza trace/log, metrica gauge). `QueryApiTests` copre la read-API: `GET /api/v1/logs|traces` con `from`/`to`, paginazione keyset multi-pagina, finestra troppo larga → 400, cursor invalido → 400, dettaglio trace 200/400 (id malformato) / 404 (id sconosciuto), DB vuoto → items=[]. `AuthenticationTests` verifica con entrambi i token configurati: 401 senza header, 200 con token giusto, 403 con token del ruolo sbagliato, `/healthz` sempre pubblico. **Test cross-provider** (Testcontainers per PostgreSQL + SQL Server): migration apply, binary roundtrip TraceId/SpanId con NUL bytes, FK integrity Resource→Span, retention high-volume, dedup Resource concorrente.
 
 ---
 
@@ -237,7 +237,7 @@ La conversione `nano ↔ DateTimeOffset` è fornita da `Core.Common.UnixNanoTime
 - .NET SDK **10.0.106** o superiore (vedi `global.json`, `rollForward: feature`).
 - (Opzionale per sviluppo UI) **Node 22+** e **pnpm** (via corepack).
 - (Opzionale) Docker + Docker Compose per il run contenuto (che builda anche la SPA automaticamente).
-- Niente altro: SQLite è embedded, `dotnet-ef` è gestito come local tool in `.config/dotnet-tools.json`.
+- Niente altro per il default: SQLite è embedded, `dotnet-ef` è gestito come local tool in `.config/dotnet-tools.json`. Per PostgreSQL o SQL Server serve un'istanza esterna (anche via `docker compose --profile`).
 
 ## Quickstart — run locale (solo backend)
 
@@ -270,12 +270,88 @@ Senza SPA buildata in `wwwroot/`, la root `/` restituisce 404 — per il fronten
 docker compose up --build
 # gRPC  OTLP : localhost:4317
 # HTTP  OTLP : localhost:4318 (API + UI + /healthz)
-# dati      : volume `dashboard-data` (sqlite in /app/data/telemetry.db)
+# dati      : volume `dashboard-data` (sqlite in /app/data/telemetry.db, provider di default)
 ```
 
 La build Docker include anche la SPA (stage Node), quindi `http://localhost:4318/` apre direttamente l'UI.
 
-Il `docker-compose.yml` in root fa sia **build** (dal `src/OpenTelemetryDashboard.Host/Dockerfile`) sia **run**. Per un rebuild pulito: `docker compose build --no-cache`.
+Il `docker-compose.yml` in root fa sia **build** (dal `src/OpenTelemetryDashboard.Host/Dockerfile`) sia **run**. Per un rebuild pulito: `docker compose build --no-cache`. Per usare PostgreSQL o SQL Server invece di SQLite vedi la sezione **[Storage providers](#storage-providers)**.
+
+## Storage providers
+
+Il dashboard persiste traces e logs su un database relazionale via EF Core. Tre provider supportati, selezionabili a runtime via configurazione (singolo binario, niente ricompilazione):
+
+| Provider     | Versione minima | Connection string config key   | Caso d'uso tipico                    |
+|--------------|-----------------|--------------------------------|--------------------------------------|
+| `Sqlite`     | embedded        | `ConnectionStrings:Sqlite`     | dev locale, single-host              |
+| `PostgreSql` | 14+             | `ConnectionStrings:PostgreSql` | produzione self-hosted               |
+| `SqlServer`  | 2019+           | `ConnectionStrings:SqlServer`  | enterprise / Windows shop            |
+
+### Selezione del provider
+
+Tramite `appsettings.json`:
+
+```json
+{
+  "Dashboard": { "Storage": { "Provider": "PostgreSql" } },
+  "ConnectionStrings": {
+    "PostgreSql": "Host=db;Database=telemetry;Username=otel;Password=..."
+  }
+}
+```
+
+Tramite env vars (Docker / Kubernetes):
+
+```
+Dashboard__Storage__Provider=PostgreSql
+ConnectionStrings__PostgreSql=Host=db;Database=telemetry;Username=otel;Password=...
+```
+
+`IConfiguration` traduce automaticamente `__` → `:`.
+
+### Esempi connection string
+
+- **PostgreSQL**: `Host=postgres.internal;Port=5432;Database=telemetry;Username=otel;Password=...`
+- **SQL Server**: `Server=mssql.internal;Database=telemetry;User Id=otel;Password=...;TrustServerCertificate=True`
+- **SQLite**: `Data Source=/app/data/telemetry.db`
+
+### Docker compose
+
+`docker-compose.yml` definisce un singolo servizio `dashboard` parametrizzato + due servizi DB profilati:
+
+```bash
+# SQLite (default, niente DB esterno)
+docker compose up
+
+# PostgreSQL
+STORAGE_PROVIDER=PostgreSql \
+  CONN_POSTGRESQL="Host=postgres;Database=telemetry;Username=otel;Password=otel" \
+  docker compose --profile postgres up
+
+# SQL Server
+STORAGE_PROVIDER=SqlServer \
+  CONN_SQLSERVER="Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True" \
+  docker compose --profile sqlserver up
+```
+
+Vedi `.env.example` per il template completo delle variabili.
+
+### Migrazione tra provider
+
+**Non supportato.** Cambio provider = DB di destinazione vuoto. Lo schema viene creato automaticamente al primo boot tramite `MigrateAsync()` (idempotente).
+
+### Aggiungere un nuovo provider
+
+1. Crea `src/OpenTelemetryDashboard.Persistence.<Name>/` specchio di `Persistence.Sqlite`
+2. Implementa `Add<Name>TelemetryStore` (DI extension, due overload — eager + lazy)
+3. Implementa `<Name>TelemetryDesignTimeDbContextFactory : IDesignTimeDbContextFactory<TelemetryDbContext>`
+4. Genera la migration: `dotnet ef migrations add Init --project src/OpenTelemetryDashboard.Persistence.<Name>`
+5. Aggiungi un nuovo valore all'enum `StorageProvider` (`StorageOptions.cs`) e un case nello switch in `Program.cs`
+6. Aggiungi `<Name>DatabaseFixture` in `tests/.../Fixtures/` e parametrizza i test cross-provider
+
+### Breaking change (rispetto a versioni precedenti)
+
+La connection string SQLite si è spostata da `OpenTelemetryDashboard:Storage:Sqlite:ConnectionString` alla sezione standard `.NET ConnectionStrings:Sqlite`. Migrazione: spostare la stringa nell'apposita sezione di `appsettings.json` o usare la env var `ConnectionStrings__Sqlite`. La sezione di selezione del provider è inoltre passata da `OpenTelemetryDashboard:Storage` a `Dashboard:Storage` (allineata alle altre opzioni `Dashboard:*`).
 
 ## Come mandare telemetria dall'esterno
 
@@ -540,9 +616,9 @@ Quando il token scade (30 min default) la prima call API successiva riceve 401 e
 
 | Obiettivo | File / progetto |
 |---|---|
-| aggiungere un **campo** al modello Span/Log | `Core/Domain/Span.cs` (o `LogRecord.cs`) + `Persistence/Configurations/SpanConfiguration.cs` + `dotnet ef migrations add <Nome>` dal progetto `Persistence.Sqlite` |
-| aggiungere un **indice** DB | `Persistence/Configurations/*Configuration.cs` + nuova migration |
-| aggiungere un **nuovo provider DB** (es. PostgreSQL) | nuovo progetto `Persistence.PostgreSql` con pattern identico a `Persistence.Sqlite`, poi aggiungi il caso nello `switch` di `Host/Program.cs` |
+| aggiungere un **campo** al modello Span/Log | `Core/Domain/Span.cs` (o `LogRecord.cs`) + `Persistence/Configurations/SpanConfiguration.cs` + `dotnet ef migrations add <Nome>` ripetuto per **tutti i provider** (`Persistence.Sqlite`, `Persistence.PostgreSql`, `Persistence.SqlServer`) |
+| aggiungere un **indice** DB | `Persistence/Configurations/*Configuration.cs` + nuova migration su tutti e tre i provider |
+| aggiungere un **nuovo provider DB** | vedi sezione **[Storage providers → Aggiungere un nuovo provider](#aggiungere-un-nuovo-provider)** |
 | sostituire lo **store metriche** (es. ClickHouse time-series) | inizialmente puoi affiancare una nuova implementazione di `IMetricSink`/`IMetricReader` accanto a `Persistence/Metrics/InMemory/`. Se cresce, estrai in un nuovo progetto `OpenTelemetryDashboard.Metrics.<Nome>`. In entrambi i casi sostituisci `AddInMemoryMetricStore(...)` in `Host/Program.cs` con la nuova extension |
 | esporre una **nuova query sul DB** (es. API che restituisce gli span di un trace) | estendi `ITraceReader`/`ILogReader` in `Core/Abstractions` con il nuovo metodo, aggiungi l'implementazione in `Persistence/Readers/EfCoreXxxReader.cs` con `AsNoTracking`, e aggiungi l'endpoint in `Api/Endpoints/{Logs,Traces}Endpoints.cs` (registrandolo in `Api/QueryApiExtensions.MapQueryApi`) |
 | aggiungere un **filtro** alla query API (es. `severity`, `service`) | estendi `LogQuery`/`TraceQuery` in `Core/Abstractions/Queries/ReaderQueries.cs`, fai passare il campo nel binding (`Api/Endpoints/{Logs,Traces}Endpoints.cs`) e nella validazione (`Api/QueryValidation.cs`), implementa la condizione EF Core in `Persistence/Readers/*Reader.cs` |
@@ -594,7 +670,9 @@ Quando il token scade (30 min default) la prima call API successiva riceve 401 e
 ├── src/
 │   ├── OpenTelemetryDashboard.Core/               # dominio + abstractions + pipeline
 │   ├── OpenTelemetryDashboard.Persistence/        # EF Core + writer + Metrics/InMemory (ring-buffer)
-│   ├── OpenTelemetryDashboard.Persistence.Sqlite/ # provider SQLite + migrations
+│   ├── OpenTelemetryDashboard.Persistence.Sqlite/    # provider SQLite + migrations
+│   ├── OpenTelemetryDashboard.Persistence.PostgreSql/ # provider PostgreSQL + migrations
+│   ├── OpenTelemetryDashboard.Persistence.SqlServer/  # provider SQL Server + migrations
 │   ├── OpenTelemetryDashboard.Ingestion/          # OTLP write-side: gRPC + HTTP + translators
 │   ├── OpenTelemetryDashboard.Api/                # read-side: GET /api/v1/logs|traces (JSON)
 │   └── OpenTelemetryDashboard.Host/               # composition root + appsettings + Dockerfile
@@ -627,4 +705,4 @@ Quando il token scade (30 min default) la prima call API successiva riceve 401 e
 - **Errore "WAL" o "database is locked" su SQLite**: il file DB è condiviso col writer; evita di aprirlo da un client esterno mentre l'app gira. Per ispezionarlo: ferma l'app, poi `sqlite3 src/OpenTelemetryDashboard.Host/telemetry.dev.db`.
 - **Client OTLP non invia / "H2 connection reset"**: stai puntando al porto HTTP/1.1 (4318) col protocollo gRPC. Usa `http://host:4317` per gRPC, `http://host:4318` per HTTP/Protobuf.
 - **Payload gRPC rifiutato senza errore chiaro**: controlla `MaxReceiveMessageSize` — è a 16 MiB di default; se i tuoi batch sono più grossi, aumenta `OpenTelemetryDashboard:Ingestion:Grpc:MaxReceiveMessageSize`.
-- **Tutte le nuove proprietà del dominio sono null su read da DB**: hai aggiunto la proprietà ma ti sei dimenticato di rigenerare la migration. `dotnet ef migrations add <Nome> --project src/OpenTelemetryDashboard.Persistence.Sqlite --startup-project src/OpenTelemetryDashboard.Persistence.Sqlite`.
+- **Tutte le nuove proprietà del dominio sono null su read da DB**: hai aggiunto la proprietà ma ti sei dimenticato di rigenerare la migration. `dotnet ef migrations add <Nome> --project src/OpenTelemetryDashboard.Persistence.<Provider> --startup-project src/OpenTelemetryDashboard.Persistence.<Provider>` — da ripetere su **tutti** i provider attivi (`Sqlite`, `PostgreSql`, `SqlServer`).

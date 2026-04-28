@@ -1,16 +1,20 @@
 # Docker Compose di sviluppo.
 #
-# - Builda l'immagine dell'Host dal sorgente (fase di build inclusa).
-# - Fa girare l'app in ambiente Development (le migration EF Core partono
-#   automaticamente su startup).
-# - Monta un volume nominato per il file SQLite, così i dati persistono
-#   tra i restart del container.
-#
-# Uso:
+# Default (SQLite — niente DB esterno):
 #   docker compose up --build
+#
+# PostgreSQL (i default puntano gia' al container `postgres` su rete Compose):
+#   STORAGE_PROVIDER=PostgreSql docker compose --profile postgres up --build
+#
+# SQL Server (i default puntano gia' al container `sqlserver`):
+#   STORAGE_PROVIDER=SqlServer docker compose --profile sqlserver up --build
+#
+# Per puntare a un DB esterno (non al container interno) sovrascrivere
+# CONN_POSTGRESQL / CONN_SQLSERVER in .env. Vedi .env.example.
+#
 # Ascolto:
-#   - gRPC  OTLP : localhost:4317
-#   - HTTP  OTLP : localhost:4318 (anche /healthz)
+#   - gRPC OTLP : localhost:4317
+#   - HTTP OTLP : localhost:4318 (anche /healthz)
 
 services:
   dashboard:
@@ -25,9 +29,13 @@ services:
       - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      DASHBOARD__BROWSERTOKEN: s1r1us
+      DASHBOARD__BROWSERTOKEN: changeme
       OpenTelemetryDashboard__Ingestion__Channel__Capacity: "20000"
       Logging__LogLevel__OpenTelemetryDashboard: "Debug"
+      Dashboard__Storage__Provider: ${STORAGE_PROVIDER:-Sqlite}
+      ConnectionStrings__Sqlite: "${CONN_SQLITE:-Data Source=/app/data/telemetry.db}"
+      ConnectionStrings__SqlServer: "${CONN_SQLSERVER:-Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True}"
+      ConnectionStrings__PostgreSql: "${CONN_POSTGRESQL:-Host=postgres;Database=telemetry;Username=otel;Password=otel}"
     volumes:
       - dashboard-data:/app/data
     healthcheck:
@@ -36,6 +44,39 @@ services:
       timeout: 3s
       retries: 3
       start_period: 15s
+
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    container_name: otel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: otel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-otel}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otel -d telemetry"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  sqlserver:
+    profiles: ["sqlserver"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: otel-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Otel-Strong!2026}
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -C || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   telemetrygen-traces:
     image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
@@ -78,3 +119,5 @@ services:
 
 volumes:
   dashboard-data:
+  postgres-data:
+  sqlserver-data:

@@ -4,14 +4,23 @@
 
   <PropertyGroup Label="Test-project conventions">
     <!-- Underscores in test method names are idiomatic for xUnit; allow them. -->
-    <NoWarn>$(NoWarn);CA1707;CA1515;CA1034;CA2007;CA1861</NoWarn>
+    <NoWarn>$(NoWarn);CA1707;CA1515;CA1034;CA2007;CA1861;CA1001</NoWarn>
     <!--
       CA1707: Identifiers should not contain underscores
       CA1515: Consider making public types internal (test classes must be public)
       CA1034: Nested types should not be visible
       CA2007: Consider ConfigureAwait (test hosts set SynchronizationContext to null)
       CA1861: Avoid constant arrays as arguments (common pattern in test assertions)
+      CA1001: Types owning disposable fields — xUnit IAsyncLifetime.DisposeAsync covers cleanup
     -->
+    <!--
+      Microsoft.Data.SqlClient richiede ICU/globalization a runtime (collations),
+      altrimenti getta NotSupportedException. I test multi-provider su SqlServer
+      (Testcontainers) ne hanno bisogno; il root Directory.Build.props imposta
+      InvariantGlobalization=true per il prodotto runtime, ma per i test va
+      disabilitato.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
 </Project>

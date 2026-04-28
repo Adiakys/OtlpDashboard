@@ -19,6 +19,11 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +33,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Host\OpenTelemetryDashboard.Host.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence.SqlServer\OpenTelemetryDashboard.Persistence.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence.PostgreSql\OpenTelemetryDashboard.Persistence.PostgreSql.csproj" />
   </ItemGroup>
 
 </Project>
