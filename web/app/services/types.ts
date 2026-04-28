@@ -128,3 +128,22 @@ export interface MetricPointsQuery extends InstrumentRef {
   from?: string
   to?: string
 }
+
+/**
+ * Wire shape of the default dashboard. `layoutJson` is opaque to the server —
+ * the SPA owns the per-widget config schema. `rowVersion` participates in
+ * optimistic concurrency on save.
+ */
+export interface DashboardDto {
+  id: string
+  name: string
+  layoutJson: string
+  updatedAt: string
+  rowVersion: number
+}
+
+export interface SaveDashboardRequest {
+  name: string
+  layoutJson: string
+  rowVersion: number
+}

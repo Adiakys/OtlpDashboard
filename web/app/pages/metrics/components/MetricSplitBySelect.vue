@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SplitBy } from '../seriesGrouping'
+import type { SplitBy } from '~/lib/agcharts/seriesGrouping'
 
 const ALL = '__all__'
 const AGG = '__agg__'

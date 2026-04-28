@@ -77,8 +77,77 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "emptyTitle": "Dashboard coming soon",
-    "emptyDescription": "Configurable panels will live here. For now, use the Traces, Logs and Metrics pages."
+    "emptyTitle": "Empty dashboard",
+    "emptyDescription": "Add widgets to visualize your metrics.",
+    "startEditing": "Start editing",
+    "subtitle": {
+      "view": "{count} widgets · updated {updated}",
+      "editing": "Edit mode"
+    },
+    "actions": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "addWidget": "Add widget",
+      "configure": "Configure",
+      "remove": "Remove"
+    },
+    "errors": {
+      "saveConflict": "Layout changed elsewhere. Reload and retry.",
+      "loadFailed": "Failed to load the dashboard"
+    },
+    "picker": {
+      "title": "Choose a widget"
+    },
+    "widgets": {
+      "notConfigured": "Open the configuration to choose a metric.",
+      "metricStat": {
+        "title": "Stat",
+        "desc": "Single metric value with optional delta and sparkline."
+      },
+      "metricLine": {
+        "title": "Chart",
+        "titleMulti": "{n} metrics",
+        "desc": "Line/area/column chart over one or more metrics of the same kind."
+      },
+      "metricSparkline": {
+        "title": "Sparkline",
+        "desc": "Minimal axis-less chart for dense dashboards."
+      },
+      "text": {
+        "title": "Text",
+        "desc": "Markdown text panel for headers and notes."
+      }
+    },
+    "config": {
+      "title": "Title",
+      "metric": "Metric",
+      "metrics": "Metrics",
+      "range": "Range",
+      "splitBy": "Split by",
+      "splitByHint": "Attribute key (e.g. http.method). Empty = all attributes.",
+      "showSparkline": "Show sparkline",
+      "decimals": "Decimals",
+      "unit": "Unit",
+      "markdown": "Content (markdown)",
+      "markdownPlaceholder": "## Title\n\nWrite here…",
+      "apply": "Apply",
+      "align": {
+        "label": "Alignment",
+        "left": "Left",
+        "center": "Center"
+      }
+    },
+    "splitBy": {
+      "all": "All attributes"
+    },
+    "range": {
+      "last5m": "Last 5 minutes",
+      "last15m": "Last 15 minutes",
+      "last1h": "Last hour",
+      "last6h": "Last 6 hours",
+      "last24h": "Last 24 hours"
+    }
   },
   "logs": {
     "title": "Logs",

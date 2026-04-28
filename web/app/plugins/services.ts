@@ -1,4 +1,5 @@
 import { AuthStore } from '~/services/AuthStore'
+import { DashboardService } from '~/services/DashboardService'
 import { HttpClientService } from '~/services/HttpClientService'
 import { InfoService } from '~/services/InfoService'
 import { LogsService } from '~/services/LogsService'
@@ -93,6 +94,7 @@ export default defineNuxtPlugin(() => {
       logsService: new LogsService(http),
       traceService: new TraceService(http),
       metricsService: new MetricsService(http),
+      dashboardService: new DashboardService(http),
       appName,
       appVersion,
       refreshInfo

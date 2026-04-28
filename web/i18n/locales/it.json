@@ -77,8 +77,77 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "emptyTitle": "Dashboard in arrivo",
-    "emptyDescription": "Qui vivranno i pannelli configurabili. Per ora utilizza le pagine Tracce, Log e Metriche."
+    "emptyTitle": "Dashboard vuota",
+    "emptyDescription": "Aggiungi widget per visualizzare le tue metriche.",
+    "startEditing": "Inizia a modificare",
+    "subtitle": {
+      "view": "{count} widget · aggiornato {updated}",
+      "editing": "Modalità modifica"
+    },
+    "actions": {
+      "edit": "Modifica",
+      "save": "Salva",
+      "cancel": "Annulla",
+      "addWidget": "Aggiungi widget",
+      "configure": "Configura",
+      "remove": "Rimuovi"
+    },
+    "errors": {
+      "saveConflict": "Layout modificato altrove. Ricarica e ritenta.",
+      "loadFailed": "Impossibile caricare la dashboard"
+    },
+    "picker": {
+      "title": "Scegli un widget"
+    },
+    "widgets": {
+      "notConfigured": "Apri la configurazione per scegliere una metrica.",
+      "metricStat": {
+        "title": "Stat",
+        "desc": "Singolo valore di una metrica con delta opzionale e mini-sparkline."
+      },
+      "metricLine": {
+        "title": "Grafico",
+        "titleMulti": "{n} metriche",
+        "desc": "Grafico linee/area/colonna su una o più metriche dello stesso tipo."
+      },
+      "metricSparkline": {
+        "title": "Sparkline",
+        "desc": "Mini-grafico senza assi, ideale per dashboard dense."
+      },
+      "text": {
+        "title": "Testo",
+        "desc": "Pannello testuale (markdown) per intestazioni e note."
+      }
+    },
+    "config": {
+      "title": "Titolo",
+      "metric": "Metrica",
+      "metrics": "Metriche",
+      "range": "Intervallo",
+      "splitBy": "Disaggrega per",
+      "splitByHint": "Chiave attributo (es. http.method). Vuoto = tutti gli attributi.",
+      "showSparkline": "Mostra sparkline",
+      "decimals": "Decimali",
+      "unit": "Unità",
+      "markdown": "Contenuto (markdown)",
+      "markdownPlaceholder": "## Titolo\n\nScrivi qui…",
+      "apply": "Applica",
+      "align": {
+        "label": "Allineamento",
+        "left": "Sinistra",
+        "center": "Centrato"
+      }
+    },
+    "splitBy": {
+      "all": "Tutti gli attributi"
+    },
+    "range": {
+      "last5m": "Ultimi 5 minuti",
+      "last15m": "Ultimi 15 minuti",
+      "last1h": "Ultima ora",
+      "last6h": "Ultime 6 ore",
+      "last24h": "Ultime 24 ore"
+    }
   },
   "logs": {
     "title": "Log",

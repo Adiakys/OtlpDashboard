@@ -4,10 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Abstractions.Retention;
+using OpenTelemetryDashboard.Dashboards.Storage;
 using OpenTelemetryDashboard.Persistence.Ingestion;
 using OpenTelemetryDashboard.Persistence.Readers;
 using OpenTelemetryDashboard.Persistence.Retention;
 using OpenTelemetryDashboard.Persistence.Sinks;
+using OpenTelemetryDashboard.Persistence.Stores;
 
 namespace OpenTelemetryDashboard.Persistence;
 
@@ -59,6 +61,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ITraceReader, EfCoreTraceReader>();
         services.AddSingleton<ILogReader, EfCoreLogReader>();
+
+        services.AddSingleton<IDashboardStore, EfCoreDashboardStore>();
 
         return services;
     }

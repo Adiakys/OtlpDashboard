@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Api;
 using OpenTelemetryDashboard.Core;
+using OpenTelemetryDashboard.Dashboards;
 using OpenTelemetryDashboard.Host.Authentication;
 using OpenTelemetryDashboard.Host.Configuration;
 using OpenTelemetryDashboard.Ingestion;
@@ -110,6 +111,8 @@ builder.Services.AddTelemetryRetention(builder.Configuration);
 
 builder.Services.AddQueryApi(builder.Configuration);
 
+builder.Services.AddDashboards();
+
 builder.Services.AddDashboardAuth(builder.Configuration);
 
 builder.Services.AddHealthChecks();
@@ -171,6 +174,7 @@ app.MapOtlpHttpEndpoints()
     .RequireRateLimiting("otlp-http");
 
 app.MapQueryApi().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
+app.MapDashboards(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboardInfo();
 
 app.MapHealthChecks("/healthz").AllowAnonymous();

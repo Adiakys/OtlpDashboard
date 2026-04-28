@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
+    <ProjectReference Include="..\OpenTelemetryDashboard.Dashboards\OpenTelemetryDashboard.Dashboards.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Persistence\OpenTelemetryDashboard.Persistence.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Persistence.Sqlite\OpenTelemetryDashboard.Persistence.Sqlite.csproj" />
     <ProjectReference Include="..\OpenTelemetryDashboard.Persistence.SqlServer\OpenTelemetryDashboard.Persistence.SqlServer.csproj" />

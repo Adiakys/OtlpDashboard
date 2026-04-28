@@ -6,7 +6,7 @@ import type {
 } from 'ag-charts-community'
 import type { InstrumentDto, MetricSeriesDto } from '~/services/types'
 import { describeGroup, groupPoints, type SplitBy, type SeriesGroup } from './seriesGrouping'
-import { instrumentKey } from './buildTree'
+import { instrumentKey } from '~/pages/metrics/buildTree'
 
 export type ChartType = 'line' | 'area' | 'column' | 'unsupported'
 

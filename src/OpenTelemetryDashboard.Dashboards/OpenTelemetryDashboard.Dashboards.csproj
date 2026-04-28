@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Dashboards module: domain entity, storage port, DTOs, validation, and HTTP endpoints for user-configured dashboards. Persistence implementation lives in OpenTelemetryDashboard.Persistence (hexagonal port/adapter split).</Description>
+    <RootNamespace>OpenTelemetryDashboard.Dashboards</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

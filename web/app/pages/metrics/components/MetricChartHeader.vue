@@ -2,7 +2,7 @@
 import AppBadge from '~/components/ui/AppBadge.vue'
 import MetricSplitBySelect from './MetricSplitBySelect.vue'
 import type { InstrumentDto } from '~/services/types'
-import type { SplitBy } from '../seriesGrouping'
+import type { SplitBy } from '~/lib/agcharts/seriesGrouping'
 import { instrumentKey } from '../buildTree'
 
 const props = defineProps<{

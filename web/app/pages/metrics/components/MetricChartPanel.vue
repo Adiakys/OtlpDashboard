@@ -4,8 +4,8 @@ import AppEmptyState from '~/components/ui/AppEmptyState.vue'
 import MetricChartHeader from './MetricChartHeader.vue'
 import MetricChartCanvas from './MetricChartCanvas.vue'
 import MetricChartUnsupported from './MetricChartUnsupported.vue'
-import type { ChartType } from '../chartStrategy'
-import type { SplitBy } from '../seriesGrouping'
+import type { ChartType } from '~/lib/agcharts/chartStrategy'
+import type { SplitBy } from '~/lib/agcharts/seriesGrouping'
 import type { InstrumentDto, MetricSeriesDto } from '~/services/types'
 
 const props = defineProps<{

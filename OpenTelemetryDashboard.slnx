@@ -8,6 +8,7 @@
   <Folder Name="/src/">
     <Project Path="src/OpenTelemetryDashboard.Api/OpenTelemetryDashboard.Api.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Core/OpenTelemetryDashboard.Core.csproj" />
+    <Project Path="src/OpenTelemetryDashboard.Dashboards/OpenTelemetryDashboard.Dashboards.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Host/OpenTelemetryDashboard.Host.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Ingestion/OpenTelemetryDashboard.Ingestion.csproj" />
     <Project Path="src/OpenTelemetryDashboard.Persistence.Sqlite/OpenTelemetryDashboard.Persistence.Sqlite.csproj" />

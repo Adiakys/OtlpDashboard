@@ -20,6 +20,7 @@
     "ag-charts-vue3": "^11.0.0",
     "ag-grid-community": "^33.3.2",
     "ag-grid-vue3": "^33.3.2",
+    "grid-layout-plus": "^1.1.1",
     "nuxt": "^4.4.2",
     "tailwindcss": "^4.2.2"
   },

@@ -19,11 +19,11 @@ import {
   pickChartType,
   sharedUnit,
   type ChartType
-} from './chartStrategy'
+} from '~/lib/agcharts/chartStrategy'
 import {
   availableAttributeKeys,
   type SplitBy
-} from './seriesGrouping'
+} from '~/lib/agcharts/seriesGrouping'
 import { useMetricsSelection } from './useMetricsSelection'
 
 /**

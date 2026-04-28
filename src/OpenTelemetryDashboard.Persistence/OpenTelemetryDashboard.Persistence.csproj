@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
+    <ProjectReference Include="..\OpenTelemetryDashboard.Dashboards\OpenTelemetryDashboard.Dashboards.csproj" />
   </ItemGroup>
 
 </Project>
