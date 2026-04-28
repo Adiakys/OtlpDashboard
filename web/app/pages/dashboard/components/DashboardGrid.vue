@@ -15,7 +15,7 @@ import TextWidget from '../widgets/TextWidget.vue'
 const props = defineProps<{
   widgets: WidgetItem[]
   isEditing: boolean
-  liveTick: Readonly<Ref<number>>
+  liveTick: number
 }>()
 
 const emit = defineEmits<{

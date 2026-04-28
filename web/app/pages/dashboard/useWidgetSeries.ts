@@ -1,4 +1,4 @@
-import type { ComputedRef, Ref } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { MetricsService } from '~/services/MetricsService'
 import type { MetricSeriesDto, TimeWindow } from '~/services/types'
 import type { MetricBinding, RangePreset } from './types'
@@ -28,6 +28,11 @@ export function presetToWindow(preset: RangePreset, now: number = Date.now()): T
  *  - range change
  *  - `liveTick` change (the page bumps it on every live polling tick)
  *
+ * `liveTick` is taken as a getter, not a Ref: Vue auto-unwraps refs when they
+ * cross the props boundary, so a widget passing `props.liveTick` would hand
+ * us a primitive `number` and `watch` would never fire. A getter
+ * (`() => props.liveTick`) keeps the dependency reactive on the prop itself.
+ *
  * Stays widget-local: no shared cache, no global event bus. The number of
  * widgets per dashboard is small enough that N parallel requests are fine.
  */
@@ -35,7 +40,7 @@ export function useWidgetSeries(
   service: MetricsService,
   metrics: ComputedRef<MetricBinding[]>,
   range: ComputedRef<RangePreset>,
-  liveTick: Readonly<Ref<number>>
+  liveTick: () => number
 ) {
   const series = ref<MetricSeriesDto[]>([])
   const loading = ref(false)

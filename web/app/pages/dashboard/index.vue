@@ -105,7 +105,7 @@ const drawerOpen = computed({
       <DashboardGrid
         :widgets="page.layout.value.widgets"
         :is-editing="page.isEditing.value"
-        :live-tick="page.liveTickCounter"
+        :live-tick="page.liveTickCounter.value"
         @layout-change="page.updateLayoutCoords"
         @edit="page.startWidgetConfig"
         @remove="page.removeWidget"

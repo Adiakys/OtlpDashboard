@@ -9,7 +9,7 @@ import { WIDGET_METADATA } from '../registry'
 const props = defineProps<{
   config: MetricStatConfig
   isEditing: boolean
-  liveTick: Readonly<Ref<number>>
+  liveTick: number
 }>()
 
 defineEmits<{
@@ -23,7 +23,7 @@ const colorMode = useColorMode()
 
 const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, props.liveTick)
+const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
 
 const headerTitle = computed(() =>
   props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-stat'].titleKey)
