@@ -1,42 +1,40 @@
 <script setup lang="ts">
-import { useMetricsPage } from './usePage'
+import AppPage from '~/components/shell/AppPage.vue'
+import AppToolbar from '~/components/shell/AppToolbar.vue'
+import AppResizableSplit from '~/components/overlay/AppResizableSplit.vue'
+import AppEmptyState from '~/components/ui/AppEmptyState.vue'
+import AppApplicationFilter from '~/components/form/AppApplicationFilter.vue'
 import InstrumentsTable from './components/InstrumentsTable.vue'
 import SeriesPanel from './components/SeriesPanel.vue'
+import { useMetricsPage } from './usePage'
+import type { ActionDescriptor } from '~/types/toolbar'
 
+const { t } = useI18n()
 const { $metricsService } = useNuxtApp()
 const page = useMetricsPage($metricsService)
+
+const actions: ActionDescriptor[] = [
+  { kind: 'refresh', loading: page.isLoadingList, disabled: page.isLive, onClick: () => page.reloadList() },
+  { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
+]
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-4">
-    <div class="flex items-end justify-between gap-4 flex-wrap">
-      <div class="flex items-end gap-4">
-        <h1 class="text-xl font-semibold pb-1">
-          Metrics
-        </h1>
-        <ApplicationFilter
-          v-model="page.service.value"
-          :options="page.availableServices.value"
-          :include-all="false"
-          :disabled="page.isLive.value"
-          placeholder="Select an application"
-        />
-      </div>
-      <div class="flex items-center gap-2">
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-refresh-cw"
-          :loading="page.isLoadingList.value"
-          :disabled="page.isLive.value"
-          @click="() => page.reloadList()"
-        >
-          Refresh
-        </UButton>
-        <LiveToggle :is-live="page.isLive.value" @toggle="page.toggleLive" />
-      </div>
-    </div>
+  <AppPage>
+    <template #toolbar>
+      <AppToolbar :title="t('metrics.title')" :actions="actions">
+        <template #filters-extra>
+          <AppApplicationFilter
+            :model-value="page.service.value"
+            :options="page.availableServices.value"
+            :include-all="false"
+            :disabled="page.isLive.value"
+            :placeholder="t('metrics.selectApplication')"
+            @update:model-value="(v) => page.service.value = v"
+          />
+        </template>
+      </AppToolbar>
+    </template>
 
     <UAlert
       v-if="page.error.value"
@@ -44,36 +42,38 @@ const page = useMetricsPage($metricsService)
       variant="subtle"
       icon="i-lucide-alert-triangle"
       :title="page.error.value"
+      class="mb-4"
     />
 
-    <div
+    <AppEmptyState
       v-if="!page.service.value && page.availableServices.value.length === 0"
-      class="flex-1 min-h-0 border border-default rounded p-6 text-sm text-muted text-center"
-    >
-      No metrics have been received yet. Start your OTLP exporter and the
-      application filter will populate automatically.
-    </div>
-
-    <div
+      icon="i-lucide-activity"
+      :title="t('metrics.noData')"
+    />
+    <AppEmptyState
       v-else-if="!page.service.value"
-      class="flex-1 min-h-0 border border-default rounded p-6 text-sm text-muted text-center"
+      icon="i-lucide-mouse-pointer-click"
+      :title="t('metrics.selectApplication')"
+    />
+    <AppResizableSplit
+      v-else
+      name="metrics-split"
+      :default-ratio="0.45"
     >
-      Select an application above to view its instruments.
-    </div>
-
-    <div v-else class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <InstrumentsTable
-        class="min-h-0"
-        :items="page.instruments.value"
-        :loading="page.isLoadingList.value"
-        :selected="page.selected.value"
-        @select="page.select"
-      />
-      <SeriesPanel
-        class="min-h-0"
-        :series="page.series.value"
-        :loading="page.isLoadingSeries.value"
-      />
-    </div>
-  </div>
+      <template #first>
+        <InstrumentsTable
+          :items="page.instruments.value"
+          :loading="page.isLoadingList.value"
+          :selected="page.selected.value"
+          @select="page.select"
+        />
+      </template>
+      <template #second>
+        <SeriesPanel
+          :series="page.series.value"
+          :loading="page.isLoadingSeries.value"
+        />
+      </template>
+    </AppResizableSplit>
+  </AppPage>
 </template>

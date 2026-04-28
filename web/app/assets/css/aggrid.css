@@ -1,0 +1,47 @@
+/* Allinea AG Grid Quartz ai token NuxtUI/Tailwind del progetto.
+   Le custom property di Quartz documentate sono override-friendly. */
+
+.ag-theme-quartz,
+.ag-theme-quartz-dark {
+  --ag-font-family: 'Public Sans', sans-serif;
+  --ag-font-size: 13px;
+  --ag-grid-size: 6px;
+  --ag-row-height: 36px;
+  --ag-header-height: 38px;
+  --ag-list-item-height: 30px;
+  --ag-border-radius: 6px;
+  --ag-wrapper-border-radius: 8px;
+  --ag-cell-horizontal-padding: 12px;
+  --ag-row-hover-color: var(--ui-bg-elevated);
+  --ag-selected-row-background-color: color-mix(in oklab, var(--ui-primary) 12%, transparent);
+  --ag-range-selection-background-color: color-mix(in oklab, var(--ui-primary) 16%, transparent);
+  --ag-active-color: var(--ui-primary);
+  --ag-input-focus-border-color: var(--ui-primary);
+  --ag-input-focus-box-shadow: 0 0 0 3px color-mix(in oklab, var(--ui-primary) 22%, transparent);
+}
+
+.ag-theme-quartz {
+  --ag-background-color: var(--ui-bg);
+  --ag-foreground-color: var(--ui-text);
+  --ag-header-background-color: var(--ui-bg-muted);
+  --ag-header-foreground-color: var(--ui-text);
+  --ag-odd-row-background-color: var(--ui-bg);
+  --ag-border-color: var(--ui-border);
+  --ag-row-border-color: var(--ui-border);
+  --ag-header-column-separator-color: var(--ui-border);
+  --ag-secondary-foreground-color: var(--ui-text-muted);
+  --ag-disabled-foreground-color: var(--ui-text-muted);
+}
+
+.ag-theme-quartz-dark {
+  --ag-background-color: var(--ui-bg);
+  --ag-foreground-color: var(--ui-text);
+  --ag-header-background-color: var(--ui-bg-muted);
+  --ag-header-foreground-color: var(--ui-text);
+  --ag-odd-row-background-color: var(--ui-bg);
+  --ag-border-color: var(--ui-border);
+  --ag-row-border-color: var(--ui-border);
+  --ag-header-column-separator-color: var(--ui-border);
+  --ag-secondary-foreground-color: var(--ui-text-muted);
+  --ag-disabled-foreground-color: var(--ui-text-muted);
+}

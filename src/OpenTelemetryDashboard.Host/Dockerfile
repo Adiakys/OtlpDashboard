@@ -17,7 +17,11 @@ EXPOSE 8080 8081
 FROM node:22-alpine AS web-build
 WORKDIR /web
 COPY web/package.json web/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+# `--prefer-frozen-lockfile` keeps the fast headless install when the lockfile
+# is in sync with package.json (the normal case), but falls back to a regular
+# resolution if a developer bumped a dep without running `pnpm install`
+# locally — so the image still builds on a machine that has no pnpm/npm.
+RUN corepack enable && pnpm install --prefer-frozen-lockfile
 COPY web/ ./
 RUN pnpm run generate
 

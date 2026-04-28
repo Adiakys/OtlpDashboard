@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./animations.css";
+@import "./aggrid.css";
+
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-quartz.css";
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
@@ -15,4 +20,37 @@
   --color-green-800: #016538;
   --color-green-900: #0A5331;
   --color-green-950: #052E16;
+}
+
+:root {
+  --t-fast: 100ms;
+  --t-base: 200ms;
+  --t-slow: 350ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html, body, #__nuxt {
+  height: 100%;
+}
+
+body {
+  transition: background-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out);
+}
+
+@layer components {
+  .text-display {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  .text-title {
+    @apply text-lg font-semibold;
+  }
+
+  .text-caption {
+    @apply text-xs text-muted;
+  }
+
+  .text-mono {
+    @apply font-mono text-xs;
+  }
 }

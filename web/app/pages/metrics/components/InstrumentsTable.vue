@@ -1,88 +1,87 @@
 <script setup lang="ts">
+import type { ColDef } from 'ag-grid-community'
+import { h } from 'vue'
+import AppDataGrid from '~/components/data/AppDataGrid.vue'
+import AppBadge from '~/components/ui/AppBadge.vue'
 import type { InstrumentDto } from '~/services/types'
 
-defineProps<{
+const props = defineProps<{
   items: InstrumentDto[]
   loading: boolean
   selected: InstrumentDto | null
 }>()
 
-defineEmits<{ select: [InstrumentDto] }>()
+const emit = defineEmits<{ select: [instrument: InstrumentDto] }>()
 
-function isSelected(item: InstrumentDto, selected: InstrumentDto | null): boolean {
-  if (!selected) return false
-  return item.resourceHash === selected.resourceHash
-    && item.scopeName === selected.scopeName
-    && item.name === selected.name
-    && item.kind === selected.kind
+const { t } = useI18n()
+
+function rowId(i: InstrumentDto): string {
+  return `${i.resourceHash}|${i.scopeName}|${i.name}|${i.kind}`
 }
 
-function kindColor(kind: string): 'neutral' | 'primary' | 'success' {
+const selectedId = computed(() => props.selected ? rowId(props.selected) : null)
+
+function kindTone(kind: string): 'primary' | 'success' | 'neutral' {
   if (kind === 'Gauge') return 'primary'
   if (kind === 'Sum') return 'success'
   return 'neutral'
 }
+
+const columnDefs = computed<ColDef<InstrumentDto>[]>(() => [
+  {
+    field: 'name',
+    headerName: t('metrics.col.instrument'),
+    flex: 1,
+    minWidth: 180,
+    cellClass: 'font-mono text-xs items-center flex',
+    tooltipField: 'name'
+  },
+  {
+    field: 'kind',
+    headerName: t('metrics.col.kind'),
+    width: 110,
+    cellRenderer: (p: { value: string }) => h(AppBadge, { tone: kindTone(p.value), size: 'xs' }, () => p.value)
+  },
+  {
+    field: 'scopeName',
+    headerName: t('metrics.col.scope'),
+    flex: 1,
+    minWidth: 140,
+    cellClass: 'text-xs text-muted items-center flex',
+    valueFormatter: p => (p.value as string) || '—',
+    tooltipField: 'scopeName'
+  },
+  {
+    field: 'unit',
+    headerName: t('metrics.col.unit'),
+    width: 90,
+    cellClass: 'font-mono text-xs items-center flex',
+    valueFormatter: p => (p.value as string) || '—'
+  },
+  {
+    field: 'pointCount',
+    headerName: t('metrics.col.points'),
+    width: 90,
+    type: 'rightAligned',
+    cellClass: 'font-mono text-xs items-center flex justify-end'
+  }
+])
 </script>
 
 <template>
-  <div class="border border-default rounded overflow-y-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-elevated text-left sticky top-0 z-10">
-        <tr>
-          <th class="px-3 py-2 font-medium">
-            Instrument
-          </th>
-          <th class="px-3 py-2 font-medium">
-            Kind
-          </th>
-          <th class="px-3 py-2 font-medium">
-            Scope
-          </th>
-          <th class="px-3 py-2 font-medium">
-            Unit
-          </th>
-          <th class="px-3 py-2 font-medium text-right">
-            Points
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-if="loading && items.length === 0">
-          <td colspan="5" class="px-3 py-6 text-center text-muted">
-            Loading…
-          </td>
-        </tr>
-        <tr v-else-if="items.length === 0">
-          <td colspan="5" class="px-3 py-6 text-center text-muted">
-            No instruments recorded yet.
-          </td>
-        </tr>
-        <tr
-          v-for="row in items"
-          :key="`${row.resourceHash}|${row.scopeName}|${row.name}|${row.kind}`"
-          class="border-t border-default hover:bg-elevated cursor-pointer"
-          :class="isSelected(row, selected) ? 'bg-elevated font-medium' : ''"
-          @click="$emit('select', row)"
-        >
-          <td class="px-3 py-2 font-mono text-xs">
-            {{ row.name }}
-          </td>
-          <td class="px-3 py-2">
-            <UBadge :color="kindColor(row.kind)" size="sm" variant="subtle">
-              {{ row.kind }}
-            </UBadge>
-          </td>
-          <td class="px-3 py-2 text-xs text-muted truncate max-w-xs">
-            {{ row.scopeName || '—' }}
-          </td>
-          <td class="px-3 py-2 text-xs font-mono">
-            {{ row.unit || '—' }}
-          </td>
-          <td class="px-3 py-2 text-xs text-right">
-            {{ row.pointCount }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="flex flex-col min-h-0">
+    <header class="px-3 py-2 border border-default rounded-t-lg border-b-0 text-xs uppercase tracking-wide text-muted bg-elevated/50">
+      {{ t('metrics.instrumentsTitle') }}
+    </header>
+    <AppDataGrid
+      :column-defs="columnDefs"
+      :row-data="items"
+      :loading="loading"
+      :get-row-id="rowId"
+      :selected-id="selectedId"
+      :empty-title="t('metrics.noData')"
+      class="!rounded-t-none"
+      @row-click="(row: InstrumentDto) => emit('select', row)"
+    />
   </div>
 </template>

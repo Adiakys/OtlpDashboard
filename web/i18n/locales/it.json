@@ -1,0 +1,159 @@
+{
+  "common": {
+    "loading": "Caricamento…",
+    "reload": "Aggiorna",
+    "refresh": "Aggiorna",
+    "live": "Live",
+    "goLive": "Passa a live",
+    "loadMore": "Carica altri",
+    "endOfResults": "Fine dei risultati",
+    "search": "Cerca",
+    "clear": "Pulisci",
+    "close": "Chiudi",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "ok": "Ok",
+    "error": "Errore",
+    "retry": "Riprova",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "all": "Tutti",
+    "none": "Nessuno",
+    "select": "Seleziona",
+    "yes": "Sì",
+    "no": "No",
+    "apply": "Applica",
+    "from": "Dal",
+    "to": "Al",
+    "duration": "Durata",
+    "status": "Stato",
+    "service": "Applicazione",
+    "time": "Ora",
+    "name": "Nome",
+    "value": "Valore",
+    "attributes": "Attributi",
+    "results": "risultati"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "traces": "Tracce",
+    "logs": "Log",
+    "metrics": "Metriche",
+    "logout": "Esci",
+    "collapse": "Comprimi menu",
+    "expand": "Espandi menu"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema"
+  },
+  "locale": {
+    "label": "Lingua"
+  },
+  "filter": {
+    "applicationAll": "Tutte le applicazioni",
+    "applicationSelect": "Seleziona un'applicazione",
+    "limit": "Limite",
+    "severity": "Severità",
+    "severityAll": "Tutte le severità",
+    "status": "Stato",
+    "statusAny": "Qualsiasi",
+    "statusOk": "Ok",
+    "statusError": "Errore",
+    "duration": "Durata (ms)",
+    "minMs": "Min ms",
+    "maxMs": "Max ms",
+    "searchBody": "Cerca nel body",
+    "searchTrace": "Cerca root span",
+    "rangeCustom": "Personalizzato",
+    "range5m": "Ultimi 5 min",
+    "range15m": "Ultimi 15 min",
+    "range1h": "Ultima ora",
+    "range6h": "Ultime 6 ore",
+    "range24h": "Ultime 24 ore",
+    "range7d": "Ultimi 7 giorni"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "emptyTitle": "Dashboard in arrivo",
+    "emptyDescription": "Qui vivranno i pannelli configurabili. Per ora utilizza le pagine Tracce, Log e Metriche."
+  },
+  "logs": {
+    "title": "Log",
+    "subtitle": "{count} record · {window}",
+    "emptyTitle": "Nessun log nel periodo selezionato",
+    "emptyDescription": "Modifica il periodo o i filtri, oppure invia eventi all'OTLP receiver.",
+    "errorTitle": "Errore nel caricamento dei log",
+    "col": {
+      "time": "Ora",
+      "service": "Applicazione",
+      "severity": "Severità",
+      "body": "Messaggio",
+      "scope": "Scope",
+      "trace": "Trace"
+    },
+    "detail": {
+      "title": "Dettaglio log",
+      "observedTime": "Osservato",
+      "correlation": "Correlazione",
+      "viewTrace": "Apri la trace",
+      "scope": "Scope",
+      "resource": "Resource hash"
+    },
+    "traceFilter": "Filtrato per trace {traceId}",
+    "removeTraceFilter": "Rimuovi filtro trace"
+  },
+  "traces": {
+    "title": "Tracce",
+    "subtitle": "{count} tracce · {window}",
+    "emptyTitle": "Nessuna trace nel periodo selezionato",
+    "emptyDescription": "Modifica il periodo o i filtri, oppure invia tracce all'OTLP receiver.",
+    "errorTitle": "Errore nel caricamento delle tracce",
+    "col": {
+      "start": "Inizio",
+      "service": "Applicazione",
+      "rootSpan": "Root span",
+      "duration": "Durata",
+      "spans": "Span",
+      "status": "Stato",
+      "traceId": "Trace ID"
+    },
+    "detail": {
+      "back": "Torna alle tracce",
+      "viewLogs": "Vai ai log",
+      "spanCount": "{count} span",
+      "spans": "Span",
+      "spanDetail": "Dettaglio span",
+      "events": "Eventi",
+      "links": "Link",
+      "noSpans": "Questa trace non contiene span."
+    }
+  },
+  "metrics": {
+    "title": "Metriche",
+    "selectApplication": "Seleziona un'applicazione",
+    "noData": "Nessuna metrica ricevuta. Avvia l'exporter OTLP per popolare la lista.",
+    "instrumentsTitle": "Strumenti",
+    "seriesTitle": "Serie dati",
+    "col": {
+      "instrument": "Strumento",
+      "kind": "Tipo",
+      "scope": "Scope",
+      "unit": "Unità",
+      "points": "Punti",
+      "time": "Ora",
+      "value": "Valore",
+      "attributes": "Attributi"
+    },
+    "noSelection": "Seleziona uno strumento per vedere le serie."
+  },
+  "auth": {
+    "title": "Accedi",
+    "subtitle": "Inserisci la password per accedere.",
+    "passwordLabel": "Password",
+    "submit": "Entra",
+    "wrongPassword": "Password errata."
+  }
+}

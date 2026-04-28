@@ -1,15 +1,20 @@
 <script setup lang="ts">
-// Landing page — placeholder until the real dashboard content lands.
+import AppPage from '~/components/shell/AppPage.vue'
+import AppToolbar from '~/components/shell/AppToolbar.vue'
+import AppEmptyState from '~/components/ui/AppEmptyState.vue'
+
+const { t } = useI18n()
 </script>
 
 <template>
-  <div class="h-full flex flex-col items-center justify-center text-center gap-3">
-    <UIcon name="i-lucide-construction" class="size-10 text-muted" />
-    <h1 class="text-xl font-semibold">
-      Dashboard
-    </h1>
-    <p class="text-sm text-muted">
-      Work in progress.
-    </p>
-  </div>
+  <AppPage>
+    <template #toolbar>
+      <AppToolbar :title="t('dashboard.title')" />
+    </template>
+    <AppEmptyState
+      icon="i-lucide-layout-dashboard"
+      :title="t('dashboard.emptyTitle')"
+      :description="t('dashboard.emptyDescription')"
+    />
+  </AppPage>
 </template>

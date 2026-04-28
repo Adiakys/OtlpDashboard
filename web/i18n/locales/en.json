@@ -1,0 +1,159 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "reload": "Reload",
+    "refresh": "Refresh",
+    "live": "Live",
+    "goLive": "Go live",
+    "loadMore": "Load more",
+    "endOfResults": "End of results",
+    "search": "Search",
+    "clear": "Clear",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "ok": "Ok",
+    "error": "Error",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied",
+    "all": "All",
+    "none": "None",
+    "select": "Select",
+    "yes": "Yes",
+    "no": "No",
+    "apply": "Apply",
+    "from": "From",
+    "to": "To",
+    "duration": "Duration",
+    "status": "Status",
+    "service": "Application",
+    "time": "Time",
+    "name": "Name",
+    "value": "Value",
+    "attributes": "Attributes",
+    "results": "rows"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "traces": "Traces",
+    "logs": "Logs",
+    "metrics": "Metrics",
+    "logout": "Logout",
+    "collapse": "Collapse menu",
+    "expand": "Expand menu"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "locale": {
+    "label": "Language"
+  },
+  "filter": {
+    "applicationAll": "All applications",
+    "applicationSelect": "Select an application",
+    "limit": "Limit",
+    "severity": "Severity",
+    "severityAll": "All severities",
+    "status": "Status",
+    "statusAny": "Any",
+    "statusOk": "Ok",
+    "statusError": "Error",
+    "duration": "Duration (ms)",
+    "minMs": "Min ms",
+    "maxMs": "Max ms",
+    "searchBody": "Search body",
+    "searchTrace": "Search root span",
+    "rangeCustom": "Custom",
+    "range5m": "Last 5m",
+    "range15m": "Last 15m",
+    "range1h": "Last 1h",
+    "range6h": "Last 6h",
+    "range24h": "Last 24h",
+    "range7d": "Last 7d"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "emptyTitle": "Dashboard coming soon",
+    "emptyDescription": "Configurable panels will live here. For now, use the Traces, Logs and Metrics pages."
+  },
+  "logs": {
+    "title": "Logs",
+    "subtitle": "{count} records · {window}",
+    "emptyTitle": "No logs in the selected window",
+    "emptyDescription": "Adjust the time range or filters, or send events to the OTLP receiver.",
+    "errorTitle": "Failed to load logs",
+    "col": {
+      "time": "Time",
+      "service": "Application",
+      "severity": "Severity",
+      "body": "Message",
+      "scope": "Scope",
+      "trace": "Trace"
+    },
+    "detail": {
+      "title": "Log detail",
+      "observedTime": "Observed",
+      "correlation": "Correlation",
+      "viewTrace": "Open trace",
+      "scope": "Scope",
+      "resource": "Resource hash"
+    },
+    "traceFilter": "Filtered by trace {traceId}",
+    "removeTraceFilter": "Remove trace filter"
+  },
+  "traces": {
+    "title": "Traces",
+    "subtitle": "{count} traces · {window}",
+    "emptyTitle": "No traces in the selected window",
+    "emptyDescription": "Adjust the time range or filters, or send traces to the OTLP receiver.",
+    "errorTitle": "Failed to load traces",
+    "col": {
+      "start": "Start",
+      "service": "Application",
+      "rootSpan": "Root span",
+      "duration": "Duration",
+      "spans": "Spans",
+      "status": "Status",
+      "traceId": "Trace ID"
+    },
+    "detail": {
+      "back": "Back to traces",
+      "viewLogs": "View logs",
+      "spanCount": "{count} spans",
+      "spans": "Spans",
+      "spanDetail": "Span detail",
+      "events": "Events",
+      "links": "Links",
+      "noSpans": "This trace has no spans."
+    }
+  },
+  "metrics": {
+    "title": "Metrics",
+    "selectApplication": "Select an application",
+    "noData": "No metrics received yet. Start your OTLP exporter to populate the list.",
+    "instrumentsTitle": "Instruments",
+    "seriesTitle": "Data series",
+    "col": {
+      "instrument": "Instrument",
+      "kind": "Kind",
+      "scope": "Scope",
+      "unit": "Unit",
+      "points": "Points",
+      "time": "Time",
+      "value": "Value",
+      "attributes": "Attributes"
+    },
+    "noSelection": "Select an instrument to view its series."
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Enter the password to sign in.",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "wrongPassword": "Wrong password."
+  }
+}

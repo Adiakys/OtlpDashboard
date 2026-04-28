@@ -4,6 +4,8 @@ defineProps<{
 }>()
 
 defineEmits<{ toggle: [] }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -11,12 +13,13 @@ defineEmits<{ toggle: [] }>()
     :color="isLive ? 'success' : 'neutral'"
     :variant="isLive ? 'subtle' : 'outline'"
     size="sm"
+    class="transition-colors"
     @click="$emit('toggle')"
   >
     <span
-      class="inline-block rounded-full size-2"
+      class="inline-block rounded-full size-2 transition-colors"
       :class="isLive ? 'bg-success animate-pulse' : 'bg-muted'"
     />
-    {{ isLive ? 'Live' : 'Go live' }}
+    {{ isLive ? t('common.live') : t('common.goLive') }}
   </UButton>
 </template>

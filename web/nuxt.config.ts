@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui'],
+  modules: ['@nuxt/ui', '@nuxtjs/i18n'],
 
   // SPA only. No SSR: `nuxi generate` produces static files served by the
   // ASP.NET host from wwwroot/.
@@ -13,7 +13,29 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'OpenTelemetry Dashboard',
-      htmlAttrs: { lang: 'en' }
+      htmlAttrs: { lang: 'it' }
+    }
+  },
+
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+    classSuffix: '',
+    storageKey: 'oteldash-color-mode'
+  },
+
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: 'it',
+    locales: [
+      { code: 'it', name: 'Italiano', file: 'it.json' },
+      { code: 'en', name: 'English', file: 'en.json' }
+    ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'oteldash-locale',
+      redirectOn: 'no prefix',
+      fallbackLocale: 'en'
     }
   },
 

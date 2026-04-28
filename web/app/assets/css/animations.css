@@ -1,0 +1,44 @@
+/* Shared animation primitives. Durations and easing are in custom properties
+   in main.css (--t-fast, --t-base, --t-slow, --ease-out). */
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--t-base) var(--ease-out);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) var(--ease-out);
+}
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(16px);
+  opacity: 0;
+}
+
+.scale-fade-enter-active,
+.scale-fade-leave-active {
+  transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) var(--ease-out);
+}
+.scale-fade-enter-from,
+.scale-fade-leave-to {
+  transform: scale(0.96);
+  opacity: 0;
+}
+
+.list-enter-active,
+.list-leave-active {
+  transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) var(--ease-out);
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.list-move {
+  transition: transform var(--t-base) var(--ease-out);
+}
