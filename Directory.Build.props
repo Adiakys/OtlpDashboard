@@ -1,0 +1,26 @@
+<Project>
+
+  <PropertyGroup Label="Language">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Build quality">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Assembly metadata">
+    <Company>OpenTelemetryDashboard</Company>
+    <Product>OpenTelemetry Dashboard</Product>
+    <Copyright>Copyright (c) $([System.DateTime]::Now.Year) Andrea Ficarra</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <Version>26.04.1</Version>
+  </PropertyGroup>
+
+</Project>

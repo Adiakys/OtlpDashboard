@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Read-side HTTP/JSON API for the OpenTelemetry Dashboard: exposes GET endpoints over logs and traces backed by the ILogReader / ITraceReader abstractions.</Description>
+    <RootNamespace>OpenTelemetryDashboard.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenTelemetryDashboard.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
+  </ItemGroup>
+
+</Project>

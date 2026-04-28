@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>OTLP ingestion layer: gRPC services and HTTP endpoints that accept ExportTrace/Logs/MetricsServiceRequest payloads, validate them, and enqueue domain batches into the TelemetryChannel.</Description>
+    <RootNamespace>OpenTelemetryDashboard.Ingestion</RootNamespace>
+    <ProtoRoot>$(MSBuildThisFileDirectory)..\..\proto\opentelemetry-proto</ProtoRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Label="OTLP protobuf contracts (generated from submodule)">
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\common\v1\common.proto"
+              GrpcServices="None"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\resource\v1\resource.proto"
+              GrpcServices="None"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\trace\v1\trace.proto"
+              GrpcServices="None"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\logs\v1\logs.proto"
+              GrpcServices="None"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\metrics\v1\metrics.proto"
+              GrpcServices="None"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\collector\trace\v1\trace_service.proto"
+              GrpcServices="Server"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\collector\logs\v1\logs_service.proto"
+              GrpcServices="Server"
+              ProtoRoot="$(ProtoRoot)" />
+    <Protobuf Include="$(ProtoRoot)\opentelemetry\proto\collector\metrics\v1\metrics_service.proto"
+              GrpcServices="Server"
+              ProtoRoot="$(ProtoRoot)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
+  </ItemGroup>
+
+</Project>

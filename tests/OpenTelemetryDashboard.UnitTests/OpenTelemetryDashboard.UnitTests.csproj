@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence\OpenTelemetryDashboard.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Ingestion\OpenTelemetryDashboard.Ingestion.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Api\OpenTelemetryDashboard.Api.csproj" />
+  </ItemGroup>
+
+</Project>

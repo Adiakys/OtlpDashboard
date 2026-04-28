@@ -1,0 +1,96 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using OpenTelemetryDashboard.Core.Abstractions;
+using OpenTelemetryDashboard.Core.Common;
+using OpenTelemetryDashboard.Core.Domain;
+using OpenTelemetryDashboard.Core.Ingestion;
+using OpenTelemetryDashboard.Persistence.Ingestion;
+
+namespace OpenTelemetryDashboard.Persistence.Sinks;
+
+/// <summary>
+/// Persists <see cref="TraceBatch"/> windows through EF Core. Shares the
+/// <see cref="ResourceCache"/> with the other EF sinks so Resource dedup is
+/// effective across signals.
+/// </summary>
+public sealed class EfCoreTraceSink : ITraceSink
+{
+    private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
+    private readonly ResourceCache _resourceCache;
+    private readonly ILogger<EfCoreTraceSink> _logger;
+
+    public EfCoreTraceSink(
+        IDbContextFactory<TelemetryDbContext> contextFactory,
+        ResourceCache resourceCache,
+        ILogger<EfCoreTraceSink> logger)
+    {
+        ArgumentNullException.ThrowIfNull(contextFactory);
+        ArgumentNullException.ThrowIfNull(resourceCache);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _contextFactory = contextFactory;
+        _resourceCache = resourceCache;
+        _logger = logger;
+    }
+
+    public async Task WriteAsync(IReadOnlyList<TraceBatch> batches, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(batches);
+        if (batches.Count == 0)
+        {
+            return;
+        }
+
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+        var resourcesByHash = new Dictionary<byte[], Resource>(ByteArrayEqualityComparer.Instance);
+        var spanCount = 0;
+
+        foreach (var batch in batches)
+        {
+            foreach (var resource in batch.Resources)
+            {
+                resourcesByHash.TryAdd(resource.Hash, resource);
+            }
+        }
+
+        var pendingCache = await ResourceUpserter
+            .AddMissingAsync(context, resourcesByHash, _resourceCache, cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var batch in batches)
+        {
+            foreach (var span in batch.Spans)
+            {
+                context.Spans.Add(span);
+                spanCount++;
+            }
+        }
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            ResourceUpserter.CachePending(_resourceCache, pendingCache);
+            _logger.TracesPersisted(resourcesByHash.Count, spanCount);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.TracesBatchFailed(ex, spanCount);
+        }
+    }
+}
+
+internal static partial class EfCoreTraceSinkLogs
+{
+    [LoggerMessage(EventId = 1, Level = LogLevel.Debug,
+        Message = "EfCoreTraceSink persisted {Resources} resources, {Spans} spans")]
+    public static partial void TracesPersisted(this ILogger logger, int resources, int spans);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Error,
+        Message = "EfCoreTraceSink failed to persist batch of {Spans} spans")]
+    public static partial void TracesBatchFailed(this ILogger logger, Exception exception, int spans);
+}

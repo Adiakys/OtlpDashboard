@@ -1,0 +1,80 @@
+# Docker Compose di sviluppo.
+#
+# - Builda l'immagine dell'Host dal sorgente (fase di build inclusa).
+# - Fa girare l'app in ambiente Development (le migration EF Core partono
+#   automaticamente su startup).
+# - Monta un volume nominato per il file SQLite, così i dati persistono
+#   tra i restart del container.
+#
+# Uso:
+#   docker compose up --build
+# Ascolto:
+#   - gRPC  OTLP : localhost:4317
+#   - HTTP  OTLP : localhost:4318 (anche /healthz)
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: src/OpenTelemetryDashboard.Host/Dockerfile
+    image: opentelemetrydashboard:dev
+    container_name: otel-dashboard
+    restart: unless-stopped
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DASHBOARD__BROWSERTOKEN: s1r1us
+      OpenTelemetryDashboard__Ingestion__Channel__Capacity: "20000"
+      Logging__LogLevel__OpenTelemetryDashboard: "Debug"
+    volumes:
+      - dashboard-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4318/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  telemetrygen-traces:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+    profiles: ["otel-test"]
+    depends_on:
+      - dashboard
+    command: >
+      traces
+      --otlp-endpoint dashboard:4317
+      --otlp-insecure
+      --rate 5
+      --duration 300s
+
+  telemetrygen-logs:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+    profiles: ["otel-test"]
+    depends_on:
+      - dashboard
+    command: >
+      logs
+      --otlp-endpoint dashboard:4317
+      --otlp-insecure
+      --rate 5
+      --duration 300s
+
+  telemetrygen-metrics:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+    profiles: ["otel-test"]
+    depends_on:
+      - dashboard
+    # Il translator lato dashboard supporta Gauge e Sum; telemetrygen per
+    # default emette un Sum ("gen") — perfetto per popolare /metrics senza
+    # configurazione extra.
+    command: >
+      metrics
+      --otlp-endpoint dashboard:4317
+      --otlp-insecure
+      --rate 5
+      --duration 300s
+
+volumes:
+  dashboard-data:
