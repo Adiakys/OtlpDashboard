@@ -64,7 +64,9 @@ function describeWindow(range: TimeWindow): string {
 }
 
 const filters: FilterDescriptor[] = [
-  { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true, disabled: page.isLive },
+  // Application stays interactive in live mode: changing it triggers a reload
+  // (watcher inside useLogsPage) and the next live tick uses the new filter.
+  { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive },
   { kind: 'severity', modelValue: severityFilter },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
