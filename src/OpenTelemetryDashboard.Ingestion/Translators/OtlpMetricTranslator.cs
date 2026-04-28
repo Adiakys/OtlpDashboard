@@ -1,6 +1,7 @@
 using Google.Protobuf.Collections;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
+using OpenTelemetry.Proto.Common.V1;
 using OpenTelemetry.Proto.Metrics.V1;
 using OpenTelemetryDashboard.Core.Domain;
 using OpenTelemetryDashboard.Core.Hashing;
@@ -14,11 +15,30 @@ namespace OpenTelemetryDashboard.Ingestion.Translators;
 /// <summary>
 /// Translates an <see cref="ExportMetricsServiceRequest"/> into a domain
 /// <see cref="MetricBatch"/> suitable for the shared ingestion pipeline.
-/// v1 supports Gauge and Sum (NumberDataPoint); Histogram/ExponentialHistogram/
-/// Summary are accepted but samples are dropped with a diagnostic log.
+///
+/// Modeling choice: the domain <see cref="DataPoint"/> stores a single scalar
+/// <see cref="DataPoint.Value"/>, so aggregate kinds are flattened into one
+/// scalar per source data point and the lost detail is preserved as synthetic
+/// attributes (prefixed with <c>_</c>) so it remains queryable from the UI.
+///
+///  - <b>Gauge</b> / <b>Sum</b>: one point per <see cref="NumberDataPoint"/>,
+///    value taken as-is.
+///  - <b>Histogram</b> / <b>ExponentialHistogram</b>: one point per data point,
+///    value = sum / count (mean); count, sum and optional min/max are added as
+///    <c>_count</c>, <c>_sum</c>, <c>_min</c>, <c>_max</c>.
+///  - <b>Summary</b>: one point per <see cref="SummaryDataPoint.Types.ValueAtQuantile"/>,
+///    value = the quantile's value; <c>_count</c>, <c>_sum</c>, <c>quantile</c>
+///    (string label like "0.5") are added so split-by quantile draws one line
+///    per percentile.
 /// </summary>
 public sealed class OtlpMetricTranslator
 {
+    private const string CountAttribute = "_count";
+    private const string SumAttribute = "_sum";
+    private const string MinAttribute = "_min";
+    private const string MaxAttribute = "_max";
+    private const string QuantileAttribute = "quantile";
+
     private readonly ILogger<OtlpMetricTranslator> _logger;
 
     public OtlpMetricTranslator(ILogger<OtlpMetricTranslator> logger)
@@ -118,12 +138,36 @@ public sealed class OtlpMetricTranslator
                 break;
 
             case Metric.DataOneofCase.Histogram:
+                AppendHistogramSamples(
+                    samples,
+                    resourceHash,
+                    scopeName,
+                    metric,
+                    metric.Histogram.DataPoints,
+                    MapTemporality(metric.Histogram.AggregationTemporality));
+                break;
+
             case Metric.DataOneofCase.ExponentialHistogram:
+                AppendExponentialHistogramSamples(
+                    samples,
+                    resourceHash,
+                    scopeName,
+                    metric,
+                    metric.ExponentialHistogram.DataPoints,
+                    MapTemporality(metric.ExponentialHistogram.AggregationTemporality));
+                break;
+
             case Metric.DataOneofCase.Summary:
-                _logger.MetricKindDropped(metric.Name, metric.DataCase);
+                AppendSummarySamples(
+                    samples,
+                    resourceHash,
+                    scopeName,
+                    metric,
+                    metric.Summary.DataPoints);
                 break;
 
             default:
+                _logger.MetricKindDropped(metric.Name, metric.DataCase);
                 break;
         }
     }
@@ -143,16 +187,7 @@ public sealed class OtlpMetricTranslator
             return;
         }
 
-        var instrument = new Instrument
-        {
-            Name = metric.Name,
-            Description = string.IsNullOrEmpty(metric.Description) ? null : metric.Description,
-            Unit = string.IsNullOrEmpty(metric.Unit) ? null : metric.Unit,
-            Kind = kind,
-            IsMonotonic = isMonotonic,
-            Temporality = temporality,
-        };
-
+        var instrument = BuildInstrument(metric, kind, temporality, isMonotonic);
         var key = InstrumentKey.Create(resourceHash, scopeName, metric.Name, kind);
 
         foreach (var point in points)
@@ -169,16 +204,164 @@ public sealed class OtlpMetricTranslator
                 continue;
             }
 
-            var dataPoint = new DataPoint
+            samples.Add(new MetricSample(key, instrument, new DataPoint
             {
                 StartTimeUnixNano = (long)point.StartTimeUnixNano,
                 TimeUnixNano = (long)point.TimeUnixNano,
                 Value = value,
                 Attributes = OtlpConversion.ToAttributeMap(point.Attributes),
-            };
-
-            samples.Add(new MetricSample(key, instrument, dataPoint));
+            }));
         }
+    }
+
+    private static void AppendHistogramSamples(
+        List<MetricSample> samples,
+        byte[] resourceHash,
+        string scopeName,
+        Metric metric,
+        RepeatedField<HistogramDataPoint> points,
+        Core.Domain.AggregationTemporality temporality)
+    {
+        if (points.Count == 0) return;
+
+        var instrument = BuildInstrument(metric, InstrumentKind.Histogram, temporality, isMonotonic: false);
+        var key = InstrumentKey.Create(resourceHash, scopeName, metric.Name, InstrumentKind.Histogram);
+
+        foreach (var point in points)
+        {
+            if (point.Count == 0) continue;
+            var mean = point.Sum / point.Count;
+            if (double.IsNaN(mean) || double.IsInfinity(mean)) continue;
+
+            var attrs = MergeAttributes(point.Attributes, extras =>
+            {
+                extras[CountAttribute] = (long)point.Count;
+                extras[SumAttribute] = point.Sum;
+                if (point.HasMin) extras[MinAttribute] = point.Min;
+                if (point.HasMax) extras[MaxAttribute] = point.Max;
+            });
+
+            samples.Add(new MetricSample(key, instrument, new DataPoint
+            {
+                StartTimeUnixNano = (long)point.StartTimeUnixNano,
+                TimeUnixNano = (long)point.TimeUnixNano,
+                Value = mean,
+                Attributes = attrs,
+            }));
+        }
+    }
+
+    private static void AppendExponentialHistogramSamples(
+        List<MetricSample> samples,
+        byte[] resourceHash,
+        string scopeName,
+        Metric metric,
+        RepeatedField<ExponentialHistogramDataPoint> points,
+        Core.Domain.AggregationTemporality temporality)
+    {
+        if (points.Count == 0) return;
+
+        var instrument = BuildInstrument(metric, InstrumentKind.ExponentialHistogram, temporality, isMonotonic: false);
+        var key = InstrumentKey.Create(resourceHash, scopeName, metric.Name, InstrumentKind.ExponentialHistogram);
+
+        foreach (var point in points)
+        {
+            if (point.Count == 0) continue;
+            var mean = point.Sum / point.Count;
+            if (double.IsNaN(mean) || double.IsInfinity(mean)) continue;
+
+            var attrs = MergeAttributes(point.Attributes, extras =>
+            {
+                extras[CountAttribute] = (long)point.Count;
+                extras[SumAttribute] = point.Sum;
+                if (point.HasMin) extras[MinAttribute] = point.Min;
+                if (point.HasMax) extras[MaxAttribute] = point.Max;
+            });
+
+            samples.Add(new MetricSample(key, instrument, new DataPoint
+            {
+                StartTimeUnixNano = (long)point.StartTimeUnixNano,
+                TimeUnixNano = (long)point.TimeUnixNano,
+                Value = mean,
+                Attributes = attrs,
+            }));
+        }
+    }
+
+    private static void AppendSummarySamples(
+        List<MetricSample> samples,
+        byte[] resourceHash,
+        string scopeName,
+        Metric metric,
+        RepeatedField<SummaryDataPoint> points)
+    {
+        if (points.Count == 0) return;
+
+        var instrument = BuildInstrument(metric, InstrumentKind.Summary, Core.Domain.AggregationTemporality.Cumulative, isMonotonic: false);
+        var key = InstrumentKey.Create(resourceHash, scopeName, metric.Name, InstrumentKind.Summary);
+
+        foreach (var point in points)
+        {
+            if (point.QuantileValues.Count == 0) continue;
+
+            foreach (var q in point.QuantileValues)
+            {
+                if (double.IsNaN(q.Value) || double.IsInfinity(q.Value)) continue;
+
+                var attrs = MergeAttributes(point.Attributes, extras =>
+                {
+                    extras[CountAttribute] = (long)point.Count;
+                    extras[SumAttribute] = point.Sum;
+                    extras[QuantileAttribute] = FormatQuantile(q.Quantile);
+                });
+
+                samples.Add(new MetricSample(key, instrument, new DataPoint
+                {
+                    StartTimeUnixNano = (long)point.StartTimeUnixNano,
+                    TimeUnixNano = (long)point.TimeUnixNano,
+                    Value = q.Value,
+                    Attributes = attrs,
+                }));
+            }
+        }
+    }
+
+    private static Instrument BuildInstrument(
+        Metric metric,
+        InstrumentKind kind,
+        Core.Domain.AggregationTemporality temporality,
+        bool isMonotonic) => new()
+        {
+            Name = metric.Name,
+            Description = string.IsNullOrEmpty(metric.Description) ? null : metric.Description,
+            Unit = string.IsNullOrEmpty(metric.Unit) ? null : metric.Unit,
+            Kind = kind,
+            IsMonotonic = isMonotonic,
+            Temporality = temporality,
+        };
+
+    private static Dictionary<string, object?> MergeAttributes(
+        IEnumerable<KeyValue> originals,
+        Action<Dictionary<string, object?>> addExtras)
+    {
+        var dict = new Dictionary<string, object?>(capacity: 8, StringComparer.Ordinal);
+        foreach (var kv in originals)
+        {
+            dict[kv.Key] = OtlpConversion.ToObject(kv.Value);
+        }
+        addExtras(dict);
+        return dict;
+    }
+
+    private static string FormatQuantile(double q)
+    {
+        // Emit a stable, locale-independent label. "0.5", "0.95", "0.99" cover
+        // the common cases; round to 4 decimals for unusual SDK choices.
+        if (Math.Abs(q - Math.Round(q, 2)) < 1e-9)
+        {
+            return q.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return q.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static Core.Domain.AggregationTemporality MapTemporality(ProtoAggregationTemporality temporality) =>

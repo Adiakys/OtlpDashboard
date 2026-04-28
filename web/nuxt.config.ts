@@ -18,7 +18,7 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
-    preference: 'dark',
+    preference: 'system',
     fallback: 'dark',
     classSuffix: '',
     storageKey: 'oteldash-color-mode'

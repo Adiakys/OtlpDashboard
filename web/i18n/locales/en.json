@@ -133,6 +133,7 @@
   },
   "metrics": {
     "title": "Metrics",
+    "subtitle": "{count} selected · {window}",
     "selectApplication": "Select an application",
     "noData": "No metrics received yet. Start your OTLP exporter to populate the list.",
     "instrumentsTitle": "Instruments",
@@ -147,7 +148,31 @@
       "value": "Value",
       "attributes": "Attributes"
     },
-    "noSelection": "Select an instrument to view its series."
+    "noSelection": "Select an instrument to view its series.",
+    "tree": {
+      "title": "Instruments",
+      "empty": "No metrics for the selected application",
+      "search": "Search metric…",
+      "incompatibleKind": "Incompatible kind for current selection",
+      "count": "{n} instruments",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all"
+    },
+    "chart": {
+      "title": "Chart",
+      "empty": "Select one or more metrics of the same kind",
+      "unsupported": "Metric kind not supported yet. Showing raw points when available.",
+      "unit": "Unit",
+      "units": "Units",
+      "differentUnits": "Selected metrics use different units",
+      "rawPoints": "Raw points",
+      "legendEmpty": "(no attributes)"
+    },
+    "splitBy": {
+      "label": "Split by",
+      "all": "All attributes",
+      "aggregated": "Aggregated"
+    }
   },
   "auth": {
     "title": "Sign in",

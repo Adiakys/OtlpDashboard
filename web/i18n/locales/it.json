@@ -133,6 +133,7 @@
   },
   "metrics": {
     "title": "Metriche",
+    "subtitle": "{count} selezionate · {window}",
     "selectApplication": "Seleziona un'applicazione",
     "noData": "Nessuna metrica ricevuta. Avvia l'exporter OTLP per popolare la lista.",
     "instrumentsTitle": "Strumenti",
@@ -147,7 +148,31 @@
       "value": "Valore",
       "attributes": "Attributi"
     },
-    "noSelection": "Seleziona uno strumento per vedere le serie."
+    "noSelection": "Seleziona uno strumento per vedere le serie.",
+    "tree": {
+      "title": "Strumenti",
+      "empty": "Nessuna metrica per l'applicazione selezionata",
+      "search": "Cerca metrica…",
+      "incompatibleKind": "Tipo non compatibile con la selezione corrente",
+      "count": "{n} strumenti",
+      "expandAll": "Espandi tutto",
+      "collapseAll": "Comprimi tutto"
+    },
+    "chart": {
+      "title": "Grafico",
+      "empty": "Seleziona una o più metriche dello stesso tipo",
+      "unsupported": "Tipo di metrica non ancora supportato. Mostro i punti grezzi quando arrivano.",
+      "unit": "Unità",
+      "units": "Unità",
+      "differentUnits": "Le metriche selezionate hanno unità diverse",
+      "rawPoints": "Punti grezzi",
+      "legendEmpty": "(senza attributi)"
+    },
+    "splitBy": {
+      "label": "Suddividi per",
+      "all": "Tutti gli attributi",
+      "aggregated": "Aggregato"
+    }
   },
   "auth": {
     "title": "Accedi",

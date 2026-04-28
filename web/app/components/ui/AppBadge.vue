@@ -11,6 +11,16 @@ type Tone =
   | 'info'
   | { kind: 'severity'; bucket: SeverityBucket }
   | { kind: 'trace-status'; status: 'Ok' | 'Error' | string | TraceStatusFilter }
+  | { kind: 'metric-kind'; instrumentKind: string }
+
+const metricKindColor: Record<string, BadgeProps['color']> = {
+  Gauge: 'primary',
+  Sum: 'success',
+  Histogram: 'info',
+  ExponentialHistogram: 'info',
+  Summary: 'info',
+  Unspecified: 'neutral'
+}
 
 defineOptions({ inheritAttrs: false })
 
@@ -49,6 +59,7 @@ const color = computed<BadgeProps['color']>(() => {
     if (tone.status === 'Error' || tone.status === 'error') return 'error'
     return 'neutral'
   }
+  if (tone.kind === 'metric-kind') return metricKindColor[tone.instrumentKind] ?? 'neutral'
   return 'neutral'
 })
 </script>
