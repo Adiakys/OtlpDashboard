@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,13 @@ namespace OpenTelemetryDashboard.Persistence.Ingestion;
 /// </summary>
 public sealed class TelemetryWriter : BackgroundService
 {
+    /// <summary>
+    /// Source for the dispatch span the writer wraps around each batch flush.
+    /// Picked up by the self-instrumentation via the <c>OpenTelemetryDashboard.*</c>
+    /// glob, so the EF INSERTs run as children of this span.
+    /// </summary>
+    public static readonly ActivitySource ActivitySource = new("OpenTelemetryDashboard.TelemetryWriter");
+
     private readonly TelemetryChannel _channel;
     private readonly ITraceSink _traceSink;
     private readonly ILogSink _logSink;
@@ -116,7 +124,7 @@ public sealed class TelemetryWriter : BackgroundService
         }
     }
 
-    private async Task DispatchAsync(IReadOnlyList<TelemetryBatch> batches, CancellationToken cancellationToken)
+    private async Task DispatchAsync(List<TelemetryBatch> batches, CancellationToken cancellationToken)
     {
         List<TraceBatch>? traceBatches = null;
         List<LogBatch>? logBatches = null;
@@ -138,6 +146,24 @@ public sealed class TelemetryWriter : BackgroundService
             }
         }
 
+        // The writer flush runs in a hosted-service loop, detached from the
+        // ingest HTTP/gRPC requests. Wrap the dispatch in a fresh root activity
+        // and attach span links back to the originating ingest activities, so
+        // the EF INSERTs become children of "Dispatch" while the trace listing
+        // still surfaces the causality without forcing a parent/child link
+        // across the asynchronous channel boundary.
+        var links = CollectIngestLinks(batches);
+        using var activity = ActivitySource.StartActivity(
+            "TelemetryWriter.Dispatch",
+            ActivityKind.Internal,
+            parentContext: default,
+            tags: null,
+            links: links);
+        activity?.SetTag("dashboard.batch.count", batches.Count);
+        activity?.SetTag("dashboard.batch.traces", traceBatches?.Count ?? 0);
+        activity?.SetTag("dashboard.batch.logs", logBatches?.Count ?? 0);
+        activity?.SetTag("dashboard.batch.metrics", metricBatches?.Count ?? 0);
+
         if (traceBatches is { Count: > 0 })
         {
             await _traceSink.WriteAsync(traceBatches, cancellationToken).ConfigureAwait(false);
@@ -150,6 +176,18 @@ public sealed class TelemetryWriter : BackgroundService
         {
             await _metricSink.WriteAsync(metricBatches, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private static List<ActivityLink>? CollectIngestLinks(List<TelemetryBatch> batches)
+    {
+        List<ActivityLink>? links = null;
+        foreach (var batch in batches)
+        {
+            var ctx = batch.IngestActivityContext;
+            if (ctx == default) continue;
+            (links ??= new List<ActivityLink>(batches.Count)).Add(new ActivityLink(ctx));
+        }
+        return links;
     }
 }
 

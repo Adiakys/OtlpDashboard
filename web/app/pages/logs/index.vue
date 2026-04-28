@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import type { ColDef } from 'ag-grid-community'
-import { h } from 'vue'
 import AppPage from '~/components/shell/AppPage.vue'
 import AppToolbar from '~/components/shell/AppToolbar.vue'
 import AppDataGrid from '~/components/data/AppDataGrid.vue'
 import AppDrawer from '~/components/overlay/AppDrawer.vue'
-import AppBadge from '~/components/ui/AppBadge.vue'
-import AppLoadMoreButton from '~/components/ui/AppLoadMoreButton.vue'
 import AppSearchInput from '~/components/form/AppSearchInput.vue'
+import SeverityBadgeCell from '~/components/data/cells/SeverityBadgeCell.vue'
+import TraceLinkCell from '~/components/data/cells/TraceLinkCell.vue'
 import LogDetailContent from './components/LogDetailContent.vue'
 import { useLogsPage } from './usePage'
 import {
-  SEVERITY_BUCKETS,
   severityBucketFromNumber,
   type SeverityBucket
 } from '~/types/filters'
@@ -93,29 +91,23 @@ const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
   {
     field: 'time',
     headerName: t('logs.col.time'),
-    width: 130,
-    sortable: true,
+    width: 140,
     sort: 'desc',
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
   },
   {
     field: 'serviceName',
     headerName: t('logs.col.service'),
     width: 160,
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     valueFormatter: p => (p.value as string) ?? '—'
   },
   {
     field: 'severityNumber',
     headerName: t('logs.col.severity'),
-    width: 110,
-    cellRenderer: (p: { data?: LogRecordDto }) => {
-      const row = p.data
-      if (!row) return ''
-      const bucket = severityBucketFromNumber(row.severityNumber)
-      return h(AppBadge, { tone: { kind: 'severity', bucket }, size: 'xs' }, () => row.severityText ?? String(row.severityNumber))
-    }
+    width: 140,
+    cellRenderer: SeverityBadgeCell
   },
   {
     field: 'body',
@@ -123,38 +115,28 @@ const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
     flex: 1,
     minWidth: 240,
     tooltipField: 'body',
-    cellClass: 'truncate items-center flex'
+    cellClass: 'truncate'
   },
   {
     field: 'scopeName',
     headerName: t('logs.col.scope'),
     width: 160,
-    cellClass: 'text-xs text-muted items-center flex',
+    cellClass: 'text-xs text-muted',
     valueFormatter: p => (p.value as string) ?? '—'
   },
   {
     field: 'traceId',
     headerName: t('logs.col.trace'),
-    width: 80,
-    cellRenderer: (p: { data?: LogRecordDto }) => {
-      const id = p.data?.traceId
-      if (!id) return ''
-      return h('a', {
-        href: `/traces/${id}`,
-        class: 'text-primary inline-flex items-center gap-1 font-mono text-xs hover:underline',
-        title: id,
-        onClick: (e: MouseEvent) => {
-          e.preventDefault()
-          e.stopPropagation()
-          navigateTo(`/traces/${id}`)
-        }
-      }, id.slice(0, 8))
-    }
+    width: 100,
+    cellRenderer: TraceLinkCell
   }
 ])
 
+// Stable id: use the longest discriminator we have. The composable dedupes on
+// (time, spanId, body[:64]); we mirror that here so AG Grid never collapses
+// two distinct logs into one row id.
 function rowId(r: LogRecordDto): string {
-  return `${r.time}|${r.spanId ?? ''}|${(r.body ?? '').slice(0, 32)}`
+  return `${r.time}|${r.spanId ?? ''}|${(r.body ?? '').slice(0, 64)}`
 }
 
 const selectedId = computed(() => page.selected.value ? rowId(page.selected.value) : null)
@@ -198,16 +180,11 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
       :empty-title="t('logs.emptyTitle')"
       :empty-description="t('logs.emptyDescription')"
       :error-title="t('logs.errorTitle')"
+      :has-more="!page.isLive.value && page.hasMore.value"
+      :loading-more="page.isLoading.value && page.items.value.length > 0"
       @row-click="row => page.selected.value = row"
       @retry="page.reload"
-    />
-
-    <AppLoadMoreButton
-      v-if="!page.isLive.value"
-      class="shrink-0"
-      :has-more="page.hasMore.value"
-      :loading="page.isLoading.value"
-      @load="page.loadMore"
+      @load-more="page.loadMore"
     />
 
     <AppDrawer

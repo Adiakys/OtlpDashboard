@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import type { ColDef } from 'ag-grid-community'
-import { h } from 'vue'
 import AppPage from '~/components/shell/AppPage.vue'
 import AppToolbar from '~/components/shell/AppToolbar.vue'
 import AppDataGrid from '~/components/data/AppDataGrid.vue'
-import AppBadge from '~/components/ui/AppBadge.vue'
-import AppLoadMoreButton from '~/components/ui/AppLoadMoreButton.vue'
 import AppSearchInput from '~/components/form/AppSearchInput.vue'
+import TraceStatusBadgeCell from '~/components/data/cells/TraceStatusBadgeCell.vue'
+import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
 import type {
   ActionDescriptor,
@@ -68,73 +67,53 @@ const timeFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   second: '2-digit'
 }))
 
-function formatDuration(ms: number): string {
-  if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`
-  if (ms < 1000) return `${ms.toFixed(1)}ms`
-  return `${(ms / 1000).toFixed(2)}s`
-}
-
 const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
   {
     field: 'start',
     headerName: t('traces.col.start'),
     width: 110,
     sort: 'desc',
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
   },
   {
     field: 'serviceName',
     headerName: t('traces.col.service'),
     width: 160,
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     valueFormatter: p => (p.value as string) ?? '—'
   },
   {
     field: 'rootSpanName',
     headerName: t('traces.col.rootSpan'),
     flex: 1,
-    minWidth: 200,
-    cellClass: 'items-center flex'
+    minWidth: 200
   },
   {
     field: 'durationMs',
     headerName: t('traces.col.duration'),
     width: 200,
-    cellRenderer: (p: { data?: TraceSummaryDto; value: number }) => {
-      const ms = p.value
-      const ratio = Math.max(0.02, Math.min(1, ms / maxDuration.value))
-      return h('div', { class: 'flex items-center gap-2 w-full' }, [
-        h('div', { class: 'h-1.5 rounded-full bg-elevated overflow-hidden flex-1 max-w-32' }, [
-          h('div', {
-            class: 'h-full bg-primary transition-[width] duration-300',
-            style: { width: `${ratio * 100}%` }
-          })
-        ]),
-        h('span', { class: 'font-mono text-xs text-muted shrink-0' }, formatDuration(ms))
-      ])
-    }
+    cellRenderer: DurationBarCell,
+    cellRendererParams: { max: () => maxDuration.value }
   },
   {
     field: 'spanCount',
     headerName: t('traces.col.spans'),
     width: 80,
-    cellClass: 'font-mono text-xs items-center flex justify-end',
-    headerClass: 'ag-right-aligned-header'
+    cellClass: 'font-mono text-xs',
+    type: 'rightAligned'
   },
   {
     field: 'rootStatusCode',
     headerName: t('traces.col.status'),
     width: 110,
-    cellRenderer: (p: { value: string }) => {
-      return h(AppBadge, { tone: { kind: 'trace-status', status: p.value }, size: 'xs' }, () => p.value)
-    }
+    cellRenderer: TraceStatusBadgeCell
   },
   {
     field: 'traceId',
     headerName: t('traces.col.traceId'),
-    width: 130,
-    cellClass: 'font-mono text-xs text-muted items-center flex',
+    width: 140,
+    cellClass: 'font-mono text-xs text-muted',
     valueFormatter: p => (p.value as string).slice(0, 16) + '…',
     tooltipField: 'traceId'
   }
@@ -170,16 +149,11 @@ function onRowClick(row: TraceSummaryDto) {
       :empty-description="t('traces.emptyDescription')"
       :error-title="t('traces.errorTitle')"
       :row-height="40"
+      :has-more="!page.isLive.value && page.hasMore.value"
+      :loading-more="page.isLoading.value && page.items.value.length > 0"
       @row-click="onRowClick"
       @retry="page.reload"
-    />
-
-    <AppLoadMoreButton
-      v-if="!page.isLive.value"
-      class="shrink-0"
-      :has-more="page.hasMore.value"
-      :loading="page.isLoading.value"
-      @load="page.loadMore"
+      @load-more="page.loadMore"
     />
   </AppPage>
 </template>

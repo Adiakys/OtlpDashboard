@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { ColDef } from 'ag-grid-community'
-import { h } from 'vue'
 import AppDataGrid from '~/components/data/AppDataGrid.vue'
-import AppBadge from '~/components/ui/AppBadge.vue'
+import KindBadgeCell from '~/components/data/cells/KindBadgeCell.vue'
 import type { InstrumentDto } from '~/services/types'
 
 const props = defineProps<{
@@ -21,33 +20,27 @@ function rowId(i: InstrumentDto): string {
 
 const selectedId = computed(() => props.selected ? rowId(props.selected) : null)
 
-function kindTone(kind: string): 'primary' | 'success' | 'neutral' {
-  if (kind === 'Gauge') return 'primary'
-  if (kind === 'Sum') return 'success'
-  return 'neutral'
-}
-
 const columnDefs = computed<ColDef<InstrumentDto>[]>(() => [
   {
     field: 'name',
     headerName: t('metrics.col.instrument'),
     flex: 1,
     minWidth: 180,
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     tooltipField: 'name'
   },
   {
     field: 'kind',
     headerName: t('metrics.col.kind'),
     width: 110,
-    cellRenderer: (p: { value: string }) => h(AppBadge, { tone: kindTone(p.value), size: 'xs' }, () => p.value)
+    cellRenderer: KindBadgeCell
   },
   {
     field: 'scopeName',
     headerName: t('metrics.col.scope'),
     flex: 1,
     minWidth: 140,
-    cellClass: 'text-xs text-muted items-center flex',
+    cellClass: 'text-xs text-muted',
     valueFormatter: p => (p.value as string) || '—',
     tooltipField: 'scopeName'
   },
@@ -55,7 +48,7 @@ const columnDefs = computed<ColDef<InstrumentDto>[]>(() => [
     field: 'unit',
     headerName: t('metrics.col.unit'),
     width: 90,
-    cellClass: 'font-mono text-xs items-center flex',
+    cellClass: 'font-mono text-xs',
     valueFormatter: p => (p.value as string) || '—'
   },
   {
@@ -63,7 +56,7 @@ const columnDefs = computed<ColDef<InstrumentDto>[]>(() => [
     headerName: t('metrics.col.points'),
     width: 90,
     type: 'rightAligned',
-    cellClass: 'font-mono text-xs items-center flex justify-end'
+    cellClass: 'font-mono text-xs'
   }
 ])
 </script>

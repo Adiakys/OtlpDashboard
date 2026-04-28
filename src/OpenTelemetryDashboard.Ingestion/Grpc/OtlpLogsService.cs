@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Proto.Collector.Logs.V1;
@@ -38,6 +39,8 @@ public sealed class OtlpLogsService : LogsService.LogsServiceBase
         {
             return Task.FromResult(new ExportLogsServiceResponse());
         }
+
+        batch = batch with { IngestActivityContext = Activity.Current?.Context ?? default };
 
         if (!_channel.TryWrite(batch))
         {

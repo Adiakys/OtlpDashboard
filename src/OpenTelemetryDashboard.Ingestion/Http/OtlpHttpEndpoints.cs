@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -57,6 +58,8 @@ public static class OtlpHttpEndpoints
             return ProtobufResult(new ExportTraceServiceResponse());
         }
 
+        batch = batch with { IngestActivityContext = Activity.Current?.Context ?? default };
+
         if (!channel.TryWrite(batch))
         {
             loggerFactory.CreateLogger("OtlpHttp.Traces").HttpChannelFull();
@@ -95,6 +98,8 @@ public static class OtlpHttpEndpoints
             return ProtobufResult(new ExportLogsServiceResponse());
         }
 
+        batch = batch with { IngestActivityContext = Activity.Current?.Context ?? default };
+
         if (!channel.TryWrite(batch))
         {
             loggerFactory.CreateLogger("OtlpHttp.Logs").HttpChannelFull();
@@ -132,6 +137,8 @@ public static class OtlpHttpEndpoints
         {
             return ProtobufResult(new ExportMetricsServiceResponse());
         }
+
+        batch = batch with { IngestActivityContext = Activity.Current?.Context ?? default };
 
         if (!channel.TryWrite(batch))
         {
