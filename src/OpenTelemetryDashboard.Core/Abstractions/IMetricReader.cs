@@ -1,32 +1,34 @@
-using OpenTelemetryDashboard.Core.Domain;
 using OpenTelemetryDashboard.Core.Metrics;
 
 namespace OpenTelemetryDashboard.Core.Abstractions;
 
 /// <summary>
-/// Read-side contract for metric storage. Exposes the set of known instrument
-/// keys, the associated instrument metadata, and the current ring-buffer
-/// snapshot per key. Synchronous because the in-memory implementation is O(1).
-/// DB-backed implementations (if/when added) may implement this asynchronously
-/// through an extension of this contract.
+/// Read-side contract for metric storage. Async by design so the EF Core
+/// implementation can serve queries without blocking. Mirrors the surface of
+/// <see cref="ITraceReader"/> / <see cref="ILogReader"/>.
 /// </summary>
 public interface IMetricReader
 {
-    IReadOnlyCollection<InstrumentKey> GetInstrumentKeys();
-
-    Instrument? GetInstrument(InstrumentKey key);
-
-    IReadOnlyList<DataPoint> GetPoints(InstrumentKey key);
+    /// <summary>
+    /// All instruments currently in the store with their point count and the
+    /// service name resolved from the originating resource. Sorted by
+    /// (ScopeName, Name, Kind) for deterministic UI presentation.
+    /// </summary>
+    Task<IReadOnlyList<InstrumentSummary>> ListInstrumentsAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Returns the resource `service.name` associated with the given key
-    /// (null when unset or unknown).
+    /// Returns the points for the instrument identified by <paramref name="key"/>,
+    /// optionally filtered by <paramref name="window"/> (half-open <c>[From, To)</c>).
+    /// Returns <c>null</c> if no instrument matches the key.
     /// </summary>
-    string? GetServiceName(InstrumentKey key);
+    Task<MetricSeriesSnapshot?> GetSeriesAsync(
+        InstrumentKey key,
+        MetricWindow? window,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Distinct non-null `service.name` values across currently-recorded
-    /// instruments. Cheap: the store already indexes by key.
+    /// Distinct non-null <c>service.name</c> values across the recorded
+    /// instruments.
     /// </summary>
-    IReadOnlyCollection<string> GetDistinctServiceNames();
+    Task<IReadOnlyCollection<string>> GetDistinctServiceNamesAsync(CancellationToken cancellationToken);
 }

@@ -7,8 +7,8 @@ namespace OpenTelemetryDashboard.Api.Mappings;
 
 /// <summary>
 /// Domain → DTO projections for the metric endpoints:
-/// <see cref="Instrument"/> (+ <see cref="InstrumentKey"/> identity and
-/// current ring-buffer size) → <see cref="InstrumentDto"/>, and
+/// <see cref="Instrument"/> (+ <see cref="InstrumentKey"/> identity and the
+/// total point count) → <see cref="InstrumentDto"/>, and
 /// <see cref="DataPoint"/> → <see cref="MetricPointDto"/>. Pure mapping.
 /// </summary>
 internal static class MetricMappings

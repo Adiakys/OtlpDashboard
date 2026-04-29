@@ -8,8 +8,8 @@ namespace OpenTelemetryDashboard.Api.Endpoints;
 
 /// <summary>
 /// Query-string binding for the windowed /services endpoints shared by logs
-/// and traces. Metrics don't need a window (the in-memory ring buffer IS the
-/// current truth) so they use a parameterless handler.
+/// and traces. Metrics use a parameterless handler — the set of recorded
+/// instruments is the current truth, scoped by retention.
 /// </summary>
 internal sealed record ServicesQueryParameters(
     [FromQuery(Name = "from")] DateTimeOffset? From,
@@ -62,9 +62,12 @@ internal static class ServicesEndpoints
         return TypedResults.Ok<IReadOnlyList<string>>([.. names]);
     }
 
-    public static Ok<IReadOnlyList<string>> GetMetricServices(IMetricReader reader)
+    public static async Task<Ok<IReadOnlyList<string>>> GetMetricServicesAsync(
+        IMetricReader reader,
+        CancellationToken cancellationToken)
     {
-        var names = new SortedSet<string>(reader.GetDistinctServiceNames(), StringComparer.Ordinal);
+        var raw = await reader.GetDistinctServiceNamesAsync(cancellationToken).ConfigureAwait(false);
+        var names = new SortedSet<string>(raw, StringComparer.Ordinal);
         return TypedResults.Ok<IReadOnlyList<string>>([.. names]);
     }
 }

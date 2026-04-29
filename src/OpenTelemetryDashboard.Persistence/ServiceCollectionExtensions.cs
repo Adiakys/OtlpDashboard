@@ -55,12 +55,15 @@ public static class ServiceCollectionExtensions
         int resourceCacheSize)
     {
         services.AddSingleton(_ => new ResourceCache(resourceCacheSize));
+        services.AddSingleton(_ => new InstrumentCache());
 
         services.AddSingleton<ITraceSink, EfCoreTraceSink>();
         services.AddSingleton<ILogSink, EfCoreLogSink>();
+        services.AddSingleton<IMetricSink, EfCoreMetricSink>();
 
         services.AddSingleton<ITraceReader, EfCoreTraceReader>();
         services.AddSingleton<ILogReader, EfCoreLogReader>();
+        services.AddSingleton<IMetricReader, EfCoreMetricReader>();
 
         services.AddSingleton<IDashboardStore, EfCoreDashboardStore>();
 
@@ -70,8 +73,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers the background <see cref="TelemetryWriter"/> that dispatches
     /// telemetry batches to the sinks registered via
-    /// <see cref="AddTelemetryPersistenceCore"/> and any metric-sink provider
-    /// (e.g. AddInMemoryMetricStore in OpenTelemetryDashboard.Persistence.Metrics.InMemory).
+    /// <see cref="AddTelemetryPersistenceCore"/>.
     /// </summary>
     public static IServiceCollection AddTelemetryWriter(this IServiceCollection services)
     {
@@ -81,10 +83,8 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the retention options, the EF-core backed log/trace policies,
-    /// and the background host that enforces them. The in-memory metric policy
-    /// must be registered separately (<c>AddInMemoryMetricStore</c>) since its
-    /// dependencies live in a different assembly.
+    /// Registers the retention options, the EF-core backed log/trace/metric
+    /// policies, and the background host that enforces them.
     /// </summary>
     public static IServiceCollection AddTelemetryRetention(
         this IServiceCollection services,
@@ -102,6 +102,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<ILogRetentionPolicy, EfCoreLogRetentionPolicy>();
         services.TryAddSingleton<ITraceRetentionPolicy, EfCoreTraceRetentionPolicy>();
+        services.TryAddSingleton<IMetricRetentionPolicy, EfCoreMetricRetentionPolicy>();
 
         services.AddHostedService<TelemetryRetentionHost>();
         return services;

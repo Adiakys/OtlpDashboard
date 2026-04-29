@@ -387,3 +387,8 @@ dotnet_naming_style.s_camelcase.required_suffix =
 dotnet_naming_style.s_camelcase.word_separator = 
 dotnet_naming_style.s_camelcase.capitalization = camel_case
 
+
+# EF Core scaffolds migrations with patterns (constant array literals)
+# that conflict with our analyser set. Relax those rules for generated code.
+[**/Migrations/*.cs]
+dotnet_diagnostic.CA1861.severity = none

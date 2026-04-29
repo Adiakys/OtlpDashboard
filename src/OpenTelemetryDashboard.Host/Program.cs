@@ -11,7 +11,6 @@ using OpenTelemetryDashboard.Host.Configuration;
 using OpenTelemetryDashboard.Ingestion;
 using OpenTelemetryDashboard.Ingestion.Http;
 using OpenTelemetryDashboard.Persistence;
-using OpenTelemetryDashboard.Persistence.Metrics.InMemory;
 using OpenTelemetryDashboard.Persistence.Sqlite;
 using OpenTelemetryDashboard.Persistence.SqlServer;
 using OpenTelemetryDashboard.Persistence.PostgreSql;
@@ -68,7 +67,6 @@ builder.Services.AddRateLimiter(rate =>
 });
 
 builder.Services.AddTelemetryCore(builder.Configuration);
-builder.Services.AddInMemoryMetricStore(builder.Configuration);
 builder.Services.AddOtlpIngestion();
 
 // Storage provider is the one value we MUST know at registration time — it

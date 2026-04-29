@@ -124,7 +124,7 @@ export interface InstrumentRef {
 }
 
 export interface MetricPointsQuery extends InstrumentRef {
-  /** Optional time window. When both are absent, the full ring-buffer snapshot is returned. */
+  /** Optional time window. When both are absent, the full series is returned. */
   from?: string
   to?: string
 }

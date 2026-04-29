@@ -29,7 +29,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
 COPY .config/ ./.config/
 
 COPY ["src/OpenTelemetryDashboard.Host/OpenTelemetryDashboard.Host.csproj", "src/OpenTelemetryDashboard.Host/"]

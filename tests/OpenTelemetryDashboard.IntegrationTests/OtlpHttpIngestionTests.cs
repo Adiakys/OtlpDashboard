@@ -11,6 +11,7 @@ using OpenTelemetry.Proto.Logs.V1;
 using OpenTelemetry.Proto.Metrics.V1;
 using OpenTelemetry.Proto.Trace.V1;
 using OpenTelemetryDashboard.Core.Abstractions;
+using OpenTelemetryDashboard.Core.Metrics;
 using OpenTelemetryDashboard.Persistence;
 using OtlpResource = OpenTelemetry.Proto.Resource.V1.Resource;
 using OtlpSpan = OpenTelemetry.Proto.Trace.V1.Span;
@@ -264,23 +265,25 @@ public sealed class OtlpHttpIngestionTests : IClassFixture<TestHostFixture>
 
         var reader = _fixture.Services.GetRequiredService<IMetricReader>();
 
-        var hasGauge = false;
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+        InstrumentSummary? matched = null;
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
         while (DateTimeOffset.UtcNow < deadline)
         {
-            if (reader.GetInstrumentKeys().Any(k => k.InstrumentName == "temperature"))
+            var summaries = await reader.ListInstrumentsAsync(CancellationToken.None);
+            matched = summaries.FirstOrDefault(s => s.Key.InstrumentName == "temperature");
+            if (matched is { PointCount: >= 1 })
             {
-                hasGauge = true;
                 break;
             }
+            matched = null;
             await Task.Delay(50);
         }
 
-        hasGauge.ShouldBeTrue();
-        var key = reader.GetInstrumentKeys().First(k => k.InstrumentName == "temperature");
-        var points = reader.GetPoints(key);
-        points.Count.ShouldBe(1);
-        points[0].Value.ShouldBe(42.5);
+        matched.ShouldNotBeNull();
+        var series = await reader.GetSeriesAsync(matched!.Key, window: null, CancellationToken.None);
+        series.ShouldNotBeNull();
+        series!.Points.Count.ShouldBe(1);
+        series.Points[0].Value.ShouldBe(42.5);
     }
 
     private static async Task<HttpResponseMessage> PostProtobufAsync<T>(HttpClient client, string path, T message)

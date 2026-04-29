@@ -280,6 +280,111 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                     b.ToTable("dashboards", (string)null);
                 });
 
+            modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.InstrumentRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsMonotonic")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("is_monotonic");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<byte[]>("ResourceHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("BLOB")
+                        .HasColumnName("resource_hash");
+
+                    b.Property<string>("ScopeName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scope_name");
+
+                    b.Property<string>("ScopeVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scope_version");
+
+                    b.Property<int>("Temporality")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("temporality");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("unit");
+
+                    b.HasKey("Id")
+                        .HasName("pk_instruments");
+
+                    b.HasIndex("ResourceHash")
+                        .HasDatabaseName("ix_instruments_resource_hash");
+
+                    b.HasIndex("ResourceHash", "ScopeName", "Name", "Kind")
+                        .IsUnique()
+                        .HasDatabaseName("ix_instruments_resource_hash_scope_name_name_kind");
+
+                    b.ToTable("instruments", (string)null);
+                });
+
+            modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.MetricPointRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("attributes");
+
+                    b.Property<long>("InstrumentId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("instrument_id");
+
+                    b.Property<long>("StartTimeUnixNano")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("start_time_unix_nano");
+
+                    b.Property<long>("TimeUnixNano")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("time_unix_nano");
+
+                    b.Property<double>("Value")
+                        .HasColumnType("REAL")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id")
+                        .HasName("pk_metric_points");
+
+                    b.HasIndex("TimeUnixNano")
+                        .HasDatabaseName("ix_metric_points_time_unix_nano");
+
+                    b.HasIndex("InstrumentId", "TimeUnixNano")
+                        .HasDatabaseName("ix_metric_points_instrument_id_time_unix_nano");
+
+                    b.ToTable("metric_points", (string)null);
+                });
+
             modelBuilder.Entity("OpenTelemetryDashboard.Core.Domain.LogRecord", b =>
                 {
                     b.HasOne("OpenTelemetryDashboard.Core.Domain.Resource", null)
@@ -394,6 +499,26 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                     b.Navigation("Events");
 
                     b.Navigation("Links");
+                });
+
+            modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.InstrumentRecord", b =>
+                {
+                    b.HasOne("OpenTelemetryDashboard.Core.Domain.Resource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceHash")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_instruments_resources_resource_hash");
+                });
+
+            modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.MetricPointRecord", b =>
+                {
+                    b.HasOne("OpenTelemetryDashboard.Persistence.Metrics.Entities.InstrumentRecord", null)
+                        .WithMany()
+                        .HasForeignKey("InstrumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_metric_points_instruments_instrument_id");
                 });
 #pragma warning restore 612, 618
         }

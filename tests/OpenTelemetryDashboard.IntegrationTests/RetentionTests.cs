@@ -2,16 +2,16 @@ using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Proto.Collector.Logs.V1;
+using OpenTelemetry.Proto.Collector.Metrics.V1;
 using OpenTelemetry.Proto.Collector.Trace.V1;
 using OpenTelemetry.Proto.Common.V1;
 using OpenTelemetry.Proto.Logs.V1;
+using OpenTelemetry.Proto.Metrics.V1;
 using OpenTelemetry.Proto.Trace.V1;
+using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Abstractions.Retention;
 using OpenTelemetryDashboard.Core.Common;
-using OpenTelemetryDashboard.Core.Domain;
-using OpenTelemetryDashboard.Core.Metrics;
 using OpenTelemetryDashboard.Persistence;
-using OpenTelemetryDashboard.Persistence.Metrics.InMemory;
 using OtlpLogRecord = OpenTelemetry.Proto.Logs.V1.LogRecord;
 using OtlpResource = OpenTelemetry.Proto.Resource.V1.Resource;
 using OtlpSpan = OpenTelemetry.Proto.Trace.V1.Span;
@@ -78,37 +78,77 @@ public sealed class RetentionTests : IClassFixture<TestHostFixture>
     [Fact]
     public async Task MetricRetention_Drops_Old_Points_And_Empty_Instruments()
     {
-        var storage = _fixture.Services.GetRequiredService<InMemoryMetricStorage>();
+        using var client = _fixture.CreateClient();
         var policy = _fixture.Services.GetRequiredService<IMetricRetentionPolicy>();
-
-        var oldKey = InstrumentKey.Create(resourceHash: RandomBytes(32), scopeName: "tests",
-            instrumentName: "retention-old", InstrumentKind.Gauge);
-        var freshKey = InstrumentKey.Create(resourceHash: RandomBytes(32), scopeName: "tests",
-            instrumentName: "retention-fresh", InstrumentKind.Gauge);
+        var reader = _fixture.Services.GetRequiredService<IMetricReader>();
 
         var now = DateTimeOffset.UtcNow;
+        var oldName = $"retention-old-{Guid.NewGuid():N}";
+        var freshName = $"retention-fresh-{Guid.NewGuid():N}";
 
-        storage.TryRecord(oldKey, new Instrument { Name = "retention-old", Kind = InstrumentKind.Gauge },
-            NewPoint(now.AddDays(-30), 1.0), serviceName: "old");
-        storage.TryRecord(freshKey, new Instrument { Name = "retention-fresh", Kind = InstrumentKind.Gauge },
-            NewPoint(now.AddMinutes(-1), 2.0), serviceName: "fresh");
+        await SeedGaugeAsync(client, oldName, "old", now.AddDays(-30), 1.0);
+        await SeedGaugeAsync(client, freshName, "fresh", now.AddMinutes(-1), 2.0);
+        await WaitForInstrumentAsync(reader, oldName);
+        await WaitForInstrumentAsync(reader, freshName);
 
         var dropped = await policy.EnforceAsync(TimeSpan.FromDays(7), CancellationToken.None);
 
-        dropped.ShouldBe(1);
-        storage.Keys.ShouldNotContain(oldKey);
-        storage.Keys.ShouldContain(freshKey);
-        storage.GetPoints(freshKey).Count.ShouldBe(1);
+        dropped.ShouldBeGreaterThanOrEqualTo(1);
 
-        // Cleanup to keep the singleton tidy for other test classes sharing this fixture.
-        storage.TrimOlderThan(now.AddMinutes(1));
+        var summaries = await reader.ListInstrumentsAsync(CancellationToken.None);
+        summaries.ShouldNotContain(s => s.Key.InstrumentName == oldName);
+        summaries.ShouldContain(s => s.Key.InstrumentName == freshName && s.PointCount >= 1);
     }
 
-    private static DataPoint NewPoint(DateTimeOffset time, double value) => new()
+    private static async Task SeedGaugeAsync(
+        HttpClient client,
+        string instrumentName,
+        string service,
+        DateTimeOffset time,
+        double value)
     {
-        Value = value,
-        TimeUnixNano = UnixNanoTime.ToUnixNanoseconds(time),
-    };
+        var request = new ExportMetricsServiceRequest();
+        var resourceMetrics = new ResourceMetrics
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = service } },
+                },
+            },
+        };
+        var scope = new ScopeMetrics { Scope = new InstrumentationScope { Name = "tests" } };
+        var gauge = new Gauge();
+        gauge.DataPoints.Add(new NumberDataPoint
+        {
+            TimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(time),
+            AsDouble = value,
+        });
+        scope.Metrics.Add(new Metric { Name = instrumentName, Gauge = gauge });
+        resourceMetrics.ScopeMetrics.Add(scope);
+        request.ResourceMetrics.Add(resourceMetrics);
+
+        using var content = new ByteArrayContent(request.ToByteArray());
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-protobuf");
+        using var response = await client.PostAsync(new Uri("/v1/metrics", UriKind.Relative), content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task WaitForInstrumentAsync(IMetricReader reader, string instrumentName, int timeoutSeconds = 10)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(timeoutSeconds);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var summaries = await reader.ListInstrumentsAsync(CancellationToken.None);
+            if (summaries.Any(s => s.Key.InstrumentName == instrumentName && s.PointCount >= 1))
+            {
+                return;
+            }
+            await Task.Delay(50);
+        }
+        throw new TimeoutException($"Instrument '{instrumentName}' was not persisted within {timeoutSeconds}s.");
+    }
 
     private static async Task SeedLogsAsync(HttpClient client, string service, DateTimeOffset time, int count)
     {

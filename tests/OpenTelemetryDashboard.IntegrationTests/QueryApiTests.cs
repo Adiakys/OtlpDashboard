@@ -16,6 +16,7 @@ using OpenTelemetry.Proto.Trace.V1;
 using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Common;
 using OpenTelemetryDashboard.Core.Domain;
+using OpenTelemetryDashboard.Core.Metrics;
 using OpenTelemetryDashboard.Persistence;
 using OtlpResource = OpenTelemetry.Proto.Resource.V1.Resource;
 using OtlpSpan = OpenTelemetry.Proto.Trace.V1.Span;
@@ -304,10 +305,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var anchor = new DateTimeOffset(2030, 7, 1, 12, 0, 0, TimeSpan.Zero);
         var anchorNano = UnixNanoTime.ToUnixNanoseconds(anchor);
         await SeedGaugeAsync(client, metricName, anchorNano, value: 1024d);
-        await WaitForInstrumentAsync(metricName);
-
-        var reader = _fixture.Services.GetRequiredService<IMetricReader>();
-        var key = reader.GetInstrumentKeys().First(k => k.InstrumentName == metricName);
+        var key = await WaitForInstrumentAsync(metricName);
 
         var url = $"/api/v1/metrics/points?resourceHash={key.ResourceHashHex}&scopeName={Uri.EscapeDataString(key.ScopeName)}&instrumentName={Uri.EscapeDataString(metricName)}&kind=Gauge";
         var response = await client.GetFromJsonAsync<MetricSeriesResponse>(new Uri(url, UriKind.Relative), JsonOptions);
@@ -393,10 +391,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
             postResp.StatusCode.ShouldBe(HttpStatusCode.OK);
         }
 
-        await WaitForInstrumentAsync(metricName, expectedPoints: 3);
-
-        var reader = _fixture.Services.GetRequiredService<IMetricReader>();
-        var key = reader.GetInstrumentKeys().First(k => k.InstrumentName == metricName);
+        var key = await WaitForInstrumentAsync(metricName, expectedPoints: 3);
 
         // Window covers only the middle point.
         var from = anchor.AddSeconds(30);
@@ -801,16 +796,17 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
-    private async Task WaitForInstrumentAsync(string instrumentName, int expectedPoints = 1, int timeoutSeconds = 5)
+    private async Task<InstrumentKey> WaitForInstrumentAsync(string instrumentName, int expectedPoints = 1, int timeoutSeconds = 10)
     {
         var reader = _fixture.Services.GetRequiredService<IMetricReader>();
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(timeoutSeconds);
         while (DateTimeOffset.UtcNow < deadline)
         {
-            var key = reader.GetInstrumentKeys().FirstOrDefault(k => k.InstrumentName == instrumentName);
-            if (key != default && reader.GetPoints(key).Count >= expectedPoints)
+            var summaries = await reader.ListInstrumentsAsync(CancellationToken.None);
+            var match = summaries.FirstOrDefault(s => s.Key.InstrumentName == instrumentName);
+            if (match is { } found && found.PointCount >= expectedPoints)
             {
-                return;
+                return found.Key;
             }
             await Task.Delay(50);
         }

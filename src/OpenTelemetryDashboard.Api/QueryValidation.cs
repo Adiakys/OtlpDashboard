@@ -9,7 +9,7 @@ namespace OpenTelemetryDashboard.Api;
 /// <summary>
 /// Optional time window for metric point queries. Parsed out of
 /// <c>from</c>/<c>to</c> query-string parameters; <c>null</c> means the
-/// caller asked for the full ring-buffer snapshot.
+/// caller asked for the full series.
 /// </summary>
 internal readonly record struct MetricPointsTimeWindow(DateTimeOffset From, DateTimeOffset To);
 

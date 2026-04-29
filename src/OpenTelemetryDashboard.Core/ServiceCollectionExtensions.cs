@@ -10,7 +10,7 @@ public static class ServiceCollectionExtensions
     /// Registers the ingestion-pipeline primitives that live in the domain:
     /// the bounded <see cref="TelemetryChannel"/> and related option binders.
     /// Does NOT register sinks, readers, or storage — those belong to
-    /// infrastructure modules (Persistence, Metrics.InMemory, …).
+    /// infrastructure modules (e.g. <c>OpenTelemetryDashboard.Persistence</c>).
     /// </summary>
     public static IServiceCollection AddTelemetryCore(
         this IServiceCollection services,

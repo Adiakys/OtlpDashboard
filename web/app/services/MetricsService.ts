@@ -3,9 +3,9 @@ import type { InstrumentDto, MetricPointsQuery, MetricSeriesDto } from './types'
 
 /**
  * Reads metrics from the Query API. `listInstruments` enumerates all known
- * time-series (bounded by the server's MaxInstruments config — no paging
- * needed); `getPoints` returns the ring-buffer snapshot for one instrument,
- * optionally filtered to a time window.
+ * time-series (bounded by the server's retention policy — no paging needed);
+ * `getPoints` returns the recorded points for one instrument, optionally
+ * filtered to a time window.
  */
 export class MetricsService {
   constructor(private readonly http: HttpClientService) {}

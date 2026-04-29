@@ -3,8 +3,8 @@ using OpenTelemetryDashboard.Core.Domain;
 namespace OpenTelemetryDashboard.Core.Metrics;
 
 /// <summary>
-/// Identifies a metric time-series in the in-memory store. Uses the hex representation
-/// of the resource hash so that the key is a pure value type with native
+/// Identifies a metric time-series. Uses the hex representation of the
+/// resource hash so the key is a pure value type with native
 /// <see cref="IEquatable{T}"/> and <see cref="object.GetHashCode"/> semantics.
 /// </summary>
 public readonly record struct InstrumentKey(
