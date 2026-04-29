@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
-import type { MetricBinding, MetricSparklineConfig } from '../types'
+import type { MetricBinding, MetricPieConfig } from '../types'
+import type { CalcMode } from '~/lib/units/calc'
 import type { UnitKind } from '~/lib/units/format'
 import RangePresetSelect from './RangePresetSelect.vue'
 import UnitKindSelect from './UnitKindSelect.vue'
+import CalcSelect from './CalcSelect.vue'
 
 const props = defineProps<{
-  modelValue: MetricSparklineConfig
+  modelValue: MetricPieConfig
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: MetricSparklineConfig]
+  'update:modelValue': [value: MetricPieConfig]
 }>()
 
 const { t } = useI18n()
 
-function patch(p: Partial<MetricSparklineConfig>) {
+function patch(p: Partial<MetricPieConfig>) {
   emit('update:modelValue', { ...props.modelValue, ...p })
 }
 </script>
@@ -36,20 +38,42 @@ function patch(p: Partial<MetricSparklineConfig>) {
       />
     </UFormField>
 
+    <UFormField :label="t('dashboard.config.splitBy')" :hint="t('dashboard.config.splitByPieHint')">
+      <UInput
+        :model-value="modelValue.splitBy ?? ''"
+        :placeholder="t('dashboard.splitBy.all')"
+        @update:model-value="(v) => patch({ splitBy: v ? String(v) : null })"
+      />
+    </UFormField>
+
     <div class="grid grid-cols-2 gap-3">
+      <UFormField :label="t('dashboard.config.calc.label')">
+        <CalcSelect
+          :model-value="modelValue.calc"
+          @update:model-value="(v: CalcMode) => patch({ calc: v })"
+        />
+      </UFormField>
       <UFormField :label="t('dashboard.config.unitKind.label')">
         <UnitKindSelect
           :model-value="modelValue.unitKind"
           @update:model-value="(v: UnitKind) => patch({ unitKind: v })"
         />
       </UFormField>
-      <UFormField :label="t('dashboard.config.decimals')">
-        <UInput
-          type="number"
-          min="0"
-          max="6"
-          :model-value="modelValue.decimals ?? 2"
-          @update:model-value="(v) => patch({ decimals: clampDecimals(v) })"
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <UFormField>
+        <USwitch
+          :model-value="modelValue.donut === true"
+          :label="t('dashboard.config.donut')"
+          @update:model-value="(v) => patch({ donut: Boolean(v) })"
+        />
+      </UFormField>
+      <UFormField>
+        <USwitch
+          :model-value="modelValue.showLegend !== false"
+          :label="t('dashboard.config.showLegend')"
+          @update:model-value="(v) => patch({ showLegend: Boolean(v) })"
         />
       </UFormField>
     </div>
@@ -65,11 +89,3 @@ function patch(p: Partial<MetricSparklineConfig>) {
     </UFormField>
   </div>
 </template>
-
-<script lang="ts">
-function clampDecimals(v: unknown): number {
-  const n = typeof v === 'number' ? v : Number(v)
-  if (!Number.isFinite(n)) return 2
-  return Math.max(0, Math.min(6, Math.floor(n)))
-}
-</script>

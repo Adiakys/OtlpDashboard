@@ -2,12 +2,24 @@
 import StatConfigForm from '../configs/StatConfigForm.vue'
 import LineConfigForm from '../configs/LineConfigForm.vue'
 import SparklineConfigForm from '../configs/SparklineConfigForm.vue'
+import GaugeConfigForm from '../configs/GaugeConfigForm.vue'
+import BarGaugeConfigForm from '../configs/BarGaugeConfigForm.vue'
+import PieConfigForm from '../configs/PieConfigForm.vue'
+import HeatmapConfigForm from '../configs/HeatmapConfigForm.vue'
+import RecentTracesConfigForm from '../configs/RecentTracesConfigForm.vue'
+import LogsStreamConfigForm from '../configs/LogsStreamConfigForm.vue'
 import TextConfigForm from '../configs/TextConfigForm.vue'
 import { WIDGET_METADATA } from '../registry'
 import type {
+  LogsStreamConfig,
+  MetricBarGaugeConfig,
+  MetricGaugeConfig,
+  MetricHeatmapConfig,
   MetricLineConfig,
+  MetricPieConfig,
   MetricSparklineConfig,
   MetricStatConfig,
+  RecentTracesConfig,
   TextWidgetConfig,
   WidgetConfig,
   WidgetItem
@@ -88,6 +100,36 @@ const headerTitle = computed(() => t(WIDGET_METADATA[props.widget.kind].titleKey
         <SparklineConfigForm
           v-else-if="widget.kind === 'metric-sparkline'"
           :model-value="draft as MetricSparklineConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <GaugeConfigForm
+          v-else-if="widget.kind === 'metric-gauge'"
+          :model-value="draft as MetricGaugeConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <BarGaugeConfigForm
+          v-else-if="widget.kind === 'metric-bar-gauge'"
+          :model-value="draft as MetricBarGaugeConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <PieConfigForm
+          v-else-if="widget.kind === 'metric-pie'"
+          :model-value="draft as MetricPieConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <HeatmapConfigForm
+          v-else-if="widget.kind === 'metric-heatmap'"
+          :model-value="draft as MetricHeatmapConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <RecentTracesConfigForm
+          v-else-if="widget.kind === 'recent-traces'"
+          :model-value="draft as RecentTracesConfig"
+          @update:model-value="(v) => draft = v"
+        />
+        <LogsStreamConfigForm
+          v-else-if="widget.kind === 'logs-stream'"
+          :model-value="draft as LogsStreamConfig"
           @update:model-value="(v) => draft = v"
         />
         <TextConfigForm

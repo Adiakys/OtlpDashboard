@@ -1,5 +1,3 @@
-import type { $Fetch } from 'ofetch'
-
 /**
  * Thin wrapper around ofetch (Nuxt's `$fetch`). Exposes explicit GET/POST/PUT/
  * DELETE verbs so the feature services stay vocabulary-consistent and can be
@@ -12,12 +10,23 @@ import type { $Fetch } from 'ofetch'
  *
  * Constructed once at app startup by `plugins/services.ts` and injected into
  * `LogsService` and `TraceService` as a shared singleton.
+ *
+ * The fetcher is typed as `typeof $fetch` (i.e. Nuxt's augmented variant with
+ * `native`) rather than ofetch's bare `$Fetch`, so `$fetch.create(...)` from
+ * the plugin assigns cleanly without a structural mismatch.
  */
+type Fetcher = typeof $fetch
+
+/** Bodies we send are always plain JSON-serializable objects (DTOs). `object`
+ *  covers any named-key shape without forcing callers to add an index
+ *  signature; ofetch happily serializes whatever we hand it. */
+type JsonBody = object
+
 export class HttpClientService {
   constructor(
     private readonly baseUrl: string,
     private readonly getToken: () => string | null = () => null,
-    private readonly fetcher: $Fetch = $fetch
+    private readonly fetcher: Fetcher = $fetch
   ) {}
 
   get<T>(path: string, query?: Record<string, unknown>): Promise<T> {
@@ -29,7 +38,7 @@ export class HttpClientService {
     })
   }
 
-  post<T>(path: string, body?: unknown): Promise<T> {
+  post<T>(path: string, body?: JsonBody): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'POST',
@@ -38,7 +47,7 @@ export class HttpClientService {
     })
   }
 
-  put<T>(path: string, body?: unknown): Promise<T> {
+  put<T>(path: string, body?: JsonBody): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'PUT',

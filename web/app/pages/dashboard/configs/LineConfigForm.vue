@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
 import type { MetricBinding, MetricLineConfig } from '../types'
+import type { UnitKind } from '~/lib/units/format'
+import type { ChartType } from '~/lib/agcharts/chartStrategy'
 import RangePresetSelect from './RangePresetSelect.vue'
+import UnitKindSelect from './UnitKindSelect.vue'
 
 const props = defineProps<{
   modelValue: MetricLineConfig
@@ -17,13 +20,31 @@ function patch(p: Partial<MetricLineConfig>) {
   emit('update:modelValue', { ...props.modelValue, ...p })
 }
 
-// Surface attribute keys from the picked metrics so the user can choose a
-// split-by axis. We don't have the loaded points here, so the dropdown stays
-// purely informational (typed in by hand or chosen from a recent set the
-// user already saw on /metrics). Default to "all attributes" otherwise.
-const splitByOptions = computed(() => [
-  { label: t('dashboard.splitBy.all'), value: '' },
-])
+// `'auto'` is a synthetic option that maps to `chartTypeOverride: undefined`
+// so the widget falls back to `pickChartType()` based on instrument metadata.
+const CHART_TYPE_OPTIONS = ['auto', 'line', 'area', 'column'] as const
+type ChartTypeOption = typeof CHART_TYPE_OPTIONS[number]
+
+const chartTypeItems = computed(() =>
+  CHART_TYPE_OPTIONS.map(o => ({
+    label: t(`dashboard.config.chartType.${o}`),
+    value: o
+  }))
+)
+
+const currentChartType = computed<ChartTypeOption>(() => {
+  const v = props.modelValue.chartTypeOverride
+  if (!v || v === 'unsupported') return 'auto'
+  return v as ChartTypeOption
+})
+
+function setChartType(v: ChartTypeOption) {
+  if (v === 'auto') {
+    patch({ chartTypeOverride: undefined })
+  } else {
+    patch({ chartTypeOverride: v as ChartType })
+  }
+}
 </script>
 
 <template>
@@ -41,6 +62,32 @@ const splitByOptions = computed(() => [
         @update:model-value="(v) => patch({ range: v })"
       />
     </UFormField>
+
+    <div class="grid grid-cols-3 gap-3">
+      <UFormField :label="t('dashboard.config.chartType.label')">
+        <USelectMenu
+          :model-value="currentChartType"
+          :items="chartTypeItems"
+          value-key="value"
+          @update:model-value="(v) => setChartType(v as ChartTypeOption)"
+        />
+      </UFormField>
+      <UFormField :label="t('dashboard.config.unitKind.label')">
+        <UnitKindSelect
+          :model-value="modelValue.unitKind"
+          @update:model-value="(v: UnitKind) => patch({ unitKind: v })"
+        />
+      </UFormField>
+      <UFormField :label="t('dashboard.config.decimals')">
+        <UInput
+          type="number"
+          min="0"
+          max="6"
+          :model-value="modelValue.decimals ?? 2"
+          @update:model-value="(v) => patch({ decimals: clampDecimals(v) })"
+        />
+      </UFormField>
+    </div>
 
     <UFormField :label="t('dashboard.config.splitBy')" :hint="t('dashboard.config.splitByHint')">
       <UInput
@@ -61,3 +108,11 @@ const splitByOptions = computed(() => [
     </UFormField>
   </div>
 </template>
+
+<script lang="ts">
+function clampDecimals(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return 2
+  return Math.max(0, Math.min(6, Math.floor(n)))
+}
+</script>

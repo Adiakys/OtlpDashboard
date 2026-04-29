@@ -101,6 +101,7 @@
     },
     "widgets": {
       "notConfigured": "Apri la configurazione per scegliere una metrica.",
+      "noData": "Nessun dato nell'intervallo selezionato.",
       "metricStat": {
         "title": "Stat",
         "desc": "Singolo valore di una metrica con delta opzionale e mini-sparkline."
@@ -108,11 +109,35 @@
       "metricLine": {
         "title": "Grafico",
         "titleMulti": "{n} metriche",
-        "desc": "Grafico linee/area/colonna su una o più metriche dello stesso tipo."
+        "desc": "Confronto linee/area/colonne su una o più metriche dello stesso kind, con disaggregazione per attributo."
       },
       "metricSparkline": {
         "title": "Sparkline",
         "desc": "Mini-grafico senza assi, ideale per dashboard dense."
+      },
+      "metricGauge": {
+        "title": "Gauge",
+        "desc": "Indicatore radiale con soglie colorate per stati e SLO."
+      },
+      "metricBarGauge": {
+        "title": "Bar gauge",
+        "desc": "Top-N orizzontale: una barra per gruppo di attributi."
+      },
+      "metricPie": {
+        "title": "Pie / Donut",
+        "desc": "Proporzioni tra gruppi (es. errori per service)."
+      },
+      "metricHeatmap": {
+        "title": "Heatmap",
+        "desc": "Griglia: una riga per gruppo, una colonna per intervallo di tempo, colore = valore."
+      },
+      "recentTraces": {
+        "title": "Trace recenti",
+        "desc": "Lista di trace ordinabili per durata o errori, click → dettaglio trace."
+      },
+      "logsStream": {
+        "title": "Log stream",
+        "desc": "Tail dei log con filtro per servizio e severità minima."
       },
       "text": {
         "title": "Testo",
@@ -128,7 +153,7 @@
       "splitByHint": "Chiave attributo (es. http.method). Vuoto = tutti gli attributi.",
       "showSparkline": "Mostra sparkline",
       "decimals": "Decimali",
-      "unit": "Unità",
+      "unit": "Unità (etichetta)",
       "markdown": "Contenuto (markdown)",
       "markdownPlaceholder": "## Titolo\n\nScrivi qui…",
       "apply": "Applica",
@@ -136,6 +161,69 @@
         "label": "Allineamento",
         "left": "Sinistra",
         "center": "Centrato"
+      },
+      "calc": {
+        "label": "Aggregazione",
+        "last": "Ultimo",
+        "mean": "Media",
+        "min": "Minimo",
+        "max": "Massimo",
+        "sum": "Somma"
+      },
+      "unitKind": {
+        "label": "Formato unità",
+        "none": "Nessuno",
+        "short": "Numero (k/M/G)",
+        "bytes": "Byte (KiB/MiB/GiB)",
+        "bps": "Bit/s",
+        "seconds": "Secondi",
+        "ms": "Millisecondi",
+        "percent": "Percentuale (0–100)",
+        "percentUnit": "Percentuale (0–1)",
+        "ops": "Ops"
+      },
+      "thresholds": {
+        "label": "Soglie",
+        "empty": "Nessuna soglia. Aggiungine una per colorare il valore.",
+        "add": "Aggiungi soglia",
+        "remove": "Rimuovi",
+        "valuePlaceholder": "es. 100 MB"
+      },
+      "min": "Minimo",
+      "max": "Massimo",
+      "maxAuto": "Auto",
+      "maxAutoHint": "Vuoto = adatta al valore più alto.",
+      "topN": "Top N",
+      "splitBy.pieHint": "Chiave attributo per dividere il valore in fette.",
+      "splitByPieHint": "Chiave attributo per dividere il valore in fette.",
+      "donut": "Donut",
+      "showLegend": "Mostra legenda",
+      "chartType": {
+        "label": "Tipo grafico",
+        "auto": "Automatico",
+        "line": "Linea",
+        "area": "Area",
+        "column": "Colonne"
+      },
+      "service": "Servizio",
+      "serviceHint": "Vuoto = tutti i servizi.",
+      "allServices": "Tutti",
+      "limit": "Limite",
+      "buckets": "Bucket temporali",
+      "bucketReduce": "Riduzione per bucket",
+      "traceSort": {
+        "label": "Ordinamento",
+        "recent": "Più recenti",
+        "slowest": "Più lenti",
+        "errorsFirst": "Errori prima"
+      },
+      "severity": {
+        "label": "Severità minima",
+        "all": "Tutte",
+        "info": "Info",
+        "warn": "Warn",
+        "error": "Error",
+        "fatal": "Fatal"
       }
     },
     "splitBy": {
@@ -147,6 +235,12 @@
       "last1h": "Ultima ora",
       "last6h": "Ultime 6 ore",
       "last24h": "Ultime 24 ore"
+    },
+    "col": {
+      "time": "Ora",
+      "service": "Servizio",
+      "span": "Span",
+      "duration": "Durata"
     }
   },
   "logs": {

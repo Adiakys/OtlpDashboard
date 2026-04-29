@@ -1,22 +1,30 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
-import type { MetricBinding, MetricSparklineConfig } from '../types'
+import type { MetricBinding, MetricGaugeConfig, ThresholdStop } from '../types'
+import type { CalcMode } from '~/lib/units/calc'
 import type { UnitKind } from '~/lib/units/format'
 import RangePresetSelect from './RangePresetSelect.vue'
 import UnitKindSelect from './UnitKindSelect.vue'
+import CalcSelect from './CalcSelect.vue'
+import ThresholdsEditor from './ThresholdsEditor.vue'
 
 const props = defineProps<{
-  modelValue: MetricSparklineConfig
+  modelValue: MetricGaugeConfig
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: MetricSparklineConfig]
+  'update:modelValue': [value: MetricGaugeConfig]
 }>()
 
 const { t } = useI18n()
 
-function patch(p: Partial<MetricSparklineConfig>) {
+function patch(p: Partial<MetricGaugeConfig>) {
   emit('update:modelValue', { ...props.modelValue, ...p })
+}
+
+function asNumber(v: unknown, fallback: number): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : fallback
 }
 </script>
 
@@ -37,10 +45,33 @@ function patch(p: Partial<MetricSparklineConfig>) {
     </UFormField>
 
     <div class="grid grid-cols-2 gap-3">
+      <UFormField :label="t('dashboard.config.calc.label')">
+        <CalcSelect
+          :model-value="modelValue.calc"
+          @update:model-value="(v: CalcMode) => patch({ calc: v })"
+        />
+      </UFormField>
       <UFormField :label="t('dashboard.config.unitKind.label')">
         <UnitKindSelect
           :model-value="modelValue.unitKind"
           @update:model-value="(v: UnitKind) => patch({ unitKind: v })"
+        />
+      </UFormField>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <UFormField :label="t('dashboard.config.min')">
+        <UInput
+          type="number"
+          :model-value="modelValue.min ?? 0"
+          @update:model-value="(v) => patch({ min: asNumber(v, 0) })"
+        />
+      </UFormField>
+      <UFormField :label="t('dashboard.config.max')">
+        <UInput
+          type="number"
+          :model-value="modelValue.max ?? 100"
+          @update:model-value="(v) => patch({ max: asNumber(v, 100) })"
         />
       </UFormField>
       <UFormField :label="t('dashboard.config.decimals')">
@@ -53,6 +84,14 @@ function patch(p: Partial<MetricSparklineConfig>) {
         />
       </UFormField>
     </div>
+
+    <UFormField :label="t('dashboard.config.thresholds.label')">
+      <ThresholdsEditor
+        :model-value="modelValue.thresholds"
+        :unit-kind="modelValue.unitKind"
+        @update:model-value="(v: ThresholdStop[]) => patch({ thresholds: v })"
+      />
+    </UFormField>
 
     <UFormField :label="t('dashboard.config.metric')" class="flex-1 min-h-0">
       <div class="h-64 min-h-0">

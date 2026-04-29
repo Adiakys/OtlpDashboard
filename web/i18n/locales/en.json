@@ -101,6 +101,7 @@
     },
     "widgets": {
       "notConfigured": "Open the configuration to choose a metric.",
+      "noData": "No data in the selected range.",
       "metricStat": {
         "title": "Stat",
         "desc": "Single metric value with optional delta and sparkline."
@@ -108,11 +109,35 @@
       "metricLine": {
         "title": "Chart",
         "titleMulti": "{n} metrics",
-        "desc": "Line/area/column chart over one or more metrics of the same kind."
+        "desc": "Line/area/column comparison across one or more metrics of the same kind, optionally split by attribute."
       },
       "metricSparkline": {
         "title": "Sparkline",
         "desc": "Minimal axis-less chart for dense dashboards."
+      },
+      "metricGauge": {
+        "title": "Gauge",
+        "desc": "Radial gauge with colored thresholds for status & SLO."
+      },
+      "metricBarGauge": {
+        "title": "Bar gauge",
+        "desc": "Horizontal top-N: one bar per attribute group."
+      },
+      "metricPie": {
+        "title": "Pie / Donut",
+        "desc": "Proportions across groups (e.g. errors by service)."
+      },
+      "metricHeatmap": {
+        "title": "Heatmap",
+        "desc": "Grid: one row per group, one column per time bucket, color = value."
+      },
+      "recentTraces": {
+        "title": "Recent traces",
+        "desc": "Sortable trace list (recent / slowest / errors first), click → trace detail."
+      },
+      "logsStream": {
+        "title": "Log stream",
+        "desc": "Tail of recent logs filtered by service and minimum severity."
       },
       "text": {
         "title": "Text",
@@ -128,7 +153,7 @@
       "splitByHint": "Attribute key (e.g. http.method). Empty = all attributes.",
       "showSparkline": "Show sparkline",
       "decimals": "Decimals",
-      "unit": "Unit",
+      "unit": "Unit (label)",
       "markdown": "Content (markdown)",
       "markdownPlaceholder": "## Title\n\nWrite here…",
       "apply": "Apply",
@@ -136,6 +161,68 @@
         "label": "Alignment",
         "left": "Left",
         "center": "Center"
+      },
+      "calc": {
+        "label": "Aggregation",
+        "last": "Last",
+        "mean": "Mean",
+        "min": "Min",
+        "max": "Max",
+        "sum": "Sum"
+      },
+      "unitKind": {
+        "label": "Unit format",
+        "none": "None",
+        "short": "Number (k/M/G)",
+        "bytes": "Bytes (KiB/MiB/GiB)",
+        "bps": "Bits/sec",
+        "seconds": "Seconds",
+        "ms": "Milliseconds",
+        "percent": "Percent (0–100)",
+        "percentUnit": "Percent (0–1)",
+        "ops": "Ops"
+      },
+      "thresholds": {
+        "label": "Thresholds",
+        "empty": "No thresholds yet. Add one to color the value.",
+        "add": "Add threshold",
+        "remove": "Remove",
+        "valuePlaceholder": "e.g. 100 MB"
+      },
+      "min": "Min",
+      "max": "Max",
+      "maxAuto": "Auto",
+      "maxAutoHint": "Empty = fit to the largest visible value.",
+      "topN": "Top N",
+      "splitByPieHint": "Attribute key used to slice the value into pie sections.",
+      "donut": "Donut",
+      "showLegend": "Show legend",
+      "chartType": {
+        "label": "Chart type",
+        "auto": "Auto",
+        "line": "Line",
+        "area": "Area",
+        "column": "Column"
+      },
+      "service": "Service",
+      "serviceHint": "Empty = all services.",
+      "allServices": "All",
+      "limit": "Limit",
+      "buckets": "Time buckets",
+      "bucketReduce": "Bucket reduction",
+      "traceSort": {
+        "label": "Sort",
+        "recent": "Most recent",
+        "slowest": "Slowest",
+        "errorsFirst": "Errors first"
+      },
+      "severity": {
+        "label": "Min severity",
+        "all": "All",
+        "info": "Info",
+        "warn": "Warn",
+        "error": "Error",
+        "fatal": "Fatal"
       }
     },
     "splitBy": {
@@ -147,6 +234,12 @@
       "last1h": "Last hour",
       "last6h": "Last 6 hours",
       "last24h": "Last 24 hours"
+    },
+    "col": {
+      "time": "Time",
+      "service": "Service",
+      "span": "Span",
+      "duration": "Duration"
     }
   },
   "logs": {

@@ -6,6 +6,7 @@ import type { SplitBy } from '~/lib/agcharts/seriesGrouping'
 import { useWidgetSeries } from '../useWidgetSeries'
 import type { MetricLineConfig } from '../types'
 import { WIDGET_METADATA } from '../registry'
+import { formatValue, type UnitKind } from '~/lib/units/format'
 
 const props = defineProps<{
   config: MetricLineConfig
@@ -56,6 +57,16 @@ const splitBy = computed<SplitBy>(() => {
   return [raw]
 })
 
+const unitKind = computed<UnitKind>(() => props.config.unitKind ?? 'none')
+const decimals = computed(() => props.config.decimals ?? 2)
+
+const valueFormatter = computed<(v: number) => string>(() => {
+  const kind = unitKind.value
+  const dec = decimals.value
+  const loc = locale.value
+  return (v: number) => formatValue(v, kind, { decimals: dec, locale: loc })
+})
+
 function optionsFor(width: number, height: number) {
   // Switch to a stripped-down chart (no legend, no axis labels/grid) when
   // the widget is short or narrow — AG Charts otherwise reserves so much
@@ -67,7 +78,8 @@ function optionsFor(width: number, height: number) {
     splitBy: splitBy.value,
     locale: locale.value,
     isDark: colorMode.value === 'dark',
-    compact
+    compact,
+    valueFormatter: valueFormatter.value
   })
 }
 

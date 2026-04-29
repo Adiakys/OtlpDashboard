@@ -46,6 +46,10 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => [
   { label: summary.value?.rootName ?? traceId.value.slice(0, 12) + '…' }
 ])
 
+function reloadPage() {
+  if (import.meta.client) window.location.reload()
+}
+
 const subtitle = computed(() => {
   const s = summary.value
   if (!s) return undefined
@@ -98,7 +102,7 @@ const actions = computed<ActionDescriptor[]>(() => {
       v-else-if="page.error.value"
       :title="t('traces.errorTitle')"
       :description="page.error.value"
-      @retry="() => window.location.reload()"
+      @retry="reloadPage"
     />
 
     <template v-else-if="page.trace.value">

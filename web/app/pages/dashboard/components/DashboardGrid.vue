@@ -2,14 +2,26 @@
 import { GridLayout, type Layout } from 'grid-layout-plus'
 import type { WidgetItem, WidgetKind } from '../types'
 import {
+  isLogsStream,
+  isMetricBarGauge,
+  isMetricGauge,
+  isMetricHeatmap,
   isMetricLine,
+  isMetricPie,
   isMetricSparkline,
   isMetricStat,
+  isRecentTraces,
   isText
 } from '../types'
 import MetricStatWidget from '../widgets/MetricStatWidget.vue'
 import MetricLineWidget from '../widgets/MetricLineWidget.vue'
 import MetricSparklineWidget from '../widgets/MetricSparklineWidget.vue'
+import MetricGaugeWidget from '../widgets/MetricGaugeWidget.vue'
+import MetricBarGaugeWidget from '../widgets/MetricBarGaugeWidget.vue'
+import MetricPieWidget from '../widgets/MetricPieWidget.vue'
+import MetricHeatmapWidget from '../widgets/MetricHeatmapWidget.vue'
+import RecentTracesWidget from '../widgets/RecentTracesWidget.vue'
+import LogsStreamWidget from '../widgets/LogsStreamWidget.vue'
 import TextWidget from '../widgets/TextWidget.vue'
 
 const props = defineProps<{
@@ -84,6 +96,12 @@ const componentForKind: Record<WidgetKind, ReturnType<typeof defineComponent>> =
   'metric-stat': MetricStatWidget as never,
   'metric-line': MetricLineWidget as never,
   'metric-sparkline': MetricSparklineWidget as never,
+  'metric-gauge': MetricGaugeWidget as never,
+  'metric-bar-gauge': MetricBarGaugeWidget as never,
+  'metric-pie': MetricPieWidget as never,
+  'metric-heatmap': MetricHeatmapWidget as never,
+  'recent-traces': RecentTracesWidget as never,
+  'logs-stream': LogsStreamWidget as never,
   text: TextWidget as never
 }
 </script>
@@ -123,6 +141,12 @@ function widgetPropsFor(item: W) {
   if (isMetricStat(item)) return { config: item.config }
   if (isMetricLine(item)) return { config: item.config }
   if (isMetricSparkline(item)) return { config: item.config }
+  if (isMetricGauge(item)) return { config: item.config }
+  if (isMetricBarGauge(item)) return { config: item.config }
+  if (isMetricPie(item)) return { config: item.config }
+  if (isMetricHeatmap(item)) return { config: item.config }
+  if (isRecentTraces(item)) return { config: item.config }
+  if (isLogsStream(item)) return { config: item.config }
   if (isText(item)) return { config: item.config }
   return {}
 }

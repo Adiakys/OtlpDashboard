@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
-import type { MetricBinding, MetricStatConfig, ThresholdStop } from '../types'
+import type { MetricBinding, MetricHeatmapConfig, ThresholdStop } from '../types'
 import type { CalcMode } from '~/lib/units/calc'
 import type { UnitKind } from '~/lib/units/format'
 import RangePresetSelect from './RangePresetSelect.vue'
@@ -9,17 +9,29 @@ import CalcSelect from './CalcSelect.vue'
 import ThresholdsEditor from './ThresholdsEditor.vue'
 
 const props = defineProps<{
-  modelValue: MetricStatConfig
+  modelValue: MetricHeatmapConfig
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: MetricStatConfig]
+  'update:modelValue': [value: MetricHeatmapConfig]
 }>()
 
 const { t } = useI18n()
 
-function patch(p: Partial<MetricStatConfig>) {
+function patch(p: Partial<MetricHeatmapConfig>) {
   emit('update:modelValue', { ...props.modelValue, ...p })
+}
+
+function clampBuckets(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return 24
+  return Math.max(4, Math.min(120, Math.floor(n)))
+}
+
+function clampDecimals(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return 2
+  return Math.max(0, Math.min(6, Math.floor(n)))
 }
 </script>
 
@@ -39,11 +51,28 @@ function patch(p: Partial<MetricStatConfig>) {
       />
     </UFormField>
 
-    <div class="grid grid-cols-2 gap-3">
-      <UFormField :label="t('dashboard.config.calc.label')">
+    <UFormField :label="t('dashboard.config.splitBy')" :hint="t('dashboard.config.splitByHint')">
+      <UInput
+        :model-value="modelValue.splitBy ?? ''"
+        :placeholder="t('dashboard.splitBy.all')"
+        @update:model-value="(v) => patch({ splitBy: v ? String(v) : null })"
+      />
+    </UFormField>
+
+    <div class="grid grid-cols-3 gap-3">
+      <UFormField :label="t('dashboard.config.buckets')">
+        <UInput
+          type="number"
+          min="4"
+          max="120"
+          :model-value="modelValue.buckets ?? 24"
+          @update:model-value="(v) => patch({ buckets: clampBuckets(v) })"
+        />
+      </UFormField>
+      <UFormField :label="t('dashboard.config.bucketReduce')">
         <CalcSelect
-          :model-value="modelValue.calc"
-          @update:model-value="(v: CalcMode) => patch({ calc: v })"
+          :model-value="modelValue.bucketReduce"
+          @update:model-value="(v: CalcMode) => patch({ bucketReduce: v })"
         />
       </UFormField>
       <UFormField :label="t('dashboard.config.unitKind.label')">
@@ -54,33 +83,13 @@ function patch(p: Partial<MetricStatConfig>) {
       </UFormField>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <UFormField :label="t('dashboard.config.decimals')">
-        <UInput
-          type="number"
-          min="0"
-          max="6"
-          :model-value="modelValue.decimals ?? 2"
-          @update:model-value="(v) => patch({ decimals: clampDecimals(v) })"
-        />
-      </UFormField>
-      <UFormField
-        v-if="(modelValue.unitKind ?? 'none') === 'none'"
-        :label="t('dashboard.config.unit')"
-      >
-        <UInput
-          :model-value="modelValue.unit ?? ''"
-          :placeholder="modelValue.metric?.unit ?? ''"
-          @update:model-value="(v) => patch({ unit: v ? String(v) : undefined })"
-        />
-      </UFormField>
-    </div>
-
-    <UFormField>
-      <USwitch
-        :model-value="modelValue.showSparkline"
-        :label="t('dashboard.config.showSparkline')"
-        @update:model-value="(v) => patch({ showSparkline: Boolean(v) })"
+    <UFormField :label="t('dashboard.config.decimals')">
+      <UInput
+        type="number"
+        min="0"
+        max="6"
+        :model-value="modelValue.decimals ?? 2"
+        @update:model-value="(v) => patch({ decimals: clampDecimals(v) })"
       />
     </UFormField>
 
@@ -103,11 +112,3 @@ function patch(p: Partial<MetricStatConfig>) {
     </UFormField>
   </div>
 </template>
-
-<script lang="ts">
-function clampDecimals(v: unknown): number {
-  const n = typeof v === 'number' ? v : Number(v)
-  if (!Number.isFinite(n)) return 2
-  return Math.max(0, Math.min(6, Math.floor(n)))
-}
-</script>

@@ -50,6 +50,11 @@ interface BuildOptionsInput {
    *  chart container is small (dashboard widgets) so the plot area doesn't
    *  collapse to nothing. */
   compact?: boolean
+  /** Override the default numeric formatter used for axis tick labels and
+   *  tooltip values. Lets dashboard widgets feed in a unit-aware formatter
+   *  ("1.5 MB", "230 ms", "12.3%") without this module needing to know about
+   *  unit kinds. When omitted, falls back to the local `formatNumber`. */
+  valueFormatter?: (value: number) => string
 }
 
 interface ChartDatum {
@@ -78,7 +83,8 @@ interface ChartDatum {
  * tell which scale belongs to which series at a glance.
  */
 export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
-  const { series, chartType, splitBy, locale, isDark, compact = false } = input
+  const { series, chartType, splitBy, locale, isDark, compact = false, valueFormatter } = input
+  const formatValueFn = valueFormatter ?? formatNumber
 
   if (chartType === 'unsupported' || series.length === 0) {
     return emptyOptions(isDark)
@@ -102,7 +108,7 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
       const name = prefix
         ? `${prefix}${describeGroup(g.attrs)}`
         : describeGroup(g.attrs)
-      allSeries.push(buildSeries(seriesType, name, data, yKey))
+      allSeries.push(buildSeries(seriesType, name, data, yKey, formatValueFn))
     }
   }
 
@@ -132,7 +138,7 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
   const options: AgCartesianChartOptions = {
     theme: isDark ? 'ag-default-dark' : 'ag-default',
     series: allSeries,
-    axes: [xAxis, ...buildYAxes([...usedUnits.values()], compact)],
+    axes: [xAxis, ...buildYAxes([...usedUnits.values()], compact, formatValueFn)],
     legend: {
       enabled: !compact && allSeries.length > 1,
       position: 'bottom'
@@ -198,9 +204,10 @@ function buildSeries(
   type: 'line' | 'area' | 'bar',
   name: string,
   data: ChartDatum[],
-  yKey: string
+  yKey: string,
+  formatValueFn: (v: number) => string
 ): AgCartesianSeriesOptions {
-  const tooltip = { renderer: tooltipRenderer }
+  const tooltip = { renderer: (params: TooltipParams) => tooltipRenderer(params, formatValueFn) }
   if (type === 'line') {
     return { type: 'line', xKey: 'time', yKey, yName: name, data, marker: { enabled: false }, tooltip }
   }
@@ -212,7 +219,8 @@ function buildSeries(
 
 function buildYAxes(
   units: { unit: string | null; yKey: string }[],
-  compact: boolean
+  compact: boolean,
+  formatValueFn: (v: number) => string
 ): AgCartesianAxisOptions[] {
   // Stack every numeric axis on the left. AG Charts handles the layout of
   // multiple same-position axes natively, so no extra wiring is needed.
@@ -230,7 +238,7 @@ function buildYAxes(
         type: 'number',
         position: 'left',
         keys: [u.yKey],
-        label: { formatter: ({ value }) => formatNumber(value as number) }
+        label: { formatter: ({ value }) => formatValueFn(value as number) }
       })
 }
 
@@ -290,18 +298,21 @@ interface TooltipParams {
   color?: string
 }
 
-function tooltipRenderer(params: TooltipParams): { title?: string; content: string } {
+function tooltipRenderer(
+  params: TooltipParams,
+  format: (v: number) => string
+): { title?: string; content: string } {
   const { datum, yName, yValue } = params
   const value = typeof yValue === 'number' ? yValue : (datum[params.yKey] ?? 0)
   const time = new Date(datum.time)
   const timeLabel = time.toLocaleTimeString([], {
     hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
   } as Intl.DateTimeFormatOptions)
-  const lines: string[] = [`<b>${escapeHtml(formatNumber(value as number))}</b> at ${escapeHtml(timeLabel)}`]
+  const lines: string[] = [`<b>${escapeHtml(format(value as number))}</b> at ${escapeHtml(timeLabel)}`]
   if (datum.count !== undefined) lines.push(`count: ${formatNumber(datum.count)}`)
-  if (datum.sum !== undefined) lines.push(`sum: ${formatNumber(datum.sum)}`)
-  if (datum.min !== undefined) lines.push(`min: ${formatNumber(datum.min)}`)
-  if (datum.max !== undefined) lines.push(`max: ${formatNumber(datum.max)}`)
+  if (datum.sum !== undefined) lines.push(`sum: ${format(datum.sum)}`)
+  if (datum.min !== undefined) lines.push(`min: ${format(datum.min)}`)
+  if (datum.max !== undefined) lines.push(`max: ${format(datum.max)}`)
   return {
     title: yName,
     content: lines.join('<br/>')

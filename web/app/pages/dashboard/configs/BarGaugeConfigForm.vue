@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
-import type { MetricBinding, MetricStatConfig, ThresholdStop } from '../types'
+import type { MetricBarGaugeConfig, MetricBinding, ThresholdStop } from '../types'
 import type { CalcMode } from '~/lib/units/calc'
 import type { UnitKind } from '~/lib/units/format'
 import RangePresetSelect from './RangePresetSelect.vue'
@@ -9,17 +9,28 @@ import CalcSelect from './CalcSelect.vue'
 import ThresholdsEditor from './ThresholdsEditor.vue'
 
 const props = defineProps<{
-  modelValue: MetricStatConfig
+  modelValue: MetricBarGaugeConfig
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: MetricStatConfig]
+  'update:modelValue': [value: MetricBarGaugeConfig]
 }>()
 
 const { t } = useI18n()
 
-function patch(p: Partial<MetricStatConfig>) {
+function patch(p: Partial<MetricBarGaugeConfig>) {
   emit('update:modelValue', { ...props.modelValue, ...p })
+}
+
+function asNumber(v: unknown, fallback: number): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function asNullableNumber(v: unknown): number | null {
+  if (v === '' || v === null || v === undefined) return null
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : null
 }
 </script>
 
@@ -39,6 +50,14 @@ function patch(p: Partial<MetricStatConfig>) {
       />
     </UFormField>
 
+    <UFormField :label="t('dashboard.config.splitBy')" :hint="t('dashboard.config.splitByHint')">
+      <UInput
+        :model-value="modelValue.splitBy ?? ''"
+        :placeholder="t('dashboard.splitBy.all')"
+        @update:model-value="(v) => patch({ splitBy: v ? String(v) : null })"
+      />
+    </UFormField>
+
     <div class="grid grid-cols-2 gap-3">
       <UFormField :label="t('dashboard.config.calc.label')">
         <CalcSelect
@@ -54,35 +73,32 @@ function patch(p: Partial<MetricStatConfig>) {
       </UFormField>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <UFormField :label="t('dashboard.config.decimals')">
+    <div class="grid grid-cols-3 gap-3">
+      <UFormField :label="t('dashboard.config.topN')">
         <UInput
           type="number"
-          min="0"
-          max="6"
-          :model-value="modelValue.decimals ?? 2"
-          @update:model-value="(v) => patch({ decimals: clampDecimals(v) })"
+          min="1"
+          max="50"
+          :model-value="modelValue.topN ?? 10"
+          @update:model-value="(v) => patch({ topN: Math.max(1, Math.min(50, asNumber(v, 10))) })"
         />
       </UFormField>
-      <UFormField
-        v-if="(modelValue.unitKind ?? 'none') === 'none'"
-        :label="t('dashboard.config.unit')"
-      >
+      <UFormField :label="t('dashboard.config.min')">
         <UInput
-          :model-value="modelValue.unit ?? ''"
-          :placeholder="modelValue.metric?.unit ?? ''"
-          @update:model-value="(v) => patch({ unit: v ? String(v) : undefined })"
+          type="number"
+          :model-value="modelValue.min ?? 0"
+          @update:model-value="(v) => patch({ min: asNumber(v, 0) })"
+        />
+      </UFormField>
+      <UFormField :label="t('dashboard.config.max')" :hint="t('dashboard.config.maxAutoHint')">
+        <UInput
+          type="number"
+          :model-value="modelValue.max == null ? '' : String(modelValue.max)"
+          :placeholder="t('dashboard.config.maxAuto')"
+          @update:model-value="(v) => patch({ max: asNullableNumber(v) })"
         />
       </UFormField>
     </div>
-
-    <UFormField>
-      <USwitch
-        :model-value="modelValue.showSparkline"
-        :label="t('dashboard.config.showSparkline')"
-        @update:model-value="(v) => patch({ showSparkline: Boolean(v) })"
-      />
-    </UFormField>
 
     <UFormField :label="t('dashboard.config.thresholds.label')">
       <ThresholdsEditor
@@ -103,11 +119,3 @@ function patch(p: Partial<MetricStatConfig>) {
     </UFormField>
   </div>
 </template>
-
-<script lang="ts">
-function clampDecimals(v: unknown): number {
-  const n = typeof v === 'number' ? v : Number(v)
-  if (!Number.isFinite(n)) return 2
-  return Math.max(0, Math.min(6, Math.floor(n)))
-}
-</script>
