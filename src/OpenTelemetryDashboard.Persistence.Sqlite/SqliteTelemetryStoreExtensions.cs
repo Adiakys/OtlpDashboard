@@ -22,6 +22,16 @@ public static class SqliteTelemetryStoreExtensions
             options.UseSqlite(connectionString, sqlite =>
             {
                 sqlite.MigrationsAssembly(typeof(SqliteTelemetryStoreExtensions).Assembly.GetName().Name);
+                // Default for the SQLite provider is 1-2 rows per IDbCommand
+                // (EF emits one INSERT per row). With self-instrumentation
+                // enabled the EF Core SDK creates one activity per command,
+                // so a batch of 100 metric points would surface as ~100
+                // "INSERT MetricPoints" spans under TelemetryWriter.Dispatch.
+                // Bumping the cap collapses them into a handful of multi-row
+                // INSERTs (SQLite supports VALUES(..),(..),(..) up to ~32766
+                // parameters per statement, so 100 × ~10 cols stays safely
+                // under the limit) and keeps trace listings readable.
+                sqlite.MaxBatchSize(100);
             });
         }, poolSize);
     }
@@ -48,6 +58,16 @@ public static class SqliteTelemetryStoreExtensions
             options.UseSqlite(connectionString, sqlite =>
             {
                 sqlite.MigrationsAssembly(typeof(SqliteTelemetryStoreExtensions).Assembly.GetName().Name);
+                // Default for the SQLite provider is 1-2 rows per IDbCommand
+                // (EF emits one INSERT per row). With self-instrumentation
+                // enabled the EF Core SDK creates one activity per command,
+                // so a batch of 100 metric points would surface as ~100
+                // "INSERT MetricPoints" spans under TelemetryWriter.Dispatch.
+                // Bumping the cap collapses them into a handful of multi-row
+                // INSERTs (SQLite supports VALUES(..),(..),(..) up to ~32766
+                // parameters per statement, so 100 × ~10 cols stays safely
+                // under the limit) and keeps trace listings readable.
+                sqlite.MaxBatchSize(100);
             });
         }, poolSize);
     }

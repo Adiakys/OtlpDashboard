@@ -107,19 +107,27 @@ public static class SelfInstrumentationOptionsExtensions
                 .SetSampler(new ParentBasedSampler(new IgnoredNamesSampler(ignoredActivities)))
                 .AddAspNetCoreInstrumentation(o =>
                 {
-                    // Liveness probe is pure noise; everything else (SPA reads
-                    // on /api/v1/* and the self-push on /v1/{signal}) is kept
-                    // so the user can correlate frontend reads with their EF
-                    // SELECT spans and observe the OTLP ingest of self pushes
-                    // with their EF INSERT spans.
-                    o.Filter = ctx => ctx.Request.Path != "/healthz";
+                    // Drop:
+                    //   - /healthz (pure noise)
+                    //   - /v1/{traces,logs,metrics}: these are the self-push
+                    //     ingest endpoints. Tracing them creates spans for
+                    //     every export, those spans land in the next batch,
+                    //     export grows, more spans get traced. The loop pegs
+                    //     CPU and starves the BatchActivityProcessor queue
+                    //     until memory balloons. We also need to drop EF Core
+                    //     activities started under those requests, so the
+                    //     filter is enforced at the AspNetCore layer (parent)
+                    //     and the EF children inherit the dropped sampling.
+                    o.Filter = ctx =>
+                        ctx.Request.Path != "/healthz"
+                        && !IsOtlpIngestPath(ctx.Request.Path);
                 })
                 .AddHttpClientInstrumentation(o =>
                 {
-                    // Skip the outbound side of OTLP exports: the *server* span
-                    // for the same POST is already captured above, and tracing
-                    // the client side feeds an unbounded loop (every export
-                    // span lands in the next batch, re-exported, traced again).
+                    // Skip the outbound side of OTLP exports: even with the
+                    // server filter above, the HttpClient instrumentation
+                    // would record one client span per export. They have
+                    // nothing to correlate with on the server side anymore.
                     o.FilterHttpRequestMessage = req => !IsOtlpExportRequest(req?.RequestUri);
                 })
                 // EF Core spans carry the rendered SQL on `db.query.text`. The
@@ -158,7 +166,27 @@ public static class SelfInstrumentationOptionsExtensions
         // logs at the OTel sink (they would be re-exported, then logged again).
         builder.Logging.AddFilter("OpenTelemetry", LogLevel.Warning);
 
+        // Suppress per-request "Request starting / finished" logs at the OTel
+        // sink only. With self-instrumentation enabled, every export POSTs to
+        // /v1/logs — ASP.NET Core's hosting middleware emits two Information
+        // logs for that POST, those land in the next export, generating two
+        // more, and so on. Console / file sinks still get the Information logs
+        // because the filter is scoped to the OpenTelemetry provider.
+        builder.Logging.AddFilter<OpenTelemetry.Logs.OpenTelemetryLoggerProvider>(
+            "Microsoft.AspNetCore.Hosting", LogLevel.Warning);
+        builder.Logging.AddFilter<OpenTelemetry.Logs.OpenTelemetryLoggerProvider>(
+            "Microsoft.AspNetCore.Routing", LogLevel.Warning);
+
         return builder;
+    }
+
+    private static bool IsOtlpIngestPath(PathString path)
+    {
+        // Match the same prefixes the HttpClient outbound filter recognises so
+        // both ends of the OTLP loop are silenced consistently.
+        return path.StartsWithSegments("/v1/traces", StringComparison.Ordinal)
+            || path.StartsWithSegments("/v1/logs", StringComparison.Ordinal)
+            || path.StartsWithSegments("/v1/metrics", StringComparison.Ordinal);
     }
 
     private static readonly SearchValues<char> IdentifierStopChars =
