@@ -254,14 +254,9 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<string>("LayoutJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("layout_json");
-
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
 
@@ -278,6 +273,61 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                         .HasName("pk_dashboards");
 
                     b.ToTable("dashboards", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Name = "main",
+                            RowVersion = 0u,
+                            UpdatedAt = new DateTimeOffset(new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
+            modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.DashboardWidget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("config_json");
+
+                    b.Property<Guid>("DashboardId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("dashboard_id");
+
+                    b.Property<int>("H")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("h");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("W")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("w");
+
+                    b.Property<int>("X")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("x");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("y");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dashboard_widgets");
+
+                    b.HasIndex("DashboardId")
+                        .HasDatabaseName("ix_dashboard_widgets_dashboard_id");
+
+                    b.ToTable("dashboard_widgets", (string)null);
                 });
 
             modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.InstrumentRecord", b =>
@@ -501,6 +551,16 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                     b.Navigation("Links");
                 });
 
+            modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.DashboardWidget", b =>
+                {
+                    b.HasOne("OpenTelemetryDashboard.Dashboards.Domain.Dashboard", null)
+                        .WithMany("Widgets")
+                        .HasForeignKey("DashboardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_dashboard_widgets_dashboards_dashboard_id");
+                });
+
             modelBuilder.Entity("OpenTelemetryDashboard.Persistence.Metrics.Entities.InstrumentRecord", b =>
                 {
                     b.HasOne("OpenTelemetryDashboard.Core.Domain.Resource", null)
@@ -519,6 +579,11 @@ namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_metric_points_instruments_instrument_id");
+                });
+
+            modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.Dashboard", b =>
+                {
+                    b.Navigation("Widgets");
                 });
 #pragma warning restore 612, 618
         }

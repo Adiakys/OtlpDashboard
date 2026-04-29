@@ -1,6 +1,11 @@
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { DashboardService } from '~/services/DashboardService'
-import type { DashboardDto, SaveDashboardRequest } from '~/services/types'
+import {
+  DEFAULT_DASHBOARD_ID,
+  type DashboardDto,
+  type DashboardWidgetDto,
+  type SaveDashboardRequest
+} from '~/services/types'
 import type {
   DashboardLayout,
   WidgetConfig,
@@ -10,10 +15,10 @@ import type {
 import { defaultConfigFor, defaultSizeFor } from './registry'
 
 /**
- * Page state for `/dashboard`. Loads the singleton "default" dashboard,
- * keeps a working copy of the layout that diverges from the persisted
- * snapshot only in edit mode, and surfaces a single `liveTickCounter` ref
- * that widgets watch to re-fetch their data on every live tick.
+ * Page state for `/dashboard`. Loads the seeded "default" dashboard, keeps a
+ * working copy of the layout that diverges from the persisted snapshot only
+ * in edit mode, and surfaces a single `liveTickCounter` ref that widgets
+ * watch to re-fetch their data on every live tick.
  *
  * Live mode is disabled while editing (changing the layout while widgets
  * keep refetching would duplicate work and surprise the user).
@@ -48,7 +53,7 @@ export function useDashboardPage(service: DashboardService) {
       error.value = null
     }
     try {
-      const dto = await service.getDefault()
+      const dto = await service.getById(DEFAULT_DASHBOARD_ID)
       applyServerState(dto)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
@@ -60,24 +65,37 @@ export function useDashboardPage(service: DashboardService) {
   function applyServerState(dto: DashboardDto) {
     dashboard.value = dto
     rowVersion.value = dto.rowVersion
-    const parsed = parseLayout(dto.layoutJson)
-    persistedLayoutJson.value = JSON.stringify(parsed)
+    const widgets = dto.widgets.map(widgetFromDto)
+    persistedLayoutJson.value = JSON.stringify({ widgets })
     if (!isEditing.value) {
       // Don't clobber the user's in-progress edits on a background refresh.
-      layout.value = parsed
+      layout.value = { widgets }
     }
   }
 
-  function parseLayout(layoutJson: string): DashboardLayout {
-    try {
-      const obj = JSON.parse(layoutJson) as Partial<DashboardLayout>
-      if (obj && Array.isArray(obj.widgets)) {
-        return { widgets: obj.widgets as WidgetItem[] }
-      }
-    } catch {
-      /* fallthrough */
+  function widgetFromDto(dto: DashboardWidgetDto): WidgetItem {
+    // Server stores config as opaque JSON; the SPA owns the per-kind shape.
+    return {
+      id: dto.id,
+      kind: dto.kind as WidgetKind,
+      x: dto.x,
+      y: dto.y,
+      w: dto.w,
+      h: dto.h,
+      config: dto.config as unknown as WidgetConfig
     }
-    return { widgets: [] }
+  }
+
+  function widgetToDto(item: WidgetItem): DashboardWidgetDto {
+    return {
+      id: item.id,
+      kind: item.kind,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      config: item.config as unknown as Record<string, unknown>
+    }
   }
 
   function enterEdit() {
@@ -89,7 +107,8 @@ export function useDashboardPage(service: DashboardService) {
 
   function cancelEdit() {
     if (!isEditing.value) return
-    layout.value = parseLayout(persistedLayoutJson.value)
+    const snapshot = JSON.parse(persistedLayoutJson.value) as DashboardLayout
+    layout.value = snapshot
     editingWidgetId.value = null
     pickerOpen.value = false
     isEditing.value = false
@@ -101,11 +120,11 @@ export function useDashboardPage(service: DashboardService) {
     error.value = null
     try {
       const request: SaveDashboardRequest = {
-        name: dashboard.value?.name ?? 'Default',
-        layoutJson: JSON.stringify(layout.value),
+        name: dashboard.value?.name ?? 'main',
+        widgets: layout.value.widgets.map(widgetToDto),
         rowVersion: rowVersion.value
       }
-      const dto = await service.saveDefault(request)
+      const dto = await service.update(DEFAULT_DASHBOARD_ID, request)
       applyServerState(dto)
       isEditing.value = false
       editingWidgetId.value = null
@@ -124,7 +143,7 @@ export function useDashboardPage(service: DashboardService) {
   }
 
   /** Where to drop a new widget so it doesn't overlap the current layout. */
-  function nextRowFor(width: number): { x: number; y: number } {
+  function nextRowFor(_width: number): { x: number; y: number } {
     const widgets = layout.value.widgets
     if (widgets.length === 0) return { x: 0, y: 0 }
     let maxY = 0
@@ -211,7 +230,7 @@ export function useDashboardPage(service: DashboardService) {
     // Best-effort silent refresh of the envelope so concurrent edits surface
     // a fresh `rowVersion` next time the user enters edit mode.
     try {
-      const dto = await service.getDefault()
+      const dto = await service.getById(DEFAULT_DASHBOARD_ID)
       applyServerState(dto)
     } catch {
       /* keep current state */

@@ -130,20 +130,38 @@ export interface MetricPointsQuery extends InstrumentRef {
 }
 
 /**
- * Wire shape of the default dashboard. `layoutJson` is opaque to the server —
- * the SPA owns the per-widget config schema. `rowVersion` participates in
- * optimistic concurrency on save.
+ * One placement of a widget on a dashboard's grid. `kind` picks the SPA
+ * component (e.g. `metric-line`, `text`); `config` is opaque per-kind data
+ * — the backend round-trips it without interpreting the shape.
+ */
+export interface DashboardWidgetDto {
+  id: string
+  kind: string
+  x: number
+  y: number
+  w: number
+  h: number
+  config: Record<string, unknown>
+}
+
+/**
+ * Wire shape of a dashboard. `rowVersion` participates in optimistic
+ * concurrency on save: pass back the value most recently returned by the
+ * server.
  */
 export interface DashboardDto {
   id: string
   name: string
-  layoutJson: string
+  widgets: DashboardWidgetDto[]
   updatedAt: string
   rowVersion: number
 }
 
 export interface SaveDashboardRequest {
   name: string
-  layoutJson: string
+  widgets: DashboardWidgetDto[]
   rowVersion: number
 }
+
+/** Stable identifier of the seeded "default" dashboard. */
+export const DEFAULT_DASHBOARD_ID = '00000000-0000-0000-0000-000000000001'

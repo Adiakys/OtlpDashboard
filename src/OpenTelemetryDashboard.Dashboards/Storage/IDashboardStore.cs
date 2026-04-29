@@ -9,20 +9,13 @@ namespace OpenTelemetryDashboard.Dashboards.Storage;
 /// </summary>
 public interface IDashboardStore
 {
-    /// <summary>
-    /// Returns the singleton "default" dashboard, lazy-creating it on first
-    /// access so callers never need to handle a missing-row case.
-    /// </summary>
-    Task<Dashboard> GetDefaultAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Replaces the default dashboard's name and layout. Throws
-    /// <see cref="DashboardConcurrencyException"/> if the persisted
-    /// <c>RowVersion</c> does not match <paramref name="expectedRowVersion"/>.
-    /// </summary>
-    Task<Dashboard> SaveDefaultAsync(
-        string name,
-        string layoutJson,
-        uint expectedRowVersion,
-        CancellationToken cancellationToken);
+    Task<IEnumerable<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default);
+    
+    Task<Dashboard?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    
+    Task AddAsync(Dashboard dashboard, CancellationToken cancellationToken = default);
+    
+    Task UpdateAsync(Dashboard dashboard, CancellationToken cancellationToken = default);
+    
+    Task DeleteAsync(Dashboard dashboard, CancellationToken cancellationToken = default);
 }

@@ -6,34 +6,34 @@ using OpenTelemetryDashboard.Dashboards.Endpoints;
 namespace OpenTelemetryDashboard.Dashboards;
 
 /// <summary>
-/// Endpoint routing for the Dashboards module. Mirrors the
-/// <c>MapQueryApi</c> pattern from <c>OpenTelemetryDashboard.Api</c>: the
-/// caller (Host) supplies the authorization policy name so the module
-/// stays unaware of how the host configures auth.
+/// Endpoint routing for the Dashboards module. Returns a
+/// <see cref="RouteGroupBuilder"/> so the host can chain authorization,
+/// rate limiting, etc. — mirrors the <c>MapQueryApi</c> pattern from
+/// <c>OpenTelemetryDashboard.Api</c>.
 /// </summary>
 public static class DashboardsEndpointRouteBuilderExtensions
 {
     /// <summary>
-    /// Mounts <c>GET /api/v1/dashboards/default</c> and
-    /// <c>PUT /api/v1/dashboards/default</c>. When
-    /// <paramref name="authorizationPolicy"/> is non-null, the group requires
-    /// it (typically <c>"read-api"</c> to share the SPA's auth posture).
+    /// Mounts the dashboards CRUD under <c>/api/v1/dashboards</c>:
+    /// <list type="bullet">
+    ///   <item><c>GET    /api/v1/dashboards</c> — list all</item>
+    ///   <item><c>GET    /api/v1/dashboards/{id}</c> — get by id</item>
+    ///   <item><c>POST   /api/v1/dashboards</c> — create</item>
+    ///   <item><c>PUT    /api/v1/dashboards/{id}</c> — update (optimistic concurrency)</item>
+    ///   <item><c>DELETE /api/v1/dashboards/{id}</c> — delete (default protected)</item>
+    /// </list>
     /// </summary>
-    public static RouteGroupBuilder MapDashboards(
-        this IEndpointRouteBuilder endpoints,
-        string? authorizationPolicy = null)
+    public static RouteGroupBuilder MapDashboards(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
         var group = endpoints.MapGroup("/api/v1/dashboards").WithTags("Dashboards");
 
-        if (!string.IsNullOrEmpty(authorizationPolicy))
-        {
-            group = group.RequireAuthorization(authorizationPolicy);
-        }
-
-        group.MapGet("/default", DashboardEndpoints.GetDefaultAsync).WithName("GetDefaultDashboard");
-        group.MapPut("/default", DashboardEndpoints.SaveDefaultAsync).WithName("SaveDefaultDashboard");
+        group.MapGet(string.Empty, DashboardEndpoints.GetAllDashboardAsync).WithName("GetAllDashboards");
+        group.MapGet("/{id}", DashboardEndpoints.GetDashboardByIdAsync).WithName("GetDashboardById");
+        group.MapPost(string.Empty, DashboardEndpoints.PostDashboardAsync).WithName("AddDashboard");
+        group.MapPut("/{id}", DashboardEndpoints.PutDashboardAsync).WithName("UpdateDashboard");
+        group.MapDelete("/{id}", DashboardEndpoints.DeleteDashboardAsync).WithName("DeleteDashboard");
 
         return group;
     }

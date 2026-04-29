@@ -172,7 +172,7 @@ app.MapOtlpHttpEndpoints()
     .RequireRateLimiting("otlp-http");
 
 app.MapQueryApi().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
-app.MapDashboards(AuthServiceCollectionExtensions.ReadApiPolicy);
+app.MapDashboards().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboardInfo();
 
 app.MapHealthChecks("/healthz").AllowAnonymous();

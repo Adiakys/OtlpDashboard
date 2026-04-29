@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using OpenTelemetryDashboard.Dashboards.Domain;
-using OpenTelemetryDashboard.Dashboards.Validation;
 
 namespace OpenTelemetryDashboard.Persistence.Configurations;
 
@@ -18,21 +17,65 @@ public sealed class DashboardConfiguration : IEntityTypeConfiguration<Dashboard>
 
         builder.Property(d => d.Name)
             .IsRequired()
-            .HasMaxLength(DashboardValidation.MaxNameLength);
-
-        // Layout is an opaque JSON document owned by the SPA. Stored as
-        // unbounded text and capped at the validation layer (256 KB) so
-        // every provider can accept it without column-size juggling.
-        builder.Property(d => d.LayoutJson)
-            .IsRequired();
+            .HasMaxLength(32);
 
         builder.Property(d => d.UpdatedAt);
 
+        builder.HasMany(d => d.Widgets)
+            .WithOne()
+            .HasPrincipalKey(d => d.Id)
+            .HasForeignKey(d => d.DashboardId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         // App-managed optimistic concurrency token. Incremented in
-        // EfCoreDashboardStore.SaveDefaultAsync before SaveChanges; portable
+        // EfCoreDashboardStore.UpdateAsync before SaveChanges; portable
         // across SQLite/PostgreSQL/SQL Server without provider-specific
         // rowversion or xmin plumbing.
         builder.Property(d => d.RowVersion)
             .IsConcurrencyToken();
+
+        // Seed the singleton "default" dashboard so a fresh install always
+        // has at least one row. The SPA renders it as the landing page.
+        // Protected from deletion at the API boundary. Kept in a separate
+        // migration (`SeedDefaultDashboard`) so the InsertData runs against
+        // the post-rebuild schema on SQLite.
+        builder.HasData(new Dashboard()
+        {
+            Id = Dashboard.DefaultId,
+            Name = "main",
+            UpdatedAt = DateTimeOffset.MinValue,
+        });
+    }
+}
+
+public sealed class DashboardWidgetsConfiguration : IEntityTypeConfiguration<DashboardWidget>
+{
+    public void Configure(EntityTypeBuilder<DashboardWidget> builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.ToTable("DashboardWidgets");
+
+        builder.HasKey(w => w.Id);
+        builder.Property(w => w.Id).ValueGeneratedNever();
+
+        builder.Property(w => w.DashboardId).IsRequired();
+
+        builder.Property(w => w.Kind)
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(w => w.X);
+        builder.Property(w => w.Y);
+        builder.Property(w => w.W);
+        builder.Property(w => w.H);
+
+        // Per-widget config is an opaque JSON document owned by the SPA.
+        // Stored as unbounded text; the validation layer enforces a size
+        // cap so every provider can accept it without column-size juggling.
+        builder.Property(w => w.ConfigJson)
+            .IsRequired();
+
+        builder.HasIndex(w => w.DashboardId);
     }
 }

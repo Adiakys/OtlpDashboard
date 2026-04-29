@@ -2,18 +2,32 @@ import type { HttpClientService } from './HttpClientService'
 import type { DashboardDto, SaveDashboardRequest } from './types'
 
 /**
- * Reads and writes the singleton "default" dashboard. The server lazy-creates
- * the row on first GET so callers never see a 404; PUT bumps `rowVersion` and
- * surfaces 409 when a concurrent writer beat us to it.
+ * CRUD client for the dashboards Query API. The server seeds a "default"
+ * dashboard on first migration (see `DEFAULT_DASHBOARD_ID`) so the SPA can
+ * land on it without an empty-state branch. `update` carries `rowVersion`
+ * for optimistic concurrency — pass back the value most recently returned
+ * by the server to avoid a 409.
  */
 export class DashboardService {
   constructor(private readonly http: HttpClientService) {}
 
-  getDefault(): Promise<DashboardDto> {
-    return this.http.get<DashboardDto>('/v1/dashboards/default')
+  list(): Promise<DashboardDto[]> {
+    return this.http.get<DashboardDto[]>('/v1/dashboards')
   }
 
-  saveDefault(request: SaveDashboardRequest): Promise<DashboardDto> {
-    return this.http.put<DashboardDto>('/v1/dashboards/default', request)
+  getById(id: string): Promise<DashboardDto> {
+    return this.http.get<DashboardDto>(`/v1/dashboards/${encodeURIComponent(id)}`)
+  }
+
+  create(request: SaveDashboardRequest): Promise<DashboardDto> {
+    return this.http.post<DashboardDto>('/v1/dashboards', request)
+  }
+
+  update(id: string, request: SaveDashboardRequest): Promise<DashboardDto> {
+    return this.http.put<DashboardDto>(`/v1/dashboards/${encodeURIComponent(id)}`, request)
+  }
+
+  delete(id: string): Promise<void> {
+    return this.http.delete<void>(`/v1/dashboards/${encodeURIComponent(id)}`)
   }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenTelemetryDashboard.Persistence;
@@ -11,9 +12,11 @@ using OpenTelemetryDashboard.Persistence;
 namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
 {
     [DbContext(typeof(TelemetryDbContext))]
-    partial class TelemetryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260429205122_AddDashboardCrud")]
+    partial class AddDashboardCrud
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -282,15 +285,6 @@ namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
                         .HasName("pk_dashboards");
 
                     b.ToTable("dashboards", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
-                            Name = "main",
-                            RowVersion = 0L,
-                            UpdatedAt = new DateTimeOffset(new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
-                        });
                 });
 
             modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.DashboardWidget", b =>
