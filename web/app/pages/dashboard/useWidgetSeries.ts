@@ -2,6 +2,7 @@ import type { ComputedRef } from 'vue'
 import type { MetricsService } from '~/services/MetricsService'
 import type { MetricSeriesDto, TimeWindow } from '~/services/types'
 import type { MetricBinding, RangePreset } from './types'
+import { useInstrumentCatalog } from './useInstrumentCatalog'
 
 /** RangePreset → TimeWindow anchored at `now`. */
 export function presetToWindow(preset: RangePreset, now: number = Date.now()): TimeWindow {
@@ -42,6 +43,8 @@ export function useWidgetSeries(
   range: ComputedRef<RangePreset>,
   liveTick: () => number
 ) {
+  const catalog = useInstrumentCatalog(service)
+
   const series = ref<MetricSeriesDto[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -60,24 +63,20 @@ export function useWidgetSeries(
     loading.value = true
     error.value = null
 
+    // Catalog is the source of truth for resourceHash; the stored binding
+    // may be stale (cross-instance import, server restart). The page-level
+    // tick refresh keeps the catalog warm — here we only ensure it's been
+    // loaded at least once.
+    await catalog.ensureLoaded()
+    if (ticket !== inFlight) return
+
     const window = presetToWindow(range.value)
     try {
-      const results = await Promise.all(
-        bindings.map(b =>
-          service.getPoints({
-            resourceHash: b.resourceHash,
-            scopeName: b.scopeName,
-            instrumentName: b.instrumentName,
-            kind: b.kind,
-            from: window.from,
-            to: window.to
-          })
-        )
-      )
-      // Drop stale results: a faster subsequent request may have already
-      // updated `series`.
+      const results = await Promise.all(bindings.map(b => fetchSeries(b, window)))
       if (ticket !== inFlight) return
-      series.value = results
+      // Drop unresolved bindings (their instrument isn't in the catalog yet);
+      // they'll appear on the next tick once the metric is pushed.
+      series.value = results.filter((r): r is MetricSeriesDto => r !== null)
     } catch (e) {
       if (ticket === inFlight) {
         error.value = e instanceof Error ? e.message : String(e)
@@ -85,6 +84,19 @@ export function useWidgetSeries(
     } finally {
       if (ticket === inFlight) loading.value = false
     }
+  }
+
+  async function fetchSeries(binding: MetricBinding, window: TimeWindow): Promise<MetricSeriesDto | null> {
+    const resolved = catalog.resolve(binding)
+    if (!resolved) return null
+    return service.getPoints({
+      resourceHash: resolved.resourceHash,
+      scopeName: resolved.scopeName,
+      instrumentName: resolved.instrumentName,
+      kind: resolved.kind,
+      from: window.from,
+      to: window.to
+    })
   }
 
   watch(metrics, load, { immediate: true, deep: true })

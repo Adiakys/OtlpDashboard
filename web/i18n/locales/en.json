@@ -89,15 +89,37 @@
       "save": "Save",
       "cancel": "Cancel",
       "addWidget": "Add widget",
+      "addDashboard": "Add dashboard",
+      "deleteDashboard": "Delete dashboard",
       "configure": "Configure",
       "remove": "Remove",
       "exportLayout": "Export JSON",
       "importLayout": "Import JSON"
     },
+    "selector": {
+      "defaultLabel": "{name} (default)"
+    },
+    "create": {
+      "title": "New dashboard",
+      "nameLabel": "Name",
+      "namePlaceholder": "E.g. Production · Services",
+      "submit": "Create"
+    },
+    "delete": {
+      "title": "Delete dashboard",
+      "message": "You are about to delete the \"{name}\" dashboard. This cannot be undone.",
+      "submit": "Delete"
+    },
+    "switchConfirm": {
+      "title": "Unsaved changes",
+      "message": "You have unsaved changes. Switching dashboards will discard them. Continue?",
+      "submit": "Switch"
+    },
     "errors": {
       "saveConflict": "Layout changed elsewhere. Reload and retry.",
       "loadFailed": "Failed to load the dashboard",
-      "importInvalid": "The selected file is not a valid dashboard configuration."
+      "importInvalid": "The selected file is not a valid dashboard configuration.",
+      "importPartialMatch": "Imported. Note: {n} metric bindings not found on this instance — reconfigure or remove the empty widgets."
     },
     "picker": {
       "title": "Choose a widget"

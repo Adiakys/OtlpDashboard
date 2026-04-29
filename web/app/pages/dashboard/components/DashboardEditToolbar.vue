@@ -2,10 +2,14 @@
 defineProps<{
   isDirty: boolean
   isSaving: boolean
+  /** Disables the delete button — set true for the protected default dashboard. */
+  canDeleteDashboard: boolean
 }>()
 
 const emit = defineEmits<{
   'add-widget': []
+  'add-dashboard': []
+  'delete-dashboard': []
   save: []
   cancel: []
   'export-layout': []
@@ -43,6 +47,27 @@ function onFileChosen(event: Event) {
     >
       {{ t('dashboard.actions.addWidget') }}
     </UButton>
+
+    <UButton
+      icon="i-lucide-layout-dashboard"
+      size="sm"
+      color="neutral"
+      variant="ghost"
+      :title="t('dashboard.actions.addDashboard')"
+      :aria-label="t('dashboard.actions.addDashboard')"
+      @click="$emit('add-dashboard')"
+    />
+
+    <UButton
+      icon="i-lucide-trash-2"
+      size="sm"
+      color="error"
+      variant="ghost"
+      :title="t('dashboard.actions.deleteDashboard')"
+      :aria-label="t('dashboard.actions.deleteDashboard')"
+      :disabled="!canDeleteDashboard"
+      @click="$emit('delete-dashboard')"
+    />
 
     <UButton
       icon="i-lucide-upload"

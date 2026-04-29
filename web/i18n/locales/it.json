@@ -89,15 +89,37 @@
       "save": "Salva",
       "cancel": "Annulla",
       "addWidget": "Aggiungi widget",
+      "addDashboard": "Aggiungi dashboard",
+      "deleteDashboard": "Elimina dashboard",
       "configure": "Configura",
       "remove": "Rimuovi",
       "exportLayout": "Esporta JSON",
       "importLayout": "Importa JSON"
     },
+    "selector": {
+      "defaultLabel": "{name} (default)"
+    },
+    "create": {
+      "title": "Nuova dashboard",
+      "nameLabel": "Nome",
+      "namePlaceholder": "Es. Produzione · Servizi",
+      "submit": "Crea"
+    },
+    "delete": {
+      "title": "Elimina dashboard",
+      "message": "Stai per eliminare la dashboard \"{name}\". L'azione è irreversibile.",
+      "submit": "Elimina"
+    },
+    "switchConfirm": {
+      "title": "Modifiche non salvate",
+      "message": "Hai modifiche non salvate. Cambiando dashboard verranno scartate. Continuare?",
+      "submit": "Cambia"
+    },
     "errors": {
       "saveConflict": "Layout modificato altrove. Ricarica e ritenta.",
       "loadFailed": "Impossibile caricare la dashboard",
-      "importInvalid": "Il file selezionato non è una configurazione dashboard valida."
+      "importInvalid": "Il file selezionato non è una configurazione dashboard valida.",
+      "importPartialMatch": "Importato. Attenzione: {n} binding metrica non trovate su questa istanza — riconfigura o elimina i widget vuoti."
     },
     "picker": {
       "title": "Scegli un widget"

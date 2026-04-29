@@ -1,5 +1,6 @@
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { DashboardService } from '~/services/DashboardService'
+import type { MetricsService } from '~/services/MetricsService'
 import {
   DEFAULT_DASHBOARD_ID,
   type DashboardDto,
@@ -12,7 +13,9 @@ import type {
   WidgetItem,
   WidgetKind
 } from './types'
+import { DashboardLayoutIO } from './dashboardLayoutIO'
 import { defaultConfigFor, defaultSizeFor } from './registry'
+import { useInstrumentCatalog } from './useInstrumentCatalog'
 
 /**
  * Page state for `/dashboard`. Loads the seeded "default" dashboard, keeps a
@@ -23,13 +26,22 @@ import { defaultConfigFor, defaultSizeFor } from './registry'
  * Live mode is disabled while editing (changing the layout while widgets
  * keep refetching would duplicate work and surprise the user).
  */
-export function useDashboardPage(service: DashboardService) {
+export function useDashboardPage(service: DashboardService, metricsService: MetricsService) {
   const { t } = useI18n()
+  const layoutIO = new DashboardLayoutIO(metricsService)
+  const catalog = useInstrumentCatalog(metricsService)
+
+  // List of all dashboards (envelope only — widgets are loaded on selection).
+  // Drives the toolbar selector and the delete-disabled state for the default.
+  const dashboards = ref<DashboardDto[]>([])
+  const currentDashboardId = ref<string>(DEFAULT_DASHBOARD_ID)
 
   // Persisted snapshot — replaced on save, used to detect dirty + revert cancel.
   const dashboard = ref<DashboardDto | null>(null)
   const persistedLayoutJson = ref<string>('{"widgets":[]}')
   const rowVersion = ref<number>(0)
+
+  const isCurrentDeletable = computed(() => currentDashboardId.value !== DEFAULT_DASHBOARD_ID)
 
   // Working copy. In view mode this mirrors the persisted layout; in edit
   // mode it diverges until save/cancel.
@@ -55,12 +67,73 @@ export function useDashboardPage(service: DashboardService) {
       error.value = null
     }
     try {
-      const dto = await service.getById(DEFAULT_DASHBOARD_ID)
+      const dto = await service.getById(currentDashboardId.value)
       applyServerState(dto)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
       if (!silent) isLoading.value = false
+    }
+  }
+
+  async function loadList(silent = false) {
+    try {
+      dashboards.value = await service.list()
+    } catch (e) {
+      if (!silent) error.value = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  /**
+   * Switch to a different dashboard. Caller is responsible for confirming
+   * any pending dirty edits — the page itself simply discards the working
+   * copy when the requested ID differs from the current one.
+   */
+  async function selectDashboard(id: string) {
+    if (id === currentDashboardId.value) return
+    if (isEditing.value) cancelEdit()
+    currentDashboardId.value = id
+    await load()
+  }
+
+  /**
+   * Create an empty dashboard with the given name, switch to it, and enter
+   * edit mode so the user can immediately populate widgets.
+   */
+  async function createDashboard(name: string): Promise<DashboardDto | null> {
+    error.value = null
+    try {
+      const dto = await service.create({ name, widgets: [], rowVersion: 0 })
+      dashboards.value = [...dashboards.value, dto]
+      currentDashboardId.value = dto.id
+      applyServerState(dto)
+      enterEdit()
+      return dto
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
+  /**
+   * Delete the currently selected dashboard and fall back to the default.
+   * The default dashboard is protected server-side; we also guard here so
+   * the UI doesn't surface a 400 needlessly.
+   */
+  async function deleteCurrentDashboard(): Promise<boolean> {
+    if (!isCurrentDeletable.value) return false
+    error.value = null
+    const id = currentDashboardId.value
+    try {
+      await service.delete(id)
+      dashboards.value = dashboards.value.filter(d => d.id !== id)
+      currentDashboardId.value = DEFAULT_DASHBOARD_ID
+      if (isEditing.value) cancelEdit()
+      await load()
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
     }
   }
 
@@ -126,8 +199,10 @@ export function useDashboardPage(service: DashboardService) {
         widgets: layout.value.widgets.map(widgetToDto),
         rowVersion: rowVersion.value
       }
-      const dto = await service.update(DEFAULT_DASHBOARD_ID, request)
+      const dto = await service.update(currentDashboardId.value, request)
       applyServerState(dto)
+      // Keep the list envelope in sync (name/updatedAt may have changed).
+      dashboards.value = dashboards.value.map(d => (d.id === dto.id ? dto : d))
       isEditing.value = false
       editingWidgetId.value = null
     } catch (e) {
@@ -225,14 +300,16 @@ export function useDashboardPage(service: DashboardService) {
     pickerOpen.value = false
   }
 
-  // Live polling: refresh the dashboard envelope (in case someone else saved
-  // it) and bump the tick counter so widgets re-fetch.
+  // Live polling: refresh the instrument catalog and the dashboard envelope,
+  // then bump the tick counter so widgets re-fetch with the freshest data.
+  // The catalog refresh comes before the bump so widgets see any newly-pushed
+  // instruments on the same tick (otherwise late-binding would miss them
+  // until the next cycle).
   async function liveTick() {
+    await catalog.refresh()
     liveTickCounter.value++
-    // Best-effort silent refresh of the envelope so concurrent edits surface
-    // a fresh `rowVersion` next time the user enters edit mode.
     try {
-      const dto = await service.getById(DEFAULT_DASHBOARD_ID)
+      const dto = await service.getById(currentDashboardId.value)
       applyServerState(dto)
     } catch {
       /* keep current state */
@@ -253,94 +330,59 @@ export function useDashboardPage(service: DashboardService) {
     live.toggle()
   }
 
-  /**
-   * Serialize the current working layout to a JSON file and trigger a
-   * download. Excludes server-managed fields (`id`, `rowVersion`,
-   * `updatedAt`) — those are reassigned by the server on save and should
-   * never be transplanted between dashboards. The widget list is kept
-   * verbatim, including widget IDs, so re-importing one's own export round-
-   * trips cleanly.
-   */
   function exportLayout() {
-    const payload = {
-      version: 1 as const,
-      exportedAt: new Date().toISOString(),
-      name: dashboard.value?.name ?? 'main',
-      widgets: layout.value.widgets
-    }
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `dashboard-${payload.name}-${new Date().toISOString().slice(0, 10)}.json`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    layoutIO.exportToFile(layout.value, dashboard.value?.name ?? 'main')
   }
 
   /**
-   * Read a JSON file produced by `exportLayout` (or an externally-authored
-   * one matching the same shape) and replace the working layout. Editing
-   * mode is auto-entered when the import succeeds so the user can review
-   * before saving — `Save` becomes enabled because the working layout
-   * differs from the persisted snapshot, `Cancel` reverts back. The server
-   * is not touched here.
-   *
-   * Validation is intentionally permissive on `kind`: an unknown kind from
-   * a future build is accepted and the grid will simply skip rendering it,
-   * rather than rejecting the whole file.
+   * Replace the working layout with the contents of an imported JSON file.
+   * Auto-enters edit mode on success so the user can review/save/cancel
+   * before persisting — the server is not touched here.
    */
   async function importLayout(file: File): Promise<boolean> {
-    try {
-      const text = await file.text()
-      const data = JSON.parse(text) as unknown
-      if (!isValidExport(data)) {
-        error.value = t('dashboard.errors.importInvalid')
-        return false
-      }
-      if (!isEditing.value) {
-        // Snapshot the current layout so `cancelEdit` can revert if the user
-        // changes their mind after seeing the imported version.
-        persistedLayoutJson.value = JSON.stringify(layout.value)
-        isEditing.value = true
-      }
-      layout.value = { widgets: data.widgets as WidgetItem[] }
-      error.value = null
-      return true
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+    const result = await layoutIO.importFromFile(file)
+
+    if (result.kind === 'invalid') {
+      error.value = t('dashboard.errors.importInvalid')
       return false
     }
-  }
-
-  function isValidExport(data: unknown): data is { name?: string; widgets: WidgetItem[] } {
-    if (!data || typeof data !== 'object') return false
-    const obj = data as { widgets?: unknown }
-    if (!Array.isArray(obj.widgets)) return false
-    for (const w of obj.widgets) {
-      if (!w || typeof w !== 'object') return false
-      const item = w as Record<string, unknown>
-      if (typeof item.id !== 'string') return false
-      if (typeof item.kind !== 'string') return false
-      if (typeof item.x !== 'number' || typeof item.y !== 'number') return false
-      if (typeof item.w !== 'number' || typeof item.h !== 'number') return false
-      if (!item.config || typeof item.config !== 'object') return false
+    if (result.kind === 'parse-error') {
+      error.value = result.cause.message
+      return false
     }
+
+    if (!isEditing.value) {
+      // Snapshot the current layout so `cancelEdit` can revert if the user
+      // changes their mind after seeing the imported version.
+      persistedLayoutJson.value = JSON.stringify(layout.value)
+      isEditing.value = true
+    }
+    layout.value = { widgets: result.widgets }
+    error.value = result.unresolvedBindings > 0
+      ? t('dashboard.errors.importPartialMatch', { n: result.unresolvedBindings })
+      : null
     return true
   }
 
-  void load()
+  void Promise.all([loadList(), load()])
 
   return {
     // State
     dashboard,
+    dashboards,
+    currentDashboardId,
+    isCurrentDeletable,
     layout,
     rowVersion,
     isLoading,
     isSaving,
     isDirty,
     error,
+
+    // Multi-dashboard
+    selectDashboard,
+    createDashboard,
+    deleteCurrentDashboard,
 
     // Edit lifecycle
     isEditing,
