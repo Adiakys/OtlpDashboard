@@ -99,20 +99,25 @@ const isConfigured = computed(() => props.config.metric !== null)
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
-    <div v-if="!isConfigured" class="h-full flex items-center justify-center text-xs text-muted px-3 text-center">
-      {{ t('dashboard.widgets.notConfigured') }}
-    </div>
-    <div v-else class="h-full flex flex-col p-3 gap-2 min-h-0">
-      <div class="flex items-baseline gap-2 leading-none">
-        <span class="text-3xl font-semibold tabular-nums truncate">{{ formattedValue }}</span>
-        <span v-if="unitLabel" class="text-sm text-muted truncate">{{ unitLabel }}</span>
+    <template #default="{ width, height }">
+      <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
+        {{ t('dashboard.widgets.notConfigured') }}
       </div>
-      <div v-if="delta !== null" class="text-xs tabular-nums" :class="deltaTone">
-        Δ {{ deltaLabel }}
+      <div v-else class="flex-1 min-h-0 min-w-0 flex flex-col p-3 gap-2">
+        <div class="flex items-baseline gap-2 leading-none min-w-0">
+          <span
+            class="font-semibold tabular-nums truncate"
+            :class="height < 120 ? 'text-xl' : height < 200 ? 'text-2xl' : 'text-3xl'"
+          >{{ formattedValue }}</span>
+          <span v-if="unitLabel && width > 140" class="text-sm text-muted truncate">{{ unitLabel }}</span>
+        </div>
+        <div v-if="delta !== null && height >= 100" class="text-xs tabular-nums shrink-0" :class="deltaTone">
+          Δ {{ deltaLabel }}
+        </div>
+        <div v-if="config.showSparkline && sortedPoints.length > 1 && height >= 140" class="flex-1 min-h-0 min-w-0">
+          <AppChart :options="sparkOptions" />
+        </div>
       </div>
-      <div v-if="config.showSparkline && sortedPoints.length > 1" class="flex-1 min-h-0">
-        <AppChart :options="sparkOptions" />
-      </div>
-    </div>
+    </template>
   </BaseWidget>
 </template>

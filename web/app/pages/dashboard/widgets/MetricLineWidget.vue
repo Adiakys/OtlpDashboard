@@ -56,13 +56,20 @@ const splitBy = computed<SplitBy>(() => {
   return [raw]
 })
 
-const options = computed(() => buildChartOptions({
-  series: series.value,
-  chartType: chartType.value,
-  splitBy: splitBy.value,
-  locale: locale.value,
-  isDark: colorMode.value === 'dark'
-}))
+function optionsFor(width: number, height: number) {
+  // Switch to a stripped-down chart (no legend, no axis labels/grid) when
+  // the widget is short or narrow — AG Charts otherwise reserves so much
+  // space for legend + axes that the plot collapses to a few pixels.
+  const compact = height < 180 || width < 260
+  return buildChartOptions({
+    series: series.value,
+    chartType: chartType.value,
+    splitBy: splitBy.value,
+    locale: locale.value,
+    isDark: colorMode.value === 'dark',
+    compact
+  })
+}
 
 const isConfigured = computed(() => props.config.metrics.length > 0)
 </script>
@@ -77,11 +84,13 @@ const isConfigured = computed(() => props.config.metrics.length > 0)
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
-    <div v-if="!isConfigured" class="h-full flex items-center justify-center text-xs text-muted px-3 text-center">
-      {{ t('dashboard.widgets.notConfigured') }}
-    </div>
-    <div v-else class="h-full">
-      <AppChart :options="options" />
-    </div>
+    <template #default="{ width, height }">
+      <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
+        {{ t('dashboard.widgets.notConfigured') }}
+      </div>
+      <div v-else class="flex-1 min-h-0 min-w-0">
+        <AppChart :options="optionsFor(width, height)" />
+      </div>
+    </template>
   </BaseWidget>
 </template>

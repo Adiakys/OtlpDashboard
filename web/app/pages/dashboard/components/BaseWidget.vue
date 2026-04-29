@@ -13,11 +13,34 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const bodyEl = ref<HTMLElement | null>(null)
+const width = ref(0)
+const height = ref(0)
+
+let observer: ResizeObserver | null = null
+
+onMounted(() => {
+  if (!bodyEl.value) return
+  observer = new ResizeObserver(entries => {
+    const entry = entries[0]
+    if (!entry) return
+    const cr = entry.contentRect
+    width.value = cr.width
+    height.value = cr.height
+  })
+  observer.observe(bodyEl.value)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+})
 </script>
 
 <template>
   <div class="flex flex-col h-full min-h-0 border border-default rounded-lg bg-default overflow-hidden">
-    <header class="widget-handle flex items-center gap-2 px-3 py-2 border-b border-default bg-elevated/40 select-none">
+    <header class="widget-handle flex items-center gap-2 px-3 py-2 border-b border-default bg-elevated/40 select-none flex-none">
       <UIcon v-if="icon" :name="icon" class="size-4 shrink-0 text-muted" />
       <span class="flex-1 text-xs font-medium uppercase tracking-wide text-muted truncate">
         {{ title }}
@@ -43,8 +66,10 @@ const { t } = useI18n()
       </template>
     </header>
 
-    <div class="widget-body flex-1 min-h-0 relative">
-      <slot />
+    <div ref="bodyEl" class="widget-body flex-1 min-h-0 min-w-0 relative overflow-hidden">
+      <div class="absolute inset-0 flex flex-col min-h-0 min-w-0">
+        <slot :width="width" :height="height" />
+      </div>
 
       <Transition
         enter-active-class="transition-opacity duration-150"

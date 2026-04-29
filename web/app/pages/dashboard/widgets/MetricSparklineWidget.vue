@@ -70,10 +70,10 @@ const isConfigured = computed(() => props.config.metric !== null)
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
-    <div v-if="!isConfigured" class="h-full flex items-center justify-center text-xs text-muted px-3 text-center">
+    <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
       {{ t('dashboard.widgets.notConfigured') }}
     </div>
-    <div v-else class="h-full">
+    <div v-else class="flex-1 min-h-0 min-w-0">
       <AppChart :options="options" />
     </div>
   </BaseWidget>

@@ -15,7 +15,7 @@ const themedOptions = computed<AgChartOptions>(() => ({
 </script>
 
 <template>
-  <div class="flex-1 min-h-0 w-full h-full">
-    <AgCharts :options="themedOptions" />
+  <div class="relative w-full h-full min-h-0 min-w-0">
+    <AgCharts :options="themedOptions" class="absolute inset-0" />
   </div>
 </template>

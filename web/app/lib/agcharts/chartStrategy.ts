@@ -46,6 +46,10 @@ interface BuildOptionsInput {
   splitBy: SplitBy
   locale: string
   isDark: boolean
+  /** Strip legend, axis titles, padding, and most labels — useful when the
+   *  chart container is small (dashboard widgets) so the plot area doesn't
+   *  collapse to nothing. */
+  compact?: boolean
 }
 
 interface ChartDatum {
@@ -74,7 +78,7 @@ interface ChartDatum {
  * tell which scale belongs to which series at a glance.
  */
 export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
-  const { series, chartType, splitBy, locale, isDark } = input
+  const { series, chartType, splitBy, locale, isDark, compact = false } = input
 
   if (chartType === 'unsupported' || series.length === 0) {
     return emptyOptions(isDark)
@@ -108,22 +112,32 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
     second: '2-digit'
   })
 
-  const options: AgCartesianChartOptions = {
-    theme: isDark ? 'ag-default-dark' : 'ag-default',
-    series: allSeries,
-    axes: [
-      {
+  const xAxis: AgCartesianAxisOptions = compact
+    ? {
+        type: 'time',
+        position: 'bottom',
+        label: { enabled: false },
+        tick: { enabled: false },
+        line: { enabled: false },
+        gridLine: { enabled: false },
+        nice: true
+      }
+    : {
         type: 'time',
         position: 'bottom',
         label: { format: '%H:%M:%S', formatter: ({ value }) => fmt.format(value as Date) },
         nice: true
-      },
-      ...buildYAxes([...usedUnits.values()])
-    ],
+      }
+
+  const options: AgCartesianChartOptions = {
+    theme: isDark ? 'ag-default-dark' : 'ag-default',
+    series: allSeries,
+    axes: [xAxis, ...buildYAxes([...usedUnits.values()], compact)],
     legend: {
-      enabled: allSeries.length > 1,
+      enabled: !compact && allSeries.length > 1,
       position: 'bottom'
     },
+    padding: compact ? { top: 4, right: 4, bottom: 4, left: 4 } : undefined,
     background: { visible: false }
   }
   return options
@@ -197,16 +211,27 @@ function buildSeries(
 }
 
 function buildYAxes(
-  units: { unit: string | null; yKey: string }[]
+  units: { unit: string | null; yKey: string }[],
+  compact: boolean
 ): AgCartesianAxisOptions[] {
   // Stack every numeric axis on the left. AG Charts handles the layout of
   // multiple same-position axes natively, so no extra wiring is needed.
-  return units.map(u => ({
-    type: 'number',
-    position: 'left',
-    keys: [u.yKey],
-    label: { formatter: ({ value }) => formatNumber(value as number) }
-  }))
+  return units.map(u => compact
+    ? {
+        type: 'number',
+        position: 'left',
+        keys: [u.yKey],
+        label: { enabled: false },
+        tick: { enabled: false },
+        line: { enabled: false },
+        gridLine: { enabled: false }
+      }
+    : {
+        type: 'number',
+        position: 'left',
+        keys: [u.yKey],
+        label: { formatter: ({ value }) => formatNumber(value as number) }
+      })
 }
 
 function toData(group: SeriesGroup, yKey: string): ChartDatum[] {

@@ -73,7 +73,7 @@ const html = computed(() => renderMarkdown(props.config.markdown ?? ''))
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
-    <div class="h-full overflow-auto p-3 text-sm text-default" :class="{ 'text-center': isCenter }">
+    <div class="flex-1 min-h-0 min-w-0 overflow-auto p-3 text-sm text-default" :class="{ 'text-center': isCenter }">
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div v-html="html" />
     </div>
