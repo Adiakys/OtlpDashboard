@@ -74,6 +74,8 @@ const drawerOpen = computed({
             @add-widget="page.openPicker"
             @save="page.save"
             @cancel="page.cancelEdit"
+            @export-layout="page.exportLayout"
+            @import-file="(file) => page.importLayout(file)"
           />
         </template>
       </AppToolbar>

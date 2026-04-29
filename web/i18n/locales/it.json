@@ -90,11 +90,14 @@
       "cancel": "Annulla",
       "addWidget": "Aggiungi widget",
       "configure": "Configura",
-      "remove": "Rimuovi"
+      "remove": "Rimuovi",
+      "exportLayout": "Esporta JSON",
+      "importLayout": "Importa JSON"
     },
     "errors": {
       "saveConflict": "Layout modificato altrove. Ricarica e ritenta.",
-      "loadFailed": "Impossibile caricare la dashboard"
+      "loadFailed": "Impossibile caricare la dashboard",
+      "importInvalid": "Il file selezionato non è una configurazione dashboard valida."
     },
     "picker": {
       "title": "Scegli un widget"

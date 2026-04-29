@@ -90,11 +90,14 @@
       "cancel": "Cancel",
       "addWidget": "Add widget",
       "configure": "Configure",
-      "remove": "Remove"
+      "remove": "Remove",
+      "exportLayout": "Export JSON",
+      "importLayout": "Import JSON"
     },
     "errors": {
       "saveConflict": "Layout changed elsewhere. Reload and retry.",
-      "loadFailed": "Failed to load the dashboard"
+      "loadFailed": "Failed to load the dashboard",
+      "importInvalid": "The selected file is not a valid dashboard configuration."
     },
     "picker": {
       "title": "Choose a widget"

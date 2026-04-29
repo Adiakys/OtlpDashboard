@@ -4,13 +4,32 @@ defineProps<{
   isSaving: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'add-widget': []
   save: []
   cancel: []
+  'export-layout': []
+  'import-file': [file: File]
 }>()
 
 const { t } = useI18n()
+
+// Hidden file input drives the "Import" button. Using a button + ref pattern
+// keeps the visible UI consistent with the other toolbar actions; clicking it
+// programmatically opens the native picker.
+const fileInput = ref<HTMLInputElement | null>(null)
+
+function pickFile() {
+  fileInput.value?.click()
+}
+
+function onFileChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) emit('import-file', file)
+  // Reset so picking the same file twice in a row still fires `change`.
+  input.value = ''
+}
 </script>
 
 <template>
@@ -24,6 +43,26 @@ const { t } = useI18n()
     >
       {{ t('dashboard.actions.addWidget') }}
     </UButton>
+
+    <UButton
+      icon="i-lucide-upload"
+      size="sm"
+      color="neutral"
+      variant="ghost"
+      :title="t('dashboard.actions.importLayout')"
+      :aria-label="t('dashboard.actions.importLayout')"
+      @click="pickFile"
+    />
+
+    <UButton
+      icon="i-lucide-download"
+      size="sm"
+      color="neutral"
+      variant="ghost"
+      :title="t('dashboard.actions.exportLayout')"
+      :aria-label="t('dashboard.actions.exportLayout')"
+      @click="$emit('export-layout')"
+    />
 
     <UButton
       icon="i-lucide-x"
@@ -45,5 +84,13 @@ const { t } = useI18n()
     >
       {{ t('dashboard.actions.save') }}
     </UButton>
+
+    <input
+      ref="fileInput"
+      type="file"
+      accept="application/json,.json"
+      class="hidden"
+      @change="onFileChosen"
+    >
   </div>
 </template>

@@ -24,6 +24,8 @@ import { defaultConfigFor, defaultSizeFor } from './registry'
  * keep refetching would duplicate work and surprise the user).
  */
 export function useDashboardPage(service: DashboardService) {
+  const { t } = useI18n()
+
   // Persisted snapshot — replaced on save, used to detect dirty + revert cancel.
   const dashboard = ref<DashboardDto | null>(null)
   const persistedLayoutJson = ref<string>('{"widgets":[]}')
@@ -251,6 +253,83 @@ export function useDashboardPage(service: DashboardService) {
     live.toggle()
   }
 
+  /**
+   * Serialize the current working layout to a JSON file and trigger a
+   * download. Excludes server-managed fields (`id`, `rowVersion`,
+   * `updatedAt`) — those are reassigned by the server on save and should
+   * never be transplanted between dashboards. The widget list is kept
+   * verbatim, including widget IDs, so re-importing one's own export round-
+   * trips cleanly.
+   */
+  function exportLayout() {
+    const payload = {
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      name: dashboard.value?.name ?? 'main',
+      widgets: layout.value.widgets
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `dashboard-${payload.name}-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Read a JSON file produced by `exportLayout` (or an externally-authored
+   * one matching the same shape) and replace the working layout. Editing
+   * mode is auto-entered when the import succeeds so the user can review
+   * before saving — `Save` becomes enabled because the working layout
+   * differs from the persisted snapshot, `Cancel` reverts back. The server
+   * is not touched here.
+   *
+   * Validation is intentionally permissive on `kind`: an unknown kind from
+   * a future build is accepted and the grid will simply skip rendering it,
+   * rather than rejecting the whole file.
+   */
+  async function importLayout(file: File): Promise<boolean> {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text) as unknown
+      if (!isValidExport(data)) {
+        error.value = t('dashboard.errors.importInvalid')
+        return false
+      }
+      if (!isEditing.value) {
+        // Snapshot the current layout so `cancelEdit` can revert if the user
+        // changes their mind after seeing the imported version.
+        persistedLayoutJson.value = JSON.stringify(layout.value)
+        isEditing.value = true
+      }
+      layout.value = { widgets: data.widgets as WidgetItem[] }
+      error.value = null
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+  }
+
+  function isValidExport(data: unknown): data is { name?: string; widgets: WidgetItem[] } {
+    if (!data || typeof data !== 'object') return false
+    const obj = data as { widgets?: unknown }
+    if (!Array.isArray(obj.widgets)) return false
+    for (const w of obj.widgets) {
+      if (!w || typeof w !== 'object') return false
+      const item = w as Record<string, unknown>
+      if (typeof item.id !== 'string') return false
+      if (typeof item.kind !== 'string') return false
+      if (typeof item.x !== 'number' || typeof item.y !== 'number') return false
+      if (typeof item.w !== 'number' || typeof item.h !== 'number') return false
+      if (!item.config || typeof item.config !== 'object') return false
+    }
+    return true
+  }
+
   void load()
 
   return {
@@ -290,6 +369,10 @@ export function useDashboardPage(service: DashboardService) {
     isLive: live.isLive,
     toggleLive,
     liveTickCounter,
+
+    // Import / export
+    exportLayout,
+    importLayout,
 
     // Actions
     reload: () => load(false)
