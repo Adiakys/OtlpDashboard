@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import BaseWidget from '../components/BaseWidget.vue'
 import type { RecentTracesConfig, TraceSortMode } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { TraceSummaryDto } from '~/services/types'
 
@@ -20,7 +20,7 @@ const { t, locale } = useI18n()
 const { $traceService } = useNuxtApp()
 
 const headerTitle = computed(() =>
-  props.config.title || t(WIDGET_METADATA['recent-traces'].titleKey)
+  props.config.title || t(WIDGET_REGISTRY['recent-traces'].titleKey)
 )
 
 const limit = computed(() => Math.max(1, Math.min(200, props.config.limit ?? 20)))
@@ -117,7 +117,7 @@ function openTrace(traceId: string) {
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['recent-traces'].icon"
+    :icon="WIDGET_REGISTRY['recent-traces'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"

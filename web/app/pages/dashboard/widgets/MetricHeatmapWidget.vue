@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries, presetToWindow } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
+import { normalizeSplitBy } from '../composables/normalizeSplitBy'
 import type { MetricHeatmapConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
-import { describeGroup, groupPoints, type SplitBy } from '~/lib/agcharts/seriesGrouping'
+import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
 
 const props = defineProps<{
   config: MetricHeatmapConfig
@@ -23,12 +26,14 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-heatmap'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-heatmap'].titleKey)
 )
 
 const buckets = computed(() => Math.max(4, Math.min(120, props.config.buckets ?? 24)))
@@ -37,13 +42,7 @@ const unitKind = computed<UnitKind>(() => props.config.unitKind ?? 'none')
 const decimals = computed(() => props.config.decimals ?? 2)
 const thresholds = computed(() => props.config.thresholds ?? [])
 
-const splitBy = computed<SplitBy>(() => {
-  // Default to "all attributes" so each attribute combination becomes its own
-  // row. Override via the `splitBy` field to focus on a single attribute.
-  const raw = props.config.splitBy
-  if (!raw) return 'all'
-  return [raw]
-})
+const splitBy = computed(() => normalizeSplitBy(props.config.splitBy))
 
 interface Cell {
   value: number | null
@@ -153,15 +152,17 @@ function tooltipFor(rowLabel: string, c: Cell, bucketMs: number): string {
 }
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-heatmap'].icon"
+    :icon="WIDGET_REGISTRY['metric-heatmap'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
@@ -181,7 +182,12 @@ const isConfigured = computed(() => props.config.metric !== null)
           :key="ri"
           class="flex items-center gap-1"
         >
-          <div class="text-[10px] text-muted truncate w-32 shrink-0" :title="row.label">{{ row.label }}</div>
+          <!--
+            Label column: responsive width (max-w-40 on >=md, max-w-28 below)
+            instead of a hard `w-32`. Long attribute keys get a horizontal
+            scrollbar via `overflow-auto` on the container, not a hard truncate.
+          -->
+          <div class="text-[10px] text-muted truncate max-w-40 min-w-24 shrink-0" :title="row.label">{{ row.label }}</div>
           <div class="flex gap-px flex-1 min-w-0">
             <div
               v-for="(c, ci) in row.cells"
@@ -194,7 +200,7 @@ const isConfigured = computed(() => props.config.metric !== null)
         </div>
         <!-- X axis ticks: first / mid / last bucket start. -->
         <div class="flex items-center gap-1 mt-1">
-          <div class="w-32 shrink-0" />
+          <div class="max-w-40 min-w-24 shrink-0" />
           <div class="flex-1 min-w-0 flex justify-between text-[10px] text-muted tabular-nums">
             <span>{{ formatBucketTime(heatmap.bucketStarts[0] ?? 0) }}</span>
             <span>

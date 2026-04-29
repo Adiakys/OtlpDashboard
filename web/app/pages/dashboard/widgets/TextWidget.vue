@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import type { TextWidgetConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
+import { escapeHtml } from '~/lib/escapeHtml'
 
 const props = defineProps<{
   config: TextWidgetConfig
@@ -15,13 +17,17 @@ defineEmits<{
 
 const { t } = useI18n()
 
-const headerTitle = computed(() => props.config.title || t(WIDGET_METADATA.text.titleKey))
+const headerTitle = computed(() => props.config.title || t(WIDGET_REGISTRY.text.titleKey))
 const isCenter = computed(() => props.config.align === 'center')
 
 // Tiny markdown renderer: bold (**…**), italics (*…* / _…_), inline code (`…`),
 // h1/h2/h3 (#, ##, ###), unordered lists (-), and explicit line breaks.
 // Intentionally narrow — pulling in a full markdown library would be overkill
 // for tenant-trusted text panels and would balloon the bundle.
+//
+// Safety: input is HTML-escaped *before* the regex pass, so nothing the user
+// types can introduce raw tags. The inline transforms only inject known
+// classes, never user content.
 function renderMarkdown(input: string): string {
   const escaped = escapeHtml(input)
 
@@ -47,13 +53,6 @@ function renderMarkdown(input: string): string {
   return out.join('\n')
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-}
-
 function inline(s: string): string {
   return s
     .replaceAll(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-elevated text-xs">$1</code>')
@@ -68,7 +67,7 @@ const html = computed(() => renderMarkdown(props.config.markdown ?? ''))
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA.text.icon"
+    :icon="WIDGET_REGISTRY.text.icon"
     :is-editing="isEditing"
     @edit="$emit('edit')"
     @remove="$emit('remove')"

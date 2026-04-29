@@ -3,6 +3,7 @@ import type { MetricsService } from '~/services/MetricsService'
 import type { MetricSeriesDto, TimeWindow } from '~/services/types'
 import type { MetricBinding, RangePreset } from './types'
 import { useInstrumentCatalog } from './useInstrumentCatalog'
+import { useMetricSeriesCache } from './useMetricSeriesCache'
 
 /** RangePreset → TimeWindow anchored at `now`. */
 export function presetToWindow(preset: RangePreset, now: number = Date.now()): TimeWindow {
@@ -29,13 +30,15 @@ export function presetToWindow(preset: RangePreset, now: number = Date.now()): T
  *  - range change
  *  - `liveTick` change (the page bumps it on every live polling tick)
  *
+ * Two cross-widget concerns are delegated:
+ *  - resourceHash resolution → `useInstrumentCatalog` (late binding by logical key)
+ *  - request dedup → `useMetricSeriesCache` (shared per-page cache so 5 widgets
+ *    on the same metric do 1 GET, not 5)
+ *
  * `liveTick` is taken as a getter, not a Ref: Vue auto-unwraps refs when they
  * cross the props boundary, so a widget passing `props.liveTick` would hand
  * us a primitive `number` and `watch` would never fire. A getter
  * (`() => props.liveTick`) keeps the dependency reactive on the prop itself.
- *
- * Stays widget-local: no shared cache, no global event bus. The number of
- * widgets per dashboard is small enough that N parallel requests are fine.
  */
 export function useWidgetSeries(
   service: MetricsService,
@@ -44,10 +47,14 @@ export function useWidgetSeries(
   liveTick: () => number
 ) {
   const catalog = useInstrumentCatalog(service)
+  const cache = useMetricSeriesCache(service)
 
   const series = ref<MetricSeriesDto[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  // Tracks whether a fetch has ever completed for the current binding set.
+  // Widgets use it to switch from "skeleton" to "no data".
+  const hasLoaded = ref(false)
 
   let inFlight = 0
 
@@ -56,6 +63,7 @@ export function useWidgetSeries(
     if (bindings.length === 0) {
       series.value = []
       error.value = null
+      hasLoaded.value = true
       return
     }
 
@@ -63,10 +71,6 @@ export function useWidgetSeries(
     loading.value = true
     error.value = null
 
-    // Catalog is the source of truth for resourceHash; the stored binding
-    // may be stale (cross-instance import, server restart). The page-level
-    // tick refresh keeps the catalog warm — here we only ensure it's been
-    // loaded at least once.
     await catalog.ensureLoaded()
     if (ticket !== inFlight) return
 
@@ -74,9 +78,8 @@ export function useWidgetSeries(
     try {
       const results = await Promise.all(bindings.map(b => fetchSeries(b, window)))
       if (ticket !== inFlight) return
-      // Drop unresolved bindings (their instrument isn't in the catalog yet);
-      // they'll appear on the next tick once the metric is pushed.
       series.value = results.filter((r): r is MetricSeriesDto => r !== null)
+      hasLoaded.value = true
     } catch (e) {
       if (ticket === inFlight) {
         error.value = e instanceof Error ? e.message : String(e)
@@ -89,19 +92,17 @@ export function useWidgetSeries(
   async function fetchSeries(binding: MetricBinding, window: TimeWindow): Promise<MetricSeriesDto | null> {
     const resolved = catalog.resolve(binding)
     if (!resolved) return null
-    return service.getPoints({
+    return cache.getPoints({
       resourceHash: resolved.resourceHash,
       scopeName: resolved.scopeName,
       instrumentName: resolved.instrumentName,
-      kind: resolved.kind,
-      from: window.from,
-      to: window.to
-    })
+      kind: resolved.kind
+    }, window)
   }
 
   watch(metrics, load, { immediate: true, deep: true })
   watch(range, load)
   watch(liveTick, load)
 
-  return { series, loading, error, reload: load }
+  return { series, loading, error, hasLoaded, reload: load }
 }

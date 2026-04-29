@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AgChartOptions } from 'ag-charts-community'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
 import type { MetricSparklineConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
+import { escapeHtml } from '~/lib/escapeHtml'
 
 const props = defineProps<{
   config: MetricSparklineConfig
@@ -22,12 +25,14 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-sparkline'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-sparkline'].titleKey)
 )
 
 const sortedPoints = computed(() => {
@@ -56,12 +61,6 @@ function tooltipRenderer(params: SparkParams): { title?: string; content: string
   return { content: `<b>${escapeHtml(formatted)}</b><br/>${escapeHtml(timeLabel)}` }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c] as string))
-}
-
 const options = computed<AgChartOptions>(() => ({
   data: sortedPoints.value.map(p => ({ time: new Date(p.time), value: Number(p.value) })),
   series: [{
@@ -85,15 +84,17 @@ const options = computed<AgChartOptions>(() => ({
 }))
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-sparkline'].icon"
+    :icon="WIDGET_REGISTRY['metric-sparkline'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >

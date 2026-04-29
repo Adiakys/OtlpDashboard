@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AgChartOptions } from 'ag-charts-community'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
+import { useReducedScalar } from '../composables/useReducedScalar'
 import type { MetricStatConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
-import { reduce, type CalcMode } from '~/lib/units/calc'
+import { WIDGET_REGISTRY } from '../registry'
+import { type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 
@@ -24,15 +27,19 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-stat'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-stat'].titleKey)
 )
 
 const sortedPoints = computed(() => {
+  // groupPoints (used by widgets that split by attribute) sorts internally,
+  // but Stat reads the raw series and needs a guarantee for the delta calc.
   const ps = series.value[0]?.points ?? []
   return [...ps].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 })
@@ -42,9 +49,7 @@ const unitKind = computed<UnitKind>(() => props.config.unitKind ?? 'none')
 const decimals = computed(() => props.config.decimals ?? 2)
 const thresholds = computed(() => props.config.thresholds ?? [])
 
-const aggregated = computed<number | null>(() => {
-  return reduce(sortedPoints.value.map(p => Number(p.value)), calc.value)
-})
+const aggregated = useReducedScalar(series, calc)
 
 const previous = computed(() => {
   // For the delta we always compare the last two raw points — `calc` describes
@@ -58,11 +63,6 @@ const latest = computed(() => sortedPoints.value.at(-1) ?? null)
 
 const formattedValue = computed(() => {
   if (aggregated.value === null) return '—'
-  if (unitKind.value === 'none') {
-    // Preserve the legacy `unit` text suffix when the formatter doesn't
-    // contribute its own.
-    return formatValue(aggregated.value, 'none', { decimals: decimals.value, locale: locale.value })
-  }
   return formatValue(aggregated.value, unitKind.value, { decimals: decimals.value, locale: locale.value })
 })
 
@@ -120,15 +120,17 @@ const sparkOptions = computed<AgChartOptions>(() => ({
 }))
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-stat'].icon"
+    :icon="WIDGET_REGISTRY['metric-stat'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
@@ -138,10 +140,18 @@ const isConfigured = computed(() => props.config.metric !== null)
       </div>
       <div v-else class="flex-1 min-h-0 min-w-0 flex flex-col p-3 gap-2">
         <div class="flex items-baseline gap-2 leading-none min-w-0">
+          <!--
+            Use clamp() to scale the value smoothly with the widget height
+            instead of jumping between text-xl/2xl/3xl tiers. The lower bound
+            keeps the digit legible on tiny widgets; the upper bound caps the
+            growth so a tall narrow widget doesn't run off horizontally.
+          -->
           <span
             class="font-semibold tabular-nums truncate"
-            :class="height < 120 ? 'text-xl' : height < 200 ? 'text-2xl' : 'text-3xl'"
-            :style="valueColor ? { color: valueColor } : undefined"
+            :style="{
+              fontSize: `clamp(1.125rem, ${Math.round(height * 0.18)}px, 2.5rem)`,
+              ...(valueColor ? { color: valueColor } : {})
+            }"
           >{{ formattedValue }}</span>
           <span v-if="unitLabel && width > 140" class="text-sm text-muted truncate">{{ unitLabel }}</span>
         </div>

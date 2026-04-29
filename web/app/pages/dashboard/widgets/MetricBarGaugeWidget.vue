@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
+import { normalizeSplitBy } from '../composables/normalizeSplitBy'
 import type { MetricBarGaugeConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
-import { describeGroup, groupPoints, type SplitBy } from '~/lib/agcharts/seriesGrouping'
+import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
 
 const props = defineProps<{
   config: MetricBarGaugeConfig
@@ -23,12 +26,14 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-bar-gauge'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-bar-gauge'].titleKey)
 )
 
 const calc = computed<CalcMode>(() => props.config.calc ?? 'last')
@@ -38,14 +43,7 @@ const thresholds = computed(() => props.config.thresholds ?? [])
 const topN = computed(() => Math.max(1, Math.min(50, props.config.topN ?? 10)))
 const minValue = computed(() => props.config.min ?? 0)
 
-const splitBy = computed<SplitBy>(() => {
-  // Default to grouping by every attribute combination so the widget renders
-  // useful bars out of the box (e.g. gc.collections → one bar per generation).
-  // The `splitBy` field then narrows the partition to a specific attribute.
-  const raw = props.config.splitBy
-  if (!raw) return 'all'
-  return [raw]
-})
+const splitBy = computed(() => normalizeSplitBy(props.config.splitBy))
 
 interface Bar {
   key: string
@@ -92,15 +90,17 @@ const bars = computed<Bar[]>(() => {
 })
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-bar-gauge'].icon"
+    :icon="WIDGET_REGISTRY['metric-bar-gauge'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppPage from '~/components/shell/AppPage.vue'
 import AppToolbar from '~/components/shell/AppToolbar.vue'
 import AppEmptyState from '~/components/ui/AppEmptyState.vue'
@@ -111,6 +112,35 @@ const editingWidget = computed(() => {
 const drawerOpen = computed({
   get: () => editingWidget.value !== null,
   set: (v: boolean) => { if (!v) page.finishWidgetConfig() }
+})
+
+// Keyboard shortcuts active while editing the dashboard.
+//   Cmd/Ctrl + S → save (only when there are pending changes)
+//   Esc          → cancel edit (only when no inner overlay is open;
+//                   the inner USlideover/UModal trap Esc themselves and we
+//                   don't want a single keystroke to dismiss two layers).
+function onKeyDown(e: KeyboardEvent) {
+  if (!page.isEditing.value) return
+  const meta = e.metaKey || e.ctrlKey
+  if (meta && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    if (page.isDirty.value && !page.isSaving.value) void page.save()
+    return
+  }
+  if (e.key === 'Escape') {
+    const overlayOpen = drawerOpen.value || page.pickerOpen.value || createOpen.value
+      || deleteConfirmOpen.value || switchConfirmOpen.value
+    if (overlayOpen) return
+    e.preventDefault()
+    page.cancelEdit()
+  }
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined') window.addEventListener('keydown', onKeyDown)
+})
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeyDown)
 })
 </script>
 

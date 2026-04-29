@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
+import { useReducedScalar } from '../composables/useReducedScalar'
 import type { MetricGaugeConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
-import { reduce, type CalcMode } from '~/lib/units/calc'
+import { WIDGET_REGISTRY } from '../registry'
+import { type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 
@@ -22,12 +25,14 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-gauge'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-gauge'].titleKey)
 )
 
 const calc = computed<CalcMode>(() => props.config.calc ?? 'last')
@@ -40,10 +45,7 @@ const maxValue = computed(() => {
   return Number.isFinite(m) && (m as number) > minValue.value ? (m as number) : minValue.value + 100
 })
 
-const aggregated = computed<number | null>(() => {
-  const points = series.value[0]?.points ?? []
-  return reduce(points.map(p => Number(p.value)), calc.value)
-})
+const aggregated = useReducedScalar(series, calc)
 
 const matchedThreshold = computed(() => {
   if (aggregated.value === null) return null
@@ -67,12 +69,16 @@ const formattedMax = computed(() => formatValue(maxValue.value, unitKind.value, 
 
 // Arc geometry — sweeps 270° from -135° to +135° (bottom-open). All paths are
 // drawn in a 200×200 viewBox; the SVG is then scaled to fit the widget body
-// while preserving aspect ratio.
+// while preserving aspect ratio. Font sizes are also expressed in viewBox
+// units so the gauge text scales cleanly with the container.
 const ARC_START_DEG = -225 // = -135° measured from 12 o'clock, in standard math coords
 const ARC_END_DEG = 45     // sweep 270° clockwise
 const RADIUS = 80
 const CENTER = 100
 const STROKE_WIDTH = 16
+// Cap viewport units so the value-text doesn't overflow narrow widgets.
+const VALUE_FONT_SIZE = 22
+const SCALE_FONT_SIZE = 10
 
 const fraction = computed<number>(() => {
   if (aggregated.value === null) return 0
@@ -110,12 +116,10 @@ const thresholdBands = computed<ThresholdBand[]>(() => {
 })
 
 function arcPath(startDeg: number, endDeg: number): string {
-  // SVG arc — large-arc-flag depends on sweep > 180°.
   const start = polarToCartesian(CENTER, CENTER, RADIUS, startDeg)
   const end = polarToCartesian(CENTER, CENTER, RADIUS, endDeg)
   const sweep = Math.abs(endDeg - startDeg)
   const largeArcFlag = sweep > 180 ? 1 : 0
-  // sweepFlag=1 (clockwise in screen coords because Y is inverted)
   return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${RADIUS} ${RADIUS} 0 ${largeArcFlag} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`
 }
 
@@ -133,15 +137,17 @@ function clamp01(v: number): number {
 }
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-gauge'].icon"
+    :icon="WIDGET_REGISTRY['metric-gauge'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
@@ -185,16 +191,16 @@ const isConfigured = computed(() => props.config.metric !== null)
             fill="none"
             stroke-linecap="round"
           />
-          <!-- Min / Max labels -->
-          <text x="40" y="170" class="text-[10px] fill-(--ui-text-muted)" text-anchor="middle">{{ formattedMin }}</text>
-          <text x="160" y="170" class="text-[10px] fill-(--ui-text-muted)" text-anchor="middle">{{ formattedMax }}</text>
+          <!-- Min / Max labels (font in viewBox units → scales with the widget) -->
+          <text x="40" y="170" class="fill-(--ui-text-muted)" :style="{ fontSize: SCALE_FONT_SIZE + 'px' }" text-anchor="middle">{{ formattedMin }}</text>
+          <text x="160" y="170" class="fill-(--ui-text-muted)" :style="{ fontSize: SCALE_FONT_SIZE + 'px' }" text-anchor="middle">{{ formattedMax }}</text>
           <!-- Value -->
           <text
             x="100"
             y="105"
             text-anchor="middle"
             class="font-semibold tabular-nums"
-            :style="{ fill: valueColor, fontSize: '24px' }"
+            :style="{ fill: valueColor, fontSize: VALUE_FONT_SIZE + 'px' }"
           >{{ formattedValue }}</text>
         </svg>
       </div>

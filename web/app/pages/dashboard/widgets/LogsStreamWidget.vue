@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import BaseWidget from '../components/BaseWidget.vue'
 import type { LogSeverityFilter, LogsStreamConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { LogRecordDto } from '~/services/types'
 
@@ -21,7 +21,7 @@ const { $logsService } = useNuxtApp()
 const router = useRouter()
 
 const headerTitle = computed(() =>
-  props.config.title || t(WIDGET_METADATA['logs-stream'].titleKey)
+  props.config.title || t(WIDGET_REGISTRY['logs-stream'].titleKey)
 )
 
 const limit = computed(() => Math.max(1, Math.min(500, props.config.limit ?? 50)))
@@ -118,7 +118,7 @@ function openTrace(traceId: string | null) {
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['logs-stream'].icon"
+    :icon="WIDGET_REGISTRY['logs-stream'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"

@@ -1,28 +1,7 @@
 <script setup lang="ts">
 import { GridLayout, type Layout } from 'grid-layout-plus'
-import type { WidgetItem, WidgetKind } from '../types'
-import {
-  isLogsStream,
-  isMetricBarGauge,
-  isMetricGauge,
-  isMetricHeatmap,
-  isMetricLine,
-  isMetricPie,
-  isMetricSparkline,
-  isMetricStat,
-  isRecentTraces,
-  isText
-} from '../types'
-import MetricStatWidget from '../widgets/MetricStatWidget.vue'
-import MetricLineWidget from '../widgets/MetricLineWidget.vue'
-import MetricSparklineWidget from '../widgets/MetricSparklineWidget.vue'
-import MetricGaugeWidget from '../widgets/MetricGaugeWidget.vue'
-import MetricBarGaugeWidget from '../widgets/MetricBarGaugeWidget.vue'
-import MetricPieWidget from '../widgets/MetricPieWidget.vue'
-import MetricHeatmapWidget from '../widgets/MetricHeatmapWidget.vue'
-import RecentTracesWidget from '../widgets/RecentTracesWidget.vue'
-import LogsStreamWidget from '../widgets/LogsStreamWidget.vue'
-import TextWidget from '../widgets/TextWidget.vue'
+import type { WidgetItem } from '../types'
+import WidgetSlot from './WidgetSlot.vue'
 
 const props = defineProps<{
   widgets: WidgetItem[]
@@ -88,22 +67,6 @@ const widgetById = computed(() => {
   for (const w of props.widgets) map.set(w.id, w)
   return map
 })
-
-// Static map kind → component so we can <component :is> on the right widget.
-// Keeping this here instead of in registry.ts avoids a circular import between
-// the registry and the SFCs.
-const componentForKind: Record<WidgetKind, ReturnType<typeof defineComponent>> = {
-  'metric-stat': MetricStatWidget as never,
-  'metric-line': MetricLineWidget as never,
-  'metric-sparkline': MetricSparklineWidget as never,
-  'metric-gauge': MetricGaugeWidget as never,
-  'metric-bar-gauge': MetricBarGaugeWidget as never,
-  'metric-pie': MetricPieWidget as never,
-  'metric-heatmap': MetricHeatmapWidget as never,
-  'recent-traces': RecentTracesWidget as never,
-  'logs-stream': LogsStreamWidget as never,
-  text: TextWidget as never
-}
 </script>
 
 <template>
@@ -119,38 +82,17 @@ const componentForKind: Record<WidgetKind, ReturnType<typeof defineComponent>> =
     @layout-updated="onLayoutUpdated"
   >
     <template #item="{ item }">
-      <template v-if="widgetById.get(String(item.i))">
-        <component
-          :is="componentForKind[widgetById.get(String(item.i))!.kind]"
-          v-bind="widgetPropsFor(widgetById.get(String(item.i))!)"
-          :is-editing="isEditing"
-          :live-tick="liveTick"
-          @edit="emit('edit', String(item.i))"
-          @remove="emit('remove', String(item.i))"
-        />
-      </template>
+      <WidgetSlot
+        v-if="widgetById.get(String(item.i))"
+        :item="widgetById.get(String(item.i))!"
+        :is-editing="isEditing"
+        :live-tick="liveTick"
+        @edit="emit('edit', String(item.i))"
+        @remove="emit('remove', String(item.i))"
+      />
     </template>
   </GridLayout>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue'
-import type { WidgetItem as W } from '../types'
-
-function widgetPropsFor(item: W) {
-  if (isMetricStat(item)) return { config: item.config }
-  if (isMetricLine(item)) return { config: item.config }
-  if (isMetricSparkline(item)) return { config: item.config }
-  if (isMetricGauge(item)) return { config: item.config }
-  if (isMetricBarGauge(item)) return { config: item.config }
-  if (isMetricPie(item)) return { config: item.config }
-  if (isMetricHeatmap(item)) return { config: item.config }
-  if (isRecentTraces(item)) return { config: item.config }
-  if (isLogsStream(item)) return { config: item.config }
-  if (isText(item)) return { config: item.config }
-  return {}
-}
-</script>
 
 <style>
 /* Subtle drop-target outline while dragging. The library exposes the

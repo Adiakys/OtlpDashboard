@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { buildChartOptions, pickChartType, type ChartType } from '~/lib/agcharts/chartStrategy'
-import type { SplitBy } from '~/lib/agcharts/seriesGrouping'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { normalizeSplitBy } from '../composables/normalizeSplitBy'
 import type { MetricLineConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 
 const props = defineProps<{
@@ -25,13 +26,15 @@ const colorMode = useColorMode()
 
 const metrics = computed(() => props.config.metrics ?? [])
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() => {
   if (props.config.title) return props.config.title
   if (props.config.metrics.length === 1) return props.config.metrics[0]!.instrumentName
   if (props.config.metrics.length > 1) return t('dashboard.widgets.metricLine.titleMulti', { n: props.config.metrics.length })
-  return t(WIDGET_METADATA['metric-line'].titleKey)
+  return t(WIDGET_REGISTRY['metric-line'].titleKey)
 })
 
 const chartType = computed<ChartType>(() => {
@@ -51,12 +54,7 @@ const chartType = computed<ChartType>(() => {
   return pickChartType(matching.instrument.kind, matching.instrument.temporality, matching.instrument.isMonotonic)
 })
 
-const splitBy = computed<SplitBy>(() => {
-  const raw = props.config.splitBy
-  if (!raw) return 'all'
-  return [raw]
-})
-
+const splitBy = computed(() => normalizeSplitBy(props.config.splitBy))
 const unitKind = computed<UnitKind>(() => props.config.unitKind ?? 'none')
 const decimals = computed(() => props.config.decimals ?? 2)
 
@@ -84,15 +82,17 @@ function optionsFor(width: number, height: number) {
 }
 
 const isConfigured = computed(() => props.config.metrics.length > 0)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-line'].icon"
+    :icon="WIDGET_REGISTRY['metric-line'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >

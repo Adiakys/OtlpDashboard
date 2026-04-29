@@ -7,6 +7,7 @@ import type {
 import type { InstrumentDto, MetricSeriesDto } from '~/services/types'
 import { describeGroup, groupPoints, type SplitBy, type SeriesGroup } from './seriesGrouping'
 import { instrumentKey } from '~/pages/metrics/buildTree'
+import { escapeHtml } from '~/lib/escapeHtml'
 
 export type ChartType = 'line' | 'area' | 'column' | 'unsupported'
 
@@ -317,12 +318,6 @@ function tooltipRenderer(
     title: yName,
     content: lines.join('<br/>')
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c] as string))
 }
 
 function formatNumber(value: number): string {

@@ -1,3 +1,4 @@
+import { defineAsyncComponent, type Component } from 'vue'
 import type {
   LogsStreamConfig,
   MetricBarGaugeConfig,
@@ -14,83 +15,184 @@ import type {
 } from './types'
 
 /**
- * Static metadata for each widget kind: i18n keys for header/picker labels,
- * default size on the 12-column grid, and a factory for the empty config.
+ * Static metadata + lazy component bindings for every widget kind. The
+ * `defineAsyncComponent` calls are evaluated lazily, so adding a new kind
+ * never grows the initial bundle. The single source of truth for both the
+ * grid renderer (`WidgetSlot`) and the config drawer (`WidgetConfigSlot`).
  *
- * The kind → component mapping (and the kind → config-form mapping) are
- * resolved in the page that imports them — keeping them out of this module
- * avoids a circular import between the registry and the Vue SFCs.
+ * Adding a new widget = add one entry here + write the two SFCs. Nothing
+ * else in the dashboard module needs to know.
  */
 export interface WidgetKindMetadata {
   titleKey: string
   descKey: string
   icon: string
   defaultSize: { w: number; h: number }
+  /** The widget renderer mounted inside the grid cell. */
+  component: Component
+  /** The form mounted inside the config drawer. */
+  configForm: Component
+  /** Empty config used when the user adds a fresh widget of this kind. */
+  defaultConfig: () => WidgetConfig
 }
 
-export const WIDGET_METADATA: Record<WidgetKind, WidgetKindMetadata> = {
+export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-stat': {
     titleKey: 'dashboard.widgets.metricStat.title',
     descKey: 'dashboard.widgets.metricStat.desc',
     icon: 'i-lucide-gauge',
-    defaultSize: { w: 3, h: 3 }
+    defaultSize: { w: 3, h: 3 },
+    component: defineAsyncComponent(() => import('./widgets/MetricStatWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/StatConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h',
+      showSparkline: true,
+      decimals: 2
+    } satisfies MetricStatConfig)
   },
   'metric-line': {
     titleKey: 'dashboard.widgets.metricLine.title',
     descKey: 'dashboard.widgets.metricLine.desc',
     icon: 'i-lucide-line-chart',
-    defaultSize: { w: 6, h: 4 }
+    defaultSize: { w: 6, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/MetricLineWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/LineConfigForm.vue')),
+    defaultConfig: () => ({
+      metrics: [],
+      range: 'last-1h',
+      splitBy: null
+    } satisfies MetricLineConfig)
   },
   'metric-sparkline': {
     titleKey: 'dashboard.widgets.metricSparkline.title',
     descKey: 'dashboard.widgets.metricSparkline.desc',
     icon: 'i-lucide-activity',
-    defaultSize: { w: 3, h: 2 }
+    defaultSize: { w: 3, h: 2 },
+    component: defineAsyncComponent(() => import('./widgets/MetricSparklineWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/SparklineConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h'
+    } satisfies MetricSparklineConfig)
   },
   'metric-gauge': {
     titleKey: 'dashboard.widgets.metricGauge.title',
     descKey: 'dashboard.widgets.metricGauge.desc',
     icon: 'i-lucide-gauge-circle',
-    defaultSize: { w: 3, h: 3 }
+    defaultSize: { w: 3, h: 3 },
+    component: defineAsyncComponent(() => import('./widgets/MetricGaugeWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/GaugeConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h',
+      calc: 'last',
+      unitKind: 'none',
+      decimals: 2,
+      min: 0,
+      max: 100,
+      thresholds: []
+    } satisfies MetricGaugeConfig)
   },
   'metric-bar-gauge': {
     titleKey: 'dashboard.widgets.metricBarGauge.title',
     descKey: 'dashboard.widgets.metricBarGauge.desc',
     icon: 'i-lucide-bar-chart-horizontal',
-    defaultSize: { w: 4, h: 4 }
+    defaultSize: { w: 4, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/MetricBarGaugeWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/BarGaugeConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h',
+      splitBy: null,
+      calc: 'last',
+      unitKind: 'none',
+      decimals: 2,
+      topN: 10,
+      min: 0,
+      max: null,
+      thresholds: []
+    } satisfies MetricBarGaugeConfig)
   },
   'metric-pie': {
     titleKey: 'dashboard.widgets.metricPie.title',
     descKey: 'dashboard.widgets.metricPie.desc',
     icon: 'i-lucide-pie-chart',
-    defaultSize: { w: 4, h: 4 }
+    defaultSize: { w: 4, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/MetricPieWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/PieConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h',
+      splitBy: null,
+      calc: 'last',
+      unitKind: 'none',
+      decimals: 2,
+      donut: false,
+      showLegend: true
+    } satisfies MetricPieConfig)
   },
   'metric-heatmap': {
     titleKey: 'dashboard.widgets.metricHeatmap.title',
     descKey: 'dashboard.widgets.metricHeatmap.desc',
     icon: 'i-lucide-grid-3x3',
-    defaultSize: { w: 6, h: 4 }
+    defaultSize: { w: 6, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/MetricHeatmapWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/HeatmapConfigForm.vue')),
+    defaultConfig: () => ({
+      metric: null,
+      range: 'last-1h',
+      splitBy: null,
+      buckets: 24,
+      bucketReduce: 'mean',
+      unitKind: 'none',
+      decimals: 2,
+      thresholds: []
+    } satisfies MetricHeatmapConfig)
   },
   'recent-traces': {
     titleKey: 'dashboard.widgets.recentTraces.title',
     descKey: 'dashboard.widgets.recentTraces.desc',
     icon: 'i-lucide-list',
-    defaultSize: { w: 6, h: 4 }
+    defaultSize: { w: 6, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/RecentTracesWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/RecentTracesConfigForm.vue')),
+    defaultConfig: () => ({
+      range: 'last-1h',
+      service: null,
+      sort: 'recent',
+      limit: 20
+    } satisfies RecentTracesConfig)
   },
   'logs-stream': {
     titleKey: 'dashboard.widgets.logsStream.title',
     descKey: 'dashboard.widgets.logsStream.desc',
     icon: 'i-lucide-scroll-text',
-    defaultSize: { w: 6, h: 4 }
+    defaultSize: { w: 6, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/LogsStreamWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/LogsStreamConfigForm.vue')),
+    defaultConfig: () => ({
+      range: 'last-15m',
+      service: null,
+      minSeverity: 'all',
+      limit: 50
+    } satisfies LogsStreamConfig)
   },
   text: {
     titleKey: 'dashboard.widgets.text.title',
     descKey: 'dashboard.widgets.text.desc',
     icon: 'i-lucide-type',
-    defaultSize: { w: 4, h: 2 }
+    defaultSize: { w: 4, h: 2 },
+    component: defineAsyncComponent(() => import('./widgets/TextWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/TextConfigForm.vue')),
+    defaultConfig: () => ({
+      markdown: '## Nuovo pannello\n\nScrivi qui…',
+      align: 'left'
+    } satisfies TextWidgetConfig)
   }
 }
 
+/** Display order in the picker dialog. Most-used first. */
 export const WIDGET_KINDS: WidgetKind[] = [
   'metric-stat',
   'metric-gauge',
@@ -105,93 +207,9 @@ export const WIDGET_KINDS: WidgetKind[] = [
 ]
 
 export function defaultSizeFor(kind: WidgetKind): { w: number; h: number } {
-  return WIDGET_METADATA[kind].defaultSize
+  return WIDGET_REGISTRY[kind].defaultSize
 }
 
 export function defaultConfigFor(kind: WidgetKind): WidgetConfig {
-  switch (kind) {
-    case 'metric-stat':
-      return {
-        metric: null,
-        range: 'last-1h',
-        showSparkline: true,
-        decimals: 2
-      } satisfies MetricStatConfig
-    case 'metric-line':
-      return {
-        metrics: [],
-        range: 'last-1h',
-        splitBy: null
-      } satisfies MetricLineConfig
-    case 'metric-sparkline':
-      return {
-        metric: null,
-        range: 'last-1h'
-      } satisfies MetricSparklineConfig
-    case 'metric-gauge':
-      return {
-        metric: null,
-        range: 'last-1h',
-        calc: 'last',
-        unitKind: 'none',
-        decimals: 2,
-        min: 0,
-        max: 100,
-        thresholds: []
-      } satisfies MetricGaugeConfig
-    case 'metric-bar-gauge':
-      return {
-        metric: null,
-        range: 'last-1h',
-        splitBy: null,
-        calc: 'last',
-        unitKind: 'none',
-        decimals: 2,
-        topN: 10,
-        min: 0,
-        max: null,
-        thresholds: []
-      } satisfies MetricBarGaugeConfig
-    case 'metric-pie':
-      return {
-        metric: null,
-        range: 'last-1h',
-        splitBy: null,
-        calc: 'last',
-        unitKind: 'none',
-        decimals: 2,
-        donut: false,
-        showLegend: true
-      } satisfies MetricPieConfig
-    case 'metric-heatmap':
-      return {
-        metric: null,
-        range: 'last-1h',
-        splitBy: null,
-        buckets: 24,
-        bucketReduce: 'mean',
-        unitKind: 'none',
-        decimals: 2,
-        thresholds: []
-      } satisfies MetricHeatmapConfig
-    case 'recent-traces':
-      return {
-        range: 'last-1h',
-        service: null,
-        sort: 'recent',
-        limit: 20
-      } satisfies RecentTracesConfig
-    case 'logs-stream':
-      return {
-        range: 'last-15m',
-        service: null,
-        minSeverity: 'all',
-        limit: 50
-      } satisfies LogsStreamConfig
-    case 'text':
-      return {
-        markdown: '## Nuovo pannello\n\nScrivi qui…',
-        align: 'left'
-      } satisfies TextWidgetConfig
-  }
+  return WIDGET_REGISTRY[kind].defaultConfig()
 }

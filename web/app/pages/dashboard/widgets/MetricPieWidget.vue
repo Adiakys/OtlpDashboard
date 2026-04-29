@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AgChartOptions, AgPieSeriesOptions, AgDonutSeriesOptions } from 'ag-charts-community'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
+import { useSingleMetric } from '../composables/useSingleMetric'
+import { normalizeSplitBy } from '../composables/normalizeSplitBy'
 import type { MetricPieConfig } from '../types'
-import { WIDGET_METADATA } from '../registry'
+import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
-import { describeGroup, groupPoints, type SplitBy } from '~/lib/agcharts/seriesGrouping'
+import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { escapeHtml } from '~/lib/escapeHtml'
 
 const props = defineProps<{
   config: MetricPieConfig
@@ -24,26 +28,21 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => (props.config.metric ? [props.config.metric] : []))
+const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
-const { series, loading, error } = useWidgetSeries($metricsService, metrics, range, () => props.liveTick)
+const { series, loading, error, hasLoaded } = useWidgetSeries(
+  $metricsService, metrics, range, () => props.liveTick
+)
 
 const headerTitle = computed(() =>
-  props.config.title || props.config.metric?.instrumentName || t(WIDGET_METADATA['metric-pie'].titleKey)
+  props.config.title || props.config.metric?.instrumentName || t(WIDGET_REGISTRY['metric-pie'].titleKey)
 )
 
 const calc = computed<CalcMode>(() => props.config.calc ?? 'last')
 const unitKind = computed<UnitKind>(() => props.config.unitKind ?? 'none')
 const decimals = computed(() => props.config.decimals ?? 2)
 
-const splitBy = computed<SplitBy>(() => {
-  // Default to "all attributes" so a metric with attributes (e.g.
-  // gc.collections by generation) renders as multiple slices out of the box.
-  // The `splitBy` field then narrows to a single attribute key when set.
-  const raw = props.config.splitBy
-  if (!raw) return 'all'
-  return [raw]
-})
+const splitBy = computed(() => normalizeSplitBy(props.config.splitBy))
 
 interface Slice {
   label: string
@@ -74,12 +73,6 @@ function pieTooltip(params: PieDatumParams): { content: string } {
   return { content: `<b>${escapeHtml(params.datum.label)}</b><br/>${escapeHtml(formatted)}` }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c] as string))
-}
-
 const options = computed<AgChartOptions>(() => {
   const isDark = colorMode.value === 'dark'
   const showLegend = props.config.showLegend !== false
@@ -108,15 +101,17 @@ const options = computed<AgChartOptions>(() => {
 })
 
 const isConfigured = computed(() => props.config.metric !== null)
+const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)
 </script>
 
 <template>
   <BaseWidget
     :title="headerTitle"
-    :icon="WIDGET_METADATA['metric-pie'].icon"
+    :icon="WIDGET_REGISTRY['metric-pie'].icon"
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :show-skeleton="showSkeleton"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >

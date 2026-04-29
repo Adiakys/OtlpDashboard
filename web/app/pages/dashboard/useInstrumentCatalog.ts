@@ -1,6 +1,7 @@
 import type { MetricsService } from '~/services/MetricsService'
 import type { InstrumentDto } from '~/services/types'
 import type { MetricBinding } from './types'
+import { STATE_INSTRUMENT_CATALOG } from './composables/stateKeys'
 
 /**
  * Shared, deduped instrument catalog used by every widget on the dashboard
@@ -27,12 +28,10 @@ interface CatalogState {
   loading: boolean
 }
 
-const STATE_KEY = 'dashboard:instrumentCatalog'
-
 let inflight: Promise<void> | null = null
 
 export function useInstrumentCatalog(metrics: MetricsService) {
-  const state = useState<CatalogState>(STATE_KEY, () => ({
+  const state = useState<CatalogState>(STATE_INSTRUMENT_CATALOG, () => ({
     instruments: [],
     loadedAt: 0,
     loading: false

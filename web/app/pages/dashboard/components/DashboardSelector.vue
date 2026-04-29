@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DashboardDto } from '~/services/types'
 import { DEFAULT_DASHBOARD_ID } from '~/services/types'
 
@@ -26,6 +27,10 @@ const items = computed<Item[]>(() =>
   }))
 )
 
+// Enable search once the list is long enough that scanning visually starts
+// to bite. Below the threshold the searchable input is just visual noise.
+const searchable = computed(() => props.dashboards.length > 6)
+
 function onUpdate(value: string) {
   if (value === props.currentId) return
   emit('change', value)
@@ -38,7 +43,8 @@ function onUpdate(value: string) {
     :items="items"
     value-key="value"
     :disabled="disabled"
-    class="min-w-48"
+    :searchable="searchable"
+    class="min-w-32 sm:min-w-48 max-w-64"
     @update:model-value="onUpdate"
   />
 </template>
