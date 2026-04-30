@@ -5,6 +5,7 @@ import { InfoService } from '~/services/InfoService'
 import { LogsService } from '~/services/LogsService'
 import { MetricsService } from '~/services/MetricsService'
 import { TraceService } from '~/services/TraceService'
+import { WidgetService } from '~/services/WidgetService'
 
 /**
  * DI container — runs once per client context. HttpClientService is a
@@ -95,6 +96,7 @@ export default defineNuxtPlugin(() => {
       traceService: new TraceService(http),
       metricsService: new MetricsService(http),
       dashboardService: new DashboardService(http),
+      widgetService: new WidgetService(http),
       appName,
       appVersion,
       refreshInfo

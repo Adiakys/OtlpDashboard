@@ -39,6 +39,7 @@
     "traces": "Traces",
     "logs": "Logs",
     "metrics": "Metrics",
+    "widgets": "Widgets",
     "logout": "Logout",
     "collapse": "Collapse menu",
     "expand": "Expand menu"
@@ -127,6 +128,7 @@
     "widgets": {
       "notConfigured": "Open the configuration to choose a metric.",
       "noData": "No data in the selected range.",
+      "notAvailable": "Widget '{kind}' not available",
       "metricStat": {
         "title": "Stat",
         "desc": "Single metric value with optional delta and sparkline."
@@ -359,6 +361,37 @@
       "label": "Split by",
       "all": "All attributes",
       "aggregated": "Aggregated"
+    }
+  },
+  "widgets": {
+    "title": "Widgets",
+    "subtitle": "{count} personal widget(s)",
+    "emptyTitle": "No personal widgets yet",
+    "emptyDescription": "Configure a widget on a dashboard and use 'Save as my widget' to reuse it.",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this widget? Existing dashboard instances will show a placeholder.",
+    "howToCreate": "To create a personal widget: open a dashboard in edit mode, configure a widget, and press 'Save as my widget' in the configuration drawer.",
+    "picker": {
+      "search": "Search widgets…",
+      "builtinSection": "Builtin",
+      "customSection": "My widgets",
+      "customEmpty": "No personal widgets yet. Use 'Save as my widget' from the config drawer.",
+      "noMatch": "No widgets match the search."
+    },
+    "saveAs": {
+      "action": "Save as widget",
+      "title": "Save as personal widget",
+      "name": "Name",
+      "namePlaceholder": "e.g. p99 latency errors",
+      "description": "Description",
+      "descriptionPlaceholder": "What does this widget show?",
+      "icon": "Icon",
+      "iconHint": "Phosphor class (e.g. i-ph-target).",
+      "defaultW": "Width (1–12)",
+      "defaultH": "Height (1–24)",
+      "submit": "Save",
+      "nameRequired": "Please enter a name.",
+      "notSupported": "This widget kind cannot be saved as a template."
     }
   },
   "auth": {

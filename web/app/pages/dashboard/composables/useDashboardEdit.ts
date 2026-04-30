@@ -1,11 +1,12 @@
 import { computed, ref, type Ref } from 'vue'
 import type {
   DashboardLayout,
+  FQKind,
   WidgetConfig,
-  WidgetItem,
-  WidgetKind
+  WidgetItem
 } from '../types'
-import { defaultConfigFor, defaultSizeFor } from '../registry'
+import { normalizeKind } from '../types'
+import { defaultConfigForDefinition, useWidgetCatalog } from '../catalog'
 
 /**
  * Edit-mode state machine. Holds the mutable working copy of the layout, a
@@ -90,18 +91,29 @@ export function useDashboardEdit() {
     return { x: 0, y: maxY }
   }
 
-  function addWidget(kind: WidgetKind): void {
+  /**
+   * Add a fresh widget instance to the working layout. `kind` is a fully
+   * qualified value (`std:metric-stat` / `custom:<uuid>` / `library:<id>/<kindId>`);
+   * legacy bare-kind values are tolerated via `normalizeKind`. The catalog
+   * supplies `defaultSize` and seed config — for `custom`/`library` widgets
+   * this is the user-saved preset; for `std` it's the registry baseline.
+   */
+  function addWidget(kind: FQKind): void {
     if (!isEditing.value) return
-    const size = defaultSizeFor(kind)
+    const fq = normalizeKind(kind)
+    const catalog = useWidgetCatalog()
+    const def = catalog.byKind(fq)
+    if (!def) return // unknown kind — no-op rather than crash
+    const size = def.defaultSize
     const pos = nextRowFor(size.w)
     const item: WidgetItem = {
       id: nextWidgetId(),
-      kind,
+      kind: fq,
       x: pos.x,
       y: pos.y,
       w: size.w,
       h: size.h,
-      config: defaultConfigFor(kind)
+      config: defaultConfigForDefinition(def)
     }
     layout.value = { widgets: [...layout.value.widgets, item] }
     pickerOpen.value = false

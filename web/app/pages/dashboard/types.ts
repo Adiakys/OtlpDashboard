@@ -6,8 +6,12 @@ import type { InstrumentDto } from '~/services/types'
 
 export type { CalcMode, ThresholdStop, UnitKind }
 
-/** Widget kinds shipped in v1. New kinds extend the union and the registry. */
-export type WidgetKind =
+/**
+ * Builtin widget kinds shipped in the bundle. Each entry has a Vue
+ * component + config form in `STD_DEFINITIONS`. New builtin kinds extend
+ * the union *and* the catalog static map.
+ */
+export type BuiltinKind =
   | 'metric-stat'
   | 'metric-line'
   | 'metric-sparkline'
@@ -18,6 +22,59 @@ export type WidgetKind =
   | 'recent-traces'
   | 'logs-stream'
   | 'text'
+
+/** @deprecated Use `BuiltinKind`. Kept as alias to avoid sweeping renames. */
+export type WidgetKind = BuiltinKind
+
+/**
+ * Widget source attribution. Carried implicitly inside the `kind` string
+ * persisted on every `WidgetItem`:
+ *   - `std:<builtinKind>`           (bundled, e.g. `std:metric-stat`)
+ *   - `custom:<uuid>`               (user-saved definition, DB-backed)
+ *   - `library:<libraryId>/<kindId>` (filesystem / git-installed library)
+ *
+ * The runtime parses the prefix via `parseKind()`; persistence stays opaque.
+ */
+export type WidgetSource = 'std' | 'custom' | { library: string }
+
+/**
+ * Fully-qualified kind string. A bare builtin kind (`metric-stat`) is also
+ * accepted at parse time and treated as `std:metric-stat` for backward
+ * compatibility with dashboards saved before the FQ scheme.
+ */
+export type FQKind = string
+
+/** Engine the renderer dispatches on for a widget definition. */
+export type WidgetEngine = 'preset' | 'spec' | 'composite'
+
+/**
+ * A widget definition — the *recipe*, not the *instance*. Lives in the
+ * catalog (`useWidgetCatalog()`). `std` definitions are static, `custom`
+ * come from the server, library ones from the filesystem registry.
+ */
+export interface WidgetDefinition {
+  /** Fully-qualified kind, used by `WidgetItem.kind` to reference this def. */
+  kind: FQKind
+  source: WidgetSource
+  /** Display label for the picker. */
+  name: string
+  /** Optional description shown alongside the name. */
+  description?: string
+  /** Phosphor / Lucide icon class. */
+  icon: string
+  engine: WidgetEngine
+  defaultSize: { w: number; h: number }
+  /** For `engine === 'preset'`: the bare builtin kind being wrapped
+   *  (`metric-stat`, `gauge`, …). Always *unprefixed* — the FQ form lives
+   *  in the parent `kind` field. */
+  baseKind?: BuiltinKind
+  /** For `engine === 'preset'`: the seed config the picker copies into the
+   *  new instance. Other engines may use this for engine-specific knobs. */
+  defaultConfig?: WidgetConfig
+  /** For `engine === 'spec'` / `'composite'`: the engine-specific spec
+   *  (Vega-Lite spec, composite layout DSL). Wired in iter 2/5. */
+  spec?: unknown
+}
 
 /**
  * Server-side instrument identity (the four fields the metrics API uses as a
@@ -195,10 +252,15 @@ export type WidgetConfig =
   | LogsStreamConfig
   | TextWidgetConfig
 
-/** A single widget instance: identity + grid coords + kind-specific config. */
+/**
+ * A single widget instance: identity + grid coords + kind-specific config.
+ * `kind` is a fully-qualified string (`std:<builtin>` / `custom:<uuid>` /
+ * `library:<libId>/<kindId>`); legacy bare-kind values are accepted by the
+ * compat layer (`normalizeKind`) and treated as `std:<bare>`.
+ */
 export interface WidgetItem {
   id: string
-  kind: WidgetKind
+  kind: FQKind
   x: number
   y: number
   w: number
@@ -211,44 +273,112 @@ export interface DashboardLayout {
   widgets: WidgetItem[]
 }
 
-/** Helper to type-narrow without `as` casts inside templates. */
+// =============================================================
+// FQ-kind parsing & normalization
+//
+// The `kind` string carries source attribution as a prefix:
+//   "std:metric-stat"
+//   "custom:6f2b1f21-7c42-4a4e-9b3a-e0f0a5d8f1c2"
+//   "library:team-otel-pack/sla-tracker"
+//
+// Bare builtin kinds (`metric-stat`) are accepted at parse time for
+// backward compatibility with dashboards saved before this scheme — the
+// backend migration `NormalizeWidgetKindsToFqn` rewrites them at rest, and
+// `normalizeKind()` mirrors the same rule client-side at load.
+// =============================================================
+
+export interface ParsedKind {
+  source: WidgetSource
+  /** Builtin kind id (`metric-stat`), custom uuid, or `<libId>/<kindId>`. */
+  id: string
+}
+
+export function parseKind(kind: FQKind): ParsedKind {
+  const colon = kind.indexOf(':')
+  if (colon < 0) {
+    // Legacy bare-kind: assume builtin.
+    return { source: 'std', id: kind }
+  }
+
+  const prefix = kind.slice(0, colon)
+  const rest = kind.slice(colon + 1)
+
+  if (prefix === 'std') return { source: 'std', id: rest }
+  if (prefix === 'custom') return { source: 'custom', id: rest }
+  if (prefix === 'library') {
+    // "library:<libId>/<kindId>" — keep the slash form on the id so callers
+    // can route to a specific library entry.
+    const slash = rest.indexOf('/')
+    const libId = slash < 0 ? rest : rest.slice(0, slash)
+    return { source: { library: libId }, id: rest }
+  }
+  // Unknown prefix: treat as opaque builtin so the renderer falls back to
+  // the "widget not available" placeholder rather than crashing.
+  return { source: 'std', id: kind }
+}
+
+/** Returns the FQ form of any input — idempotent on already-prefixed values. */
+export function normalizeKind(kind: string): FQKind {
+  if (kind.includes(':')) return kind
+  return `std:${kind}`
+}
+
+/**
+ * Format a parsed kind back into its FQ string. Inverse of `parseKind`.
+ */
+export function formatKind(parsed: ParsedKind): FQKind {
+  if (parsed.source === 'std') return `std:${parsed.id}`
+  if (parsed.source === 'custom') return `custom:${parsed.id}`
+  return `library:${parsed.id}`
+}
+
+/**
+ * Type-narrow on a builtin kind. Each guard inspects `parseKind(item.kind)`,
+ * so it transparently handles both the FQ form and any unmigrated legacy
+ * bare-kind values that slipped through.
+ */
+function isBuiltin(item: WidgetItem, builtin: BuiltinKind): boolean {
+  const parsed = parseKind(item.kind)
+  return parsed.source === 'std' && parsed.id === builtin
+}
+
 export function isMetricStat(item: WidgetItem): item is WidgetItem & { config: MetricStatConfig } {
-  return item.kind === 'metric-stat'
+  return isBuiltin(item, 'metric-stat')
 }
 export function isMetricLine(item: WidgetItem): item is WidgetItem & { config: MetricLineConfig } {
-  return item.kind === 'metric-line'
+  return isBuiltin(item, 'metric-line')
 }
 export function isMetricSparkline(
   item: WidgetItem
 ): item is WidgetItem & { config: MetricSparklineConfig } {
-  return item.kind === 'metric-sparkline'
+  return isBuiltin(item, 'metric-sparkline')
 }
 export function isText(item: WidgetItem): item is WidgetItem & { config: TextWidgetConfig } {
-  return item.kind === 'text'
+  return isBuiltin(item, 'text')
 }
 export function isMetricGauge(item: WidgetItem): item is WidgetItem & { config: MetricGaugeConfig } {
-  return item.kind === 'metric-gauge'
+  return isBuiltin(item, 'metric-gauge')
 }
 export function isMetricBarGauge(
   item: WidgetItem
 ): item is WidgetItem & { config: MetricBarGaugeConfig } {
-  return item.kind === 'metric-bar-gauge'
+  return isBuiltin(item, 'metric-bar-gauge')
 }
 export function isMetricPie(item: WidgetItem): item is WidgetItem & { config: MetricPieConfig } {
-  return item.kind === 'metric-pie'
+  return isBuiltin(item, 'metric-pie')
 }
 export function isMetricHeatmap(
   item: WidgetItem
 ): item is WidgetItem & { config: MetricHeatmapConfig } {
-  return item.kind === 'metric-heatmap'
+  return isBuiltin(item, 'metric-heatmap')
 }
 export function isRecentTraces(
   item: WidgetItem
 ): item is WidgetItem & { config: RecentTracesConfig } {
-  return item.kind === 'recent-traces'
+  return isBuiltin(item, 'recent-traces')
 }
 export function isLogsStream(item: WidgetItem): item is WidgetItem & { config: LogsStreamConfig } {
-  return item.kind === 'logs-stream'
+  return isBuiltin(item, 'logs-stream')
 }
 
 /** Convenience: turn an InstrumentDto into a binding (for the picker UI). */

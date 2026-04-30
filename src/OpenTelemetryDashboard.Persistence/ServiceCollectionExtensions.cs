@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMetricReader, EfCoreMetricReader>();
 
         services.AddSingleton<IDashboardStore, EfCoreDashboardStore>();
+        services.AddSingleton<IWidgetDefinitionStore, EfCoreWidgetDefinitionStore>();
 
         return services;
     }

@@ -2,96 +2,92 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenTelemetryDashboard.Persistence;
 
 #nullable disable
 
-namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
+namespace OpenTelemetryDashboard.Persistence.Sqlite.Migrations
 {
     [DbContext(typeof(TelemetryDbContext))]
-    partial class TelemetryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260430114416_AddWidgetDefinitions")]
+    partial class AddWidgetDefinitions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
             modelBuilder.Entity("OpenTelemetryDashboard.Core.Domain.LogRecord", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Attributes")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("attributes");
 
                     b.Property<string>("Body")
                         .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("body");
 
-                    b.Property<long>("DroppedAttributesCount")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("DroppedAttributesCount")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dropped_attributes_count");
 
-                    b.Property<long>("Flags")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("Flags")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("flags");
 
                     b.Property<long>("ObservedTimeUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("observed_time_unix_nano");
 
                     b.Property<byte[]>("ResourceHash")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("varbinary(32)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("resource_hash");
 
                     b.Property<string>("ScopeName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_name");
 
                     b.Property<string>("ScopeVersion")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_version");
 
                     b.Property<int>("SeverityNumber")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("severity_number");
 
                     b.Property<string>("SeverityText")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("severity_text");
 
                     b.Property<byte[]>("SpanId")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("varbinary(8)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("span_id");
 
                     b.Property<long>("TimeUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("time_unix_nano");
 
                     b.Property<byte[]>("TraceId")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("varbinary(16)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("trace_id");
 
                     b.HasKey("Id")
@@ -116,31 +112,31 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                 {
                     b.Property<byte[]>("Hash")
                         .HasMaxLength(32)
-                        .HasColumnType("varbinary(32)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("hash");
 
                     b.Property<string>("Attributes")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("attributes");
 
-                    b.Property<long>("DroppedAttributesCount")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("DroppedAttributesCount")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dropped_attributes_count");
 
                     b.Property<string>("SchemaUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("schema_url");
 
                     b.Property<string>("ServiceInstanceId")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("service_instance_id");
 
                     b.Property<string>("ServiceName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("service_name");
 
                     b.HasKey("Hash")
@@ -156,90 +152,88 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Attributes")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("attributes");
 
-                    b.Property<long>("DroppedAttributesCount")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("DroppedAttributesCount")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dropped_attributes_count");
 
-                    b.Property<long>("DroppedEventsCount")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("DroppedEventsCount")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dropped_events_count");
 
-                    b.Property<long>("DroppedLinksCount")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("DroppedLinksCount")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("dropped_links_count");
 
                     b.Property<long>("EndUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("end_unix_nano");
 
-                    b.Property<long>("Flags")
-                        .HasColumnType("bigint")
+                    b.Property<uint>("Flags")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("flags");
 
                     b.Property<int>("Kind")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("kind");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<byte[]>("ParentSpanId")
                         .HasMaxLength(8)
-                        .HasColumnType("varbinary(8)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("parent_span_id");
 
                     b.Property<byte[]>("ResourceHash")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("varbinary(32)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("resource_hash");
 
                     b.Property<string>("ScopeName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_name");
 
                     b.Property<string>("ScopeVersion")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_version");
 
                     b.Property<byte[]>("SpanId")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("varbinary(8)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("span_id");
 
                     b.Property<long>("StartUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("start_unix_nano");
 
                     b.Property<int>("StatusCode")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("status_code");
 
                     b.Property<string>("StatusMessage")
                         .HasMaxLength(1024)
-                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("status_message");
 
                     b.Property<byte[]>("TraceId")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("varbinary(16)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("trace_id");
 
                     b.HasKey("Id")
@@ -260,22 +254,22 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
             modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.Dashboard", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
-                    b.Property<long>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("row_version");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
@@ -288,7 +282,7 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
                             Name = "main",
-                            RowVersion = 0L,
+                            RowVersion = 0u,
                             UpdatedAt = new DateTimeOffset(new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
@@ -296,38 +290,38 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
             modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.DashboardWidget", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("ConfigJson")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("config_json");
 
                     b.Property<Guid>("DashboardId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("TEXT")
                         .HasColumnName("dashboard_id");
 
                     b.Property<int>("H")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("h");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("kind");
 
                     b.Property<int>("W")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("w");
 
                     b.Property<int>("X")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("x");
 
                     b.Property<int>("Y")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("y");
 
                     b.HasKey("Id")
@@ -343,54 +337,52 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Description")
                         .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsMonotonic")
-                        .HasColumnType("bit")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_monotonic");
 
                     b.Property<int>("Kind")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("kind");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<byte[]>("ResourceHash")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("varbinary(32)")
+                        .HasColumnType("BLOB")
                         .HasColumnName("resource_hash");
 
                     b.Property<string>("ScopeName")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_name");
 
                     b.Property<string>("ScopeVersion")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_version");
 
                     b.Property<int>("Temporality")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("temporality");
 
                     b.Property<string>("Unit")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("unit");
 
                     b.HasKey("Id")
@@ -410,30 +402,28 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Attributes")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("attributes");
 
                     b.Property<long>("InstrumentId")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("instrument_id");
 
                     b.Property<long>("StartTimeUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("start_time_unix_nano");
 
                     b.Property<long>("TimeUnixNano")
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("time_unix_nano");
 
                     b.Property<double>("Value")
-                        .HasColumnType("float")
+                        .HasColumnType("REAL")
                         .HasColumnName("value");
 
                     b.HasKey("Id")
@@ -451,59 +441,59 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
             modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.WidgetDefinition", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("BaseKind")
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("base_kind");
 
                     b.Property<string>("ConfigJson")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("config_json");
 
                     b.Property<int>("DefaultH")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("default_h");
 
                     b.Property<int>("DefaultW")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("default_w");
 
                     b.Property<string>("Description")
                         .HasMaxLength(280)
-                        .HasColumnType("nvarchar(280)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<int>("Engine")
-                        .HasColumnType("int")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("engine");
 
                     b.Property<string>("Icon")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("icon");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
-                    b.Property<long>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("row_version");
 
                     b.Property<string>("SpecJson")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("spec_json");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
@@ -538,32 +528,30 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                         {
                             b1.Property<long>("Id")
                                 .ValueGeneratedOnAdd()
-                                .HasColumnType("bigint")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("id");
-
-                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<long>("Id"));
 
                             b1.Property<string>("Attributes")
                                 .IsRequired()
-                                .HasColumnType("nvarchar(max)")
+                                .HasColumnType("TEXT")
                                 .HasColumnName("attributes");
 
-                            b1.Property<long>("DroppedAttributesCount")
-                                .HasColumnType("bigint")
+                            b1.Property<uint>("DroppedAttributesCount")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("dropped_attributes_count");
 
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(512)
-                                .HasColumnType("nvarchar(512)")
+                                .HasColumnType("TEXT")
                                 .HasColumnName("name");
 
                             b1.Property<long>("OwnerSpanId")
-                                .HasColumnType("bigint")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("owner_span_id");
 
                             b1.Property<long>("TimeUnixNano")
-                                .HasColumnType("bigint")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("time_unix_nano");
 
                             b1.HasKey("Id")
@@ -583,38 +571,36 @@ namespace OpenTelemetryDashboard.Persistence.SqlServer.Migrations
                         {
                             b1.Property<long>("Id")
                                 .ValueGeneratedOnAdd()
-                                .HasColumnType("bigint")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("id");
-
-                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<long>("Id"));
 
                             b1.Property<string>("Attributes")
                                 .IsRequired()
-                                .HasColumnType("nvarchar(max)")
+                                .HasColumnType("TEXT")
                                 .HasColumnName("attributes");
 
-                            b1.Property<long>("DroppedAttributesCount")
-                                .HasColumnType("bigint")
+                            b1.Property<uint>("DroppedAttributesCount")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("dropped_attributes_count");
 
-                            b1.Property<long>("Flags")
-                                .HasColumnType("bigint")
+                            b1.Property<uint>("Flags")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("flags");
 
                             b1.Property<long>("OwnerSpanId")
-                                .HasColumnType("bigint")
+                                .HasColumnType("INTEGER")
                                 .HasColumnName("owner_span_id");
 
                             b1.Property<byte[]>("SpanId")
                                 .IsRequired()
                                 .HasMaxLength(8)
-                                .HasColumnType("varbinary(8)")
+                                .HasColumnType("BLOB")
                                 .HasColumnName("linked_span_id");
 
                             b1.Property<byte[]>("TraceId")
                                 .IsRequired()
                                 .HasMaxLength(16)
-                                .HasColumnType("varbinary(16)")
+                                .HasColumnType("BLOB")
                                 .HasColumnName("linked_trace_id");
 
                             b1.HasKey("Id")

@@ -1,0 +1,88 @@
+import { describe, expect, it, vi } from 'vitest'
+import { WidgetService } from '~/services/WidgetService'
+import type { HttpClientService } from '~/services/HttpClientService'
+
+function stubHttp() {
+  return {
+    get: vi.fn(async () => ([])),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn()
+  } as unknown as HttpClientService & {
+    get: ReturnType<typeof vi.fn>
+    post: ReturnType<typeof vi.fn>
+    put: ReturnType<typeof vi.fn>
+    delete: ReturnType<typeof vi.fn>
+  }
+}
+
+describe('WidgetService', () => {
+  it('lists custom definitions via GET /v1/widgets/definitions', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.listCustom()
+
+    expect(http.get).toHaveBeenCalledWith('/v1/widgets/definitions')
+  })
+
+  it('fetches one custom definition by id, encoded', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.getCustom('a/b c')
+
+    expect(http.get).toHaveBeenCalledWith('/v1/widgets/definitions/a%2Fb%20c')
+  })
+
+  it('creates a definition via POST', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    const req = {
+      name: 'p99',
+      description: null,
+      icon: 'i-ph-target',
+      engine: 'Preset' as const,
+      baseKind: 'metric-stat',
+      config: { calc: 'last' },
+      spec: null,
+      defaultW: 4,
+      defaultH: 3,
+      rowVersion: 0
+    }
+    await service.createCustom(req)
+
+    expect(http.post).toHaveBeenCalledWith('/v1/widgets/definitions', req)
+  })
+
+  it('updates a definition via PUT, id encoded', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    const req = {
+      name: 'p99-v2',
+      description: 'edited',
+      icon: 'i-ph-target',
+      engine: 'Preset' as const,
+      baseKind: 'metric-stat',
+      config: {},
+      spec: null,
+      defaultW: 3,
+      defaultH: 3,
+      rowVersion: 1
+    }
+    await service.updateCustom('id with space', req)
+
+    expect(http.put).toHaveBeenCalledWith('/v1/widgets/definitions/id%20with%20space', req)
+  })
+
+  it('deletes a definition via DELETE', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.deleteCustom('abc')
+
+    expect(http.delete).toHaveBeenCalledWith('/v1/widgets/definitions/abc')
+  })
+})

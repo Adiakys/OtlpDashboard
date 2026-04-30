@@ -179,3 +179,48 @@ export interface SaveDashboardRequest {
 
 /** Stable identifier of the seeded "default" dashboard. */
 export const DEFAULT_DASHBOARD_ID = '00000000-0000-0000-0000-000000000001'
+
+// =============================================================
+// Widget definitions (custom widgets saved by the user)
+// =============================================================
+
+/**
+ * Engine the renderer dispatches on. Mirrored from the server enum
+ * (Preset = 0, Spec = 1, Composite = 2). Serialized as the enum *name* by
+ * ASP.NET's default JSON options (`JsonStringEnumConverter`-like behavior
+ * is the SPA's contract — see `JsonSerializerDefaults.Web`).
+ */
+export type WidgetEngine = 'Preset' | 'Spec' | 'Composite'
+
+/**
+ * Wire shape of a custom widget definition. `config` and `spec` are opaque
+ * per-engine payloads — the backend stores them as text and round-trips
+ * them as JSON elements.
+ */
+export interface WidgetDefinitionDto {
+  id: string
+  name: string
+  description: string | null
+  icon: string
+  engine: WidgetEngine
+  baseKind: string | null
+  config: Record<string, unknown>
+  spec: Record<string, unknown> | null
+  defaultW: number
+  defaultH: number
+  updatedAt: string
+  rowVersion: number
+}
+
+export interface SaveWidgetDefinitionRequest {
+  name: string
+  description: string | null
+  icon: string
+  engine: WidgetEngine
+  baseKind: string | null
+  config: Record<string, unknown>
+  spec: Record<string, unknown> | null
+  defaultW: number
+  defaultH: number
+  rowVersion: number
+}

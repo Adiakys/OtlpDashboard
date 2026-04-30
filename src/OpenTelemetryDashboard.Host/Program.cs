@@ -173,6 +173,7 @@ app.MapOtlpHttpEndpoints()
 
 app.MapQueryApi().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboards().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
+app.MapWidgets().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboardInfo();
 
 app.MapHealthChecks("/healthz").AllowAnonymous();

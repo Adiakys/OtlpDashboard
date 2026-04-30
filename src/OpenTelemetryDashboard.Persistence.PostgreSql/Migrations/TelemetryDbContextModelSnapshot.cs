@@ -448,6 +448,73 @@ namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
                     b.ToTable("metric_points", (string)null);
                 });
 
+            modelBuilder.Entity("OpenTelemetryDashboard.Dashboards.Domain.WidgetDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BaseKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("base_kind");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("config_json");
+
+                    b.Property<int>("DefaultH")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_h");
+
+                    b.Property<int>("DefaultW")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_w");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(280)
+                        .HasColumnType("character varying(280)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("Engine")
+                        .HasColumnType("integer")
+                        .HasColumnName("engine");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("icon");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("name");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("SpecJson")
+                        .HasColumnType("text")
+                        .HasColumnName("spec_json");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_widget_definitions");
+
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_widget_definitions_updated_at");
+
+                    b.ToTable("widget_definitions", (string)null);
+                });
+
             modelBuilder.Entity("OpenTelemetryDashboard.Core.Domain.LogRecord", b =>
                 {
                     b.HasOne("OpenTelemetryDashboard.Core.Domain.Resource", null)

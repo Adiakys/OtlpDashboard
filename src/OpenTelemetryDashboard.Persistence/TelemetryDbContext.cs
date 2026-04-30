@@ -25,6 +25,8 @@ public sealed class TelemetryDbContext : DbContext
 
     public DbSet<Dashboard> Dashboards => Set<Dashboard>();
 
+    public DbSet<WidgetDefinition> WidgetDefinitions => Set<WidgetDefinition>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);

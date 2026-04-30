@@ -8,10 +8,11 @@ import {
 } from '~/services/types'
 import type {
   WidgetConfig,
-  WidgetItem,
-  WidgetKind
+  WidgetItem
 } from './types'
+import { normalizeKind } from './types'
 import { useInstrumentCatalog } from './useInstrumentCatalog'
+import { useWidgetCatalog } from './catalog'
 import { useDashboardList } from './composables/useDashboardList'
 import { useDashboardEdit } from './composables/useDashboardEdit'
 import { useDashboardLive } from './composables/useDashboardLive'
@@ -75,9 +76,13 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
 
   function widgetFromDto(dto: DashboardWidgetDto): WidgetItem {
     // Server stores config as opaque JSON; the SPA owns the per-kind shape.
+    // `normalizeKind` upgrades any legacy bare kind ("metric-stat") to its
+    // fully-qualified form ("std:metric-stat") on load — server-side the
+    // `NormalizeWidgetKindsToFqn` migration already does this once, but
+    // this guard keeps imports / older snapshots renderable.
     return {
       id: dto.id,
-      kind: dto.kind as WidgetKind,
+      kind: normalizeKind(dto.kind),
       x: dto.x,
       y: dto.y,
       w: dto.w,
@@ -186,8 +191,21 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
   // failures from create/delete; the page surfaces failures from load/save.
   const combinedError = computed(() => error.value ?? list.error.value)
 
-  // Initial fetch — list envelope and current dashboard in parallel.
-  void Promise.all([list.loadList(), load()])
+  // Widget catalog — pre-load custom definitions so the picker has them
+  // ready by the time the user opens it. Failure is non-fatal: builtin
+  // widgets keep working from the static map.
+  const widgetCatalog = useWidgetCatalog()
+
+  async function loadWidgetCatalog(): Promise<void> {
+    try {
+      await widgetCatalog.refreshCustom()
+    } catch {
+      /* builtin definitions are still available */
+    }
+  }
+
+  // Initial fetch — list envelope, current dashboard, widget catalog in parallel.
+  void Promise.all([list.loadList(), load(), loadWidgetCatalog()])
 
   return {
     // Persisted state
@@ -238,6 +256,10 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
     // Import / export
     exportLayout,
     importLayout,
+
+    // Widget catalog
+    widgetCatalog,
+    refreshWidgetCatalog: loadWidgetCatalog,
 
     // Actions
     reload: () => load(false)

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
+import SaveAsTemplateDialog from './SaveAsTemplateDialog.vue'
 import WidgetConfigSlot from './WidgetConfigSlot.vue'
-import type { WidgetConfig, WidgetItem } from '../types'
+import type { BuiltinKind, WidgetConfig, WidgetItem } from '../types'
+import { parseKind } from '../types'
 
 const props = defineProps<{
   widget: WidgetItem
@@ -45,8 +48,47 @@ function close() {
   emit('update:open', false)
 }
 
-const headerIcon = computed(() => WIDGET_REGISTRY[props.widget.kind].icon)
-const headerTitle = computed(() => t(WIDGET_REGISTRY[props.widget.kind].titleKey))
+// Header label resolution: prefer the catalog (custom widgets carry their
+// own display name); fall back to the builtin's i18n title key when the
+// definition is a `preset` wrapping a known builtin.
+const catalog = useWidgetCatalog()
+const definition = computed(() => catalog.byKind(props.widget.kind))
+
+const headerIcon = computed(() => {
+  const def = definition.value
+  if (def) return def.icon
+  // Last-ditch: parse the bare kind to fetch the registry icon directly
+  // (covers the case where a stale custom kind is no longer in the catalog).
+  const parsed = parseKind(props.widget.kind)
+  if (parsed.source === 'std' && parsed.id in WIDGET_REGISTRY) {
+    return WIDGET_REGISTRY[parsed.id as BuiltinKind].icon
+  }
+  return 'i-ph-puzzle-piece'
+})
+
+const headerTitle = computed(() => {
+  const def = definition.value
+  if (def && def.source !== 'std') {
+    return def.name
+  }
+  const parsed = parseKind(props.widget.kind)
+  if (parsed.source === 'std' && parsed.id in WIDGET_REGISTRY) {
+    return t(WIDGET_REGISTRY[parsed.id as BuiltinKind].titleKey)
+  }
+  return def?.name ?? props.widget.kind
+})
+
+// "Save as my widget" only makes sense when wrapping a builtin (engine
+// `preset`, baseKind known). Custom-of-custom is rejected server-side too.
+const canSaveAsTemplate = computed(() => {
+  const parsed = parseKind(props.widget.kind)
+  return parsed.source === 'std' && parsed.id in WIDGET_REGISTRY
+})
+
+const saveAsOpen = ref(false)
+function openSaveAs() {
+  saveAsOpen.value = true
+}
 </script>
 
 <template>
@@ -74,7 +116,17 @@ const headerTitle = computed(() => t(WIDGET_REGISTRY[props.widget.kind].titleKey
     </template>
 
     <template #footer>
-      <div class="flex items-center justify-end gap-2 w-full">
+      <div class="flex items-center gap-2 w-full">
+        <UButton
+          v-if="canSaveAsTemplate"
+          color="neutral"
+          variant="subtle"
+          icon="i-ph-floppy-disk"
+          @click="openSaveAs"
+        >
+          {{ t('widgets.saveAs.action') }}
+        </UButton>
+        <div class="flex-1" />
         <UButton color="neutral" variant="ghost" @click="close">
           {{ t('dashboard.actions.cancel') }}
         </UButton>
@@ -84,4 +136,9 @@ const headerTitle = computed(() => t(WIDGET_REGISTRY[props.widget.kind].titleKey
       </div>
     </template>
   </USlideover>
+
+  <SaveAsTemplateDialog
+    v-model:open="saveAsOpen"
+    :widget="{ ...widget, config: draft }"
+  />
 </template>

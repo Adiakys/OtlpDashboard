@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { WIDGET_REGISTRY } from '../registry'
-import type { WidgetConfig, WidgetKind } from '../types'
+import { resolveConfigForm, useWidgetCatalog } from '../catalog'
+import type { FQKind, WidgetConfig } from '../types'
 
 /**
- * Renders the config form matching `kind`, two-way bound to `modelValue`. A
- * single component replaces the 10-arm `v-if/v-else-if` ladder that used to
- * live in `WidgetConfigDrawer.vue`.
+ * Renders the config form matching `kind`, two-way bound to `modelValue`.
+ * Looks up the definition through the dynamic catalog so the same slot
+ * mounts the right form regardless of source — builtin, custom, library.
+ *
+ * `kind` is fully-qualified; legacy bare-kind values resolve via the
+ * catalog's compat layer.
  */
 const props = defineProps<{
-  kind: WidgetKind
+  kind: FQKind
   modelValue: WidgetConfig
 }>()
 
@@ -17,12 +20,15 @@ const emit = defineEmits<{
   'update:modelValue': [value: WidgetConfig]
 }>()
 
-const component = computed(() => WIDGET_REGISTRY[props.kind].configForm)
+const catalog = useWidgetCatalog()
+const definition = computed(() => catalog.byKind(props.kind))
+const component = computed(() => resolveConfigForm(definition.value))
 </script>
 
 <template>
   <component
     :is="component"
+    v-if="component"
     :model-value="modelValue"
     @update:model-value="(v: WidgetConfig) => emit('update:modelValue', v)"
   />

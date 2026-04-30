@@ -39,6 +39,7 @@
     "traces": "Tracce",
     "logs": "Log",
     "metrics": "Metriche",
+    "widgets": "Widget",
     "logout": "Esci",
     "collapse": "Comprimi menu",
     "expand": "Espandi menu"
@@ -127,6 +128,7 @@
     "widgets": {
       "notConfigured": "Apri la configurazione per scegliere una metrica.",
       "noData": "Nessun dato nell'intervallo selezionato.",
+      "notAvailable": "Widget '{kind}' non disponibile",
       "metricStat": {
         "title": "Stat",
         "desc": "Singolo valore di una metrica con delta opzionale e mini-sparkline."
@@ -360,6 +362,37 @@
       "label": "Suddividi per",
       "all": "Tutti gli attributi",
       "aggregated": "Aggregato"
+    }
+  },
+  "widgets": {
+    "title": "Widget",
+    "subtitle": "{count} widget personali",
+    "emptyTitle": "Nessun widget personale",
+    "emptyDescription": "Configura un widget nella dashboard e usa 'Salva come widget personale' per riusarlo.",
+    "delete": "Elimina",
+    "deleteConfirm": "Sei sicuro di voler eliminare questo widget? Le istanze esistenti nelle dashboard mostreranno un placeholder.",
+    "howToCreate": "Per creare un widget personale: apri una dashboard in modifica, configura un widget e premi 'Salva come widget personale' nel pannello di configurazione.",
+    "picker": {
+      "search": "Cerca widget…",
+      "builtinSection": "Builtin",
+      "customSection": "I miei widget",
+      "customEmpty": "Nessun widget personale ancora. Usa 'Salva come widget personale' nel config drawer.",
+      "noMatch": "Nessun widget corrisponde alla ricerca."
+    },
+    "saveAs": {
+      "action": "Salva come widget",
+      "title": "Salva come widget personale",
+      "name": "Nome",
+      "namePlaceholder": "Es. p99 latency errori",
+      "description": "Descrizione",
+      "descriptionPlaceholder": "Cosa visualizza questo widget?",
+      "icon": "Icona",
+      "iconHint": "Classe Phosphor (es. i-ph-target).",
+      "defaultW": "Larghezza (1–12)",
+      "defaultH": "Altezza (1–24)",
+      "submit": "Salva",
+      "nameRequired": "Inserisci un nome.",
+      "notSupported": "Questo tipo di widget non può essere salvato come template."
     }
   },
   "auth": {
