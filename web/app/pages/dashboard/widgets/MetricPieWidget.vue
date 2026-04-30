@@ -13,11 +13,12 @@ import { formatValue, type UnitKind } from '~/lib/units/format'
 import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
 import { escapeHtml } from '~/lib/escapeHtml'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricPieConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -113,9 +114,21 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <svg class="vellum-preview-pie" viewBox="0 0 36 36">
+        <!-- Stroke-dasharray ring math: circumference = 2π·r ≈ 100.5 with r=16. -->
+        <circle cx="18" cy="18" r="16" fill="none" stroke-width="6"
+          stroke="var(--color-ember-500)" stroke-dasharray="42 58.5" transform="rotate(-90 18 18)" />
+        <circle cx="18" cy="18" r="16" fill="none" stroke-width="6"
+          stroke="var(--color-graphite-500)" stroke-opacity="0.55" stroke-dasharray="28 72.5" stroke-dashoffset="-42" transform="rotate(-90 18 18)" />
+        <circle cx="18" cy="18" r="16" fill="none" stroke-width="6"
+          stroke="var(--color-sage-500)" stroke-opacity="0.65" stroke-dasharray="30.5 70" stroke-dashoffset="-70" transform="rotate(-90 18 18)" />
+      </svg>
+    </template>
     <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
       {{ t('dashboard.widgets.notConfigured') }}
     </div>
@@ -130,3 +143,14 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-pie {
+  flex: 1;
+  margin: 0.3rem auto;
+  max-height: 100%;
+  height: auto;
+  width: auto;
+  aspect-ratio: 1 / 1;
+}
+</style>

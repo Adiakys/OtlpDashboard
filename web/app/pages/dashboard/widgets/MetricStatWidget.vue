@@ -12,11 +12,12 @@ import { type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricStatConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -132,9 +133,26 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-stat">
+        <span class="vellum-preview-stat__value">42.0</span>
+        <span class="vellum-preview-stat__unit">ms</span>
+        <svg class="vellum-preview-stat__spark" viewBox="0 0 60 18" preserveAspectRatio="none">
+          <polyline
+            points="0,14 8,11 16,13 24,7 32,9 40,5 48,8 60,3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+    </template>
     <template #default="{ width, height }">
       <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center">
         {{ t('dashboard.widgets.notConfigured') }}
@@ -180,4 +198,30 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
 .vellum-delta-down { color: var(--color-rust-600); }
 :global(html.dark) .vellum-delta-up   { color: var(--color-sage-400); }
 :global(html.dark) .vellum-delta-down { color: var(--color-rust-400); }
+
+.vellum-preview-stat {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.vellum-preview-stat__value {
+  font-size: clamp(1rem, 2.4vw, 1.5rem);
+  font-weight: 500;
+  color: var(--color-ember-700);
+  letter-spacing: -0.01em;
+}
+:global(html.dark) .vellum-preview-stat__value { color: var(--color-ember-400); }
+.vellum-preview-stat__unit {
+  font-size: 0.7rem;
+  color: var(--color-graphite-500);
+}
+.vellum-preview-stat__spark {
+  flex: 1;
+  height: 1.6rem;
+  color: var(--color-ember-500);
+}
 </style>

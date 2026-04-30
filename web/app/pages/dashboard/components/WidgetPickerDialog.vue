@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useWidgetCatalog } from '../catalog'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import { defaultConfigForDefinition, useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
 import SaveAsTemplateDialog from './SaveAsTemplateDialog.vue'
-import type { BuiltinKind, FQKind, WidgetDefinition } from '../types'
+import type { BuiltinKind, FQKind, WidgetConfig, WidgetDefinition } from '../types'
 import { parseKind } from '../types'
 
 const props = defineProps<{
@@ -78,6 +78,31 @@ const filteredLibraries = computed(() => {
 
 function pick(def: WidgetDefinition) {
   emit('select', def.kind)
+}
+
+/**
+ * Resolve the preview component + props for a definition. Only `preset`
+ * widgets whose underlying builtin opted in via `hasPreview = true` get
+ * a live miniature; everything else (custom widgets that wrap a kind
+ * without preview, library spec/composite widgets) returns `null` and
+ * the card falls back to icon + name + description.
+ */
+interface PreviewBinding {
+  component: Component
+  config: WidgetConfig
+}
+
+function resolvePreview(def: WidgetDefinition): PreviewBinding | null {
+  if (def.engine !== 'preset' || !def.baseKind) return null
+  const meta = WIDGET_REGISTRY[def.baseKind]
+  if (!meta?.hasPreview) return null
+  return {
+    component: meta.component,
+    // Custom and library presets bring their own seeded config, which can
+    // make the mini look more representative; std widgets fall back to
+    // the kind's default config.
+    config: def.defaultConfig ?? defaultConfigForDefinition(def)
+  }
 }
 
 function close() {
@@ -315,6 +340,15 @@ async function uninstallLibrary(libId: string) {
                 class="vellum-picker-card"
                 @click="pick(def)"
               >
+                <div v-if="resolvePreview(def)" class="vellum-picker-card__preview">
+                  <component
+                    :is="resolvePreview(def)!.component"
+                    :config="resolvePreview(def)!.config"
+                    :is-editing="false"
+                    :live-tick="0"
+                    :preview="true"
+                  />
+                </div>
                 <div class="vellum-picker-card__head">
                   <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
                   <span class="font-medium text-sm truncate">{{ displayName(def) }}</span>
@@ -349,6 +383,15 @@ async function uninstallLibrary(libId: string) {
                 class="vellum-picker-card vellum-picker-card--actionable"
                 @click="pick(def)"
               >
+                <div v-if="resolvePreview(def)" class="vellum-picker-card__preview">
+                  <component
+                    :is="resolvePreview(def)!.component"
+                    :config="resolvePreview(def)!.config"
+                    :is-editing="false"
+                    :live-tick="0"
+                    :preview="true"
+                  />
+                </div>
                 <div class="vellum-picker-card__head">
                   <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
                   <span class="font-medium text-sm truncate flex-1">{{ def.name }}</span>
@@ -412,6 +455,15 @@ async function uninstallLibrary(libId: string) {
                 class="vellum-picker-card"
                 @click="pick(def)"
               >
+                <div v-if="resolvePreview(def)" class="vellum-picker-card__preview">
+                  <component
+                    :is="resolvePreview(def)!.component"
+                    :config="resolvePreview(def)!.config"
+                    :is-editing="false"
+                    :live-tick="0"
+                    :preview="true"
+                  />
+                </div>
                 <div class="vellum-picker-card__head">
                   <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
                   <span class="font-medium text-sm truncate">{{ def.name }}</span>
@@ -550,6 +602,22 @@ async function uninstallLibrary(libId: string) {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+}
+
+/* Preview surface: fixed-size canvas that hosts the widget runtime in
+   preview mode. Aspect ratio chosen to suit the most common widget
+   shapes (stat, line, gauge); individual previews use 100% w/h via
+   `.vellum-widget-preview` so they fill the box. */
+.vellum-picker-card__preview {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  margin: -0.25rem -0.25rem 0.25rem -0.25rem;
+  background: color-mix(in oklab, var(--color-graphite-500) 6%, transparent);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  /* Click bubbles up to the card; child preview is `pointer-events: none`. */
+  pointer-events: none;
 }
 
 /* Inline action buttons fade in on hover so the card stays calm at rest. */

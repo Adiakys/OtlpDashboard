@@ -5,10 +5,11 @@ import type { TextWidgetConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { escapeHtml } from '~/lib/escapeHtml'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: TextWidgetConfig
   isEditing: boolean
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -69,9 +70,18 @@ const html = computed(() => renderMarkdown(props.config.markdown ?? ''))
     :title="headerTitle"
     :icon="WIDGET_REGISTRY.text.icon"
     :is-editing="isEditing"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-text">
+        <span class="vellum-preview-text__heading">## Title</span>
+        <span class="vellum-preview-text__line vellum-preview-text__line--full" />
+        <span class="vellum-preview-text__line vellum-preview-text__line--mid" />
+        <span class="vellum-preview-text__line vellum-preview-text__line--short" />
+      </div>
+    </template>
     <div class="flex-1 min-h-0 min-w-0 overflow-auto px-4 py-3 text-body text-default vellum-text-widget" :class="{ 'text-center': isCenter }">
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div v-html="html" />
@@ -92,4 +102,28 @@ const html = computed(() => renderMarkdown(props.config.markdown ?? ''))
 .vellum-text-widget :deep(h3) {
   letter-spacing: -0.01em;
 }
+
+.vellum-preview-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  justify-content: center;
+}
+.vellum-preview-text__heading {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-graphite-700);
+}
+:global(html.dark) .vellum-preview-text__heading { color: var(--color-graphite-300); }
+.vellum-preview-text__line {
+  height: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--color-graphite-500) 22%, transparent);
+}
+.vellum-preview-text__line--full  { width: 100%; }
+.vellum-preview-text__line--mid   { width: 75%; }
+.vellum-preview-text__line--short { width: 50%; }
 </style>

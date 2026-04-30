@@ -14,10 +14,18 @@ withDefaults(defineProps<{
    * immediately rather than an empty card.
    */
   showSkeleton?: boolean
+  /**
+   * Picker mode. When true the widget renders only its `<template #preview>`
+   * slot (or nothing if the slot wasn't provided): no header, no
+   * loading/error overlays, no skeleton. Used by `WidgetPickerDialog` to
+   * show a live miniature of each widget kind alongside name and icon.
+   */
+  preview?: boolean
 }>(), {
   loading: false,
   error: null,
-  showSkeleton: false
+  showSkeleton: false,
+  preview: false
 })
 
 defineEmits<{
@@ -32,7 +40,19 @@ const { width, height } = useElementSize(() => bodyEl.value)
 </script>
 
 <template>
+  <!-- Preview mode: just the authored mini-render, nothing else. The
+       `pointer-events: none` keeps clicks bubbling to the picker card so
+       interacting with the mini doesn't intercept the selection. -->
   <div
+    v-if="preview"
+    class="vellum-widget-preview"
+    aria-hidden="true"
+  >
+    <slot name="preview" />
+  </div>
+
+  <div
+    v-else
     class="vellum-widget flex flex-col h-full min-h-0 overflow-hidden"
     :class="isEditing ? 'vellum-widget--editing' : ''"
   >
@@ -124,6 +144,18 @@ const { width, height } = useElementSize(() => bodyEl.value)
 </template>
 
 <style scoped>
+/* Preview canvas — sits inside the picker card, takes its height from
+   the wrapper, decorations only (no surface, no border, no shadow). */
+.vellum-widget-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  pointer-events: none;
+  color: var(--color-graphite-600);
+}
+
 .vellum-widget {
   background: var(--ui-bg-elevated);
   border: 1px solid color-mix(in oklab, var(--color-graphite-500) 16%, transparent);

@@ -10,11 +10,12 @@ import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { escapeHtml } from '~/lib/escapeHtml'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricSparklineConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -95,9 +96,22 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <svg class="vellum-preview-spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+        <polyline
+          points="0,22 12,17 24,20 36,11 48,14 60,7 72,12 84,5 100,9"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </template>
     <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
       {{ t('dashboard.widgets.notConfigured') }}
     </div>
@@ -106,3 +120,12 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-spark {
+  flex: 1;
+  height: 100%;
+  padding: 0.4rem 0.6rem;
+  color: var(--color-ember-500);
+}
+</style>

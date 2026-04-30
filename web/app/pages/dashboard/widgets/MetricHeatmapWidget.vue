@@ -11,11 +11,12 @@ import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricHeatmapConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -164,9 +165,17 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-heatmap">
+        <span v-for="(c, i) in 24" :key="i"
+          class="vellum-preview-heatmap__cell"
+          :style="{ '--i': i }" />
+      </div>
+    </template>
     <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
       {{ t('dashboard.widgets.notConfigured') }}
     </div>
@@ -214,3 +223,21 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-heatmap {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+  padding: 0.5rem;
+}
+.vellum-preview-heatmap__cell {
+  background: var(--color-ember-500);
+  border-radius: 2px;
+  /* Vary opacity per cell index so the grid reads as a heatmap, not a
+     solid block. The pattern below is hand-tuned for 24 cells. */
+  opacity: calc(0.18 + 0.7 * (((var(--i) * 53) % 100) / 100));
+}
+</style>

@@ -34,6 +34,13 @@ export interface WidgetKindMetadata {
   configForm: Component
   /** Empty config used when the user adds a fresh widget of this kind. */
   defaultConfig: () => WidgetConfig
+  /**
+   * True when the widget exposes a `<template #preview>` slot. The picker
+   * mounts the component with `:preview="true"` only for kinds with this
+   * flag set, so kinds without an authored preview don't pay the
+   * mount-cost or surface an empty container.
+   */
+  hasPreview?: boolean
 }
 
 export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
@@ -49,7 +56,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       range: 'last-1h',
       showSparkline: true,
       decimals: 2
-    } satisfies MetricStatConfig)
+    } satisfies MetricStatConfig),
+    hasPreview: true
   },
   'metric-line': {
     titleKey: 'dashboard.widgets.metricLine.title',
@@ -62,7 +70,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       metrics: [],
       range: 'last-1h',
       splitBy: null
-    } satisfies MetricLineConfig)
+    } satisfies MetricLineConfig),
+    hasPreview: true
   },
   'metric-sparkline': {
     titleKey: 'dashboard.widgets.metricSparkline.title',
@@ -74,7 +83,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
     defaultConfig: () => ({
       metric: null,
       range: 'last-1h'
-    } satisfies MetricSparklineConfig)
+    } satisfies MetricSparklineConfig),
+    hasPreview: true
   },
   'metric-gauge': {
     titleKey: 'dashboard.widgets.metricGauge.title',
@@ -92,7 +102,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       min: 0,
       max: 100,
       thresholds: []
-    } satisfies MetricGaugeConfig)
+    } satisfies MetricGaugeConfig),
+    hasPreview: true
   },
   'metric-bar-gauge': {
     titleKey: 'dashboard.widgets.metricBarGauge.title',
@@ -112,7 +123,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       min: 0,
       max: null,
       thresholds: []
-    } satisfies MetricBarGaugeConfig)
+    } satisfies MetricBarGaugeConfig),
+    hasPreview: true
   },
   'metric-pie': {
     titleKey: 'dashboard.widgets.metricPie.title',
@@ -130,7 +142,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       decimals: 2,
       donut: false,
       showLegend: true
-    } satisfies MetricPieConfig)
+    } satisfies MetricPieConfig),
+    hasPreview: true
   },
   'metric-heatmap': {
     titleKey: 'dashboard.widgets.metricHeatmap.title',
@@ -148,7 +161,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       unitKind: 'none',
       decimals: 2,
       thresholds: []
-    } satisfies MetricHeatmapConfig)
+    } satisfies MetricHeatmapConfig),
+    hasPreview: true
   },
   'recent-traces': {
     titleKey: 'dashboard.widgets.recentTraces.title',
@@ -162,7 +176,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       service: null,
       sort: 'recent',
       limit: 20
-    } satisfies RecentTracesConfig)
+    } satisfies RecentTracesConfig),
+    hasPreview: true
   },
   'logs-stream': {
     titleKey: 'dashboard.widgets.logsStream.title',
@@ -176,7 +191,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
       service: null,
       minSeverity: 'all',
       limit: 50
-    } satisfies LogsStreamConfig)
+    } satisfies LogsStreamConfig),
+    hasPreview: true
   },
   text: {
     titleKey: 'dashboard.widgets.text.title',
@@ -188,7 +204,8 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
     defaultConfig: () => ({
       markdown: '## Nuovo pannello\n\nScrivi qui…',
       align: 'left'
-    } satisfies TextWidgetConfig)
+    } satisfies TextWidgetConfig),
+    hasPreview: true
   }
 }
 

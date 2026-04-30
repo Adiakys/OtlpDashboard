@@ -5,11 +5,12 @@ import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { LogRecordDto } from '~/services/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: LogsStreamConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -124,9 +125,26 @@ function openTrace(traceId: string | null) {
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-logs">
+        <div class="vellum-preview-logs__line">
+          <span class="vellum-preview-logs__sev vellum-preview-logs__sev--info">INFO</span>
+          <span>request received</span>
+        </div>
+        <div class="vellum-preview-logs__line">
+          <span class="vellum-preview-logs__sev vellum-preview-logs__sev--warn">WARN</span>
+          <span>retry scheduled</span>
+        </div>
+        <div class="vellum-preview-logs__line">
+          <span class="vellum-preview-logs__sev vellum-preview-logs__sev--err">ERR</span>
+          <span>upstream timeout</span>
+        </div>
+      </div>
+    </template>
     <div
       v-if="filtered.length === 0"
       class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center"
@@ -169,4 +187,35 @@ function openTrace(traceId: string | null) {
   text-transform: uppercase;
   font-weight: 500;
 }
+
+.vellum-preview-logs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--color-graphite-600);
+}
+:global(html.dark) .vellum-preview-logs { color: var(--color-graphite-300); }
+.vellum-preview-logs__line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vellum-preview-logs__sev {
+  flex: none;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.vellum-preview-logs__sev--info { color: var(--color-graphite-500); }
+.vellum-preview-logs__sev--warn { color: var(--color-amber-600); }
+.vellum-preview-logs__sev--err  { color: var(--color-rust-600); }
+:global(html.dark) .vellum-preview-logs__sev--warn { color: var(--color-amber-400); }
+:global(html.dark) .vellum-preview-logs__sev--err  { color: var(--color-rust-400); }
 </style>

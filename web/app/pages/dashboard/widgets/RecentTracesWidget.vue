@@ -5,11 +5,12 @@ import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { TraceSummaryDto } from '~/services/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: RecentTracesConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -121,9 +122,29 @@ function openTrace(traceId: string) {
     :is-editing="isEditing"
     :loading="loading"
     :error="error"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-traces">
+        <div class="vellum-preview-traces__row">
+          <span class="vellum-preview-traces__dot vellum-preview-traces__dot--ok" />
+          <span class="vellum-preview-traces__name">/api/orders</span>
+          <span class="vellum-preview-traces__dur">128ms</span>
+        </div>
+        <div class="vellum-preview-traces__row">
+          <span class="vellum-preview-traces__dot vellum-preview-traces__dot--err" />
+          <span class="vellum-preview-traces__name">/api/checkout</span>
+          <span class="vellum-preview-traces__dur">1.2s</span>
+        </div>
+        <div class="vellum-preview-traces__row">
+          <span class="vellum-preview-traces__dot vellum-preview-traces__dot--ok" />
+          <span class="vellum-preview-traces__name">/api/users/me</span>
+          <span class="vellum-preview-traces__dur">42ms</span>
+        </div>
+      </div>
+    </template>
     <div
       v-if="sorted.length === 0"
       class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center"
@@ -191,5 +212,43 @@ function openTrace(traceId: string) {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-weight: 500;
+}
+
+.vellum-preview-traces {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.vellum-preview-traces__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.vellum-preview-traces__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  flex: none;
+}
+.vellum-preview-traces__dot--ok  { background: var(--color-sage-500); }
+.vellum-preview-traces__dot--err { background: var(--color-rust-500); }
+.vellum-preview-traces__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-graphite-600);
+}
+:global(html.dark) .vellum-preview-traces__name { color: var(--color-graphite-300); }
+.vellum-preview-traces__dur {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-graphite-500);
 }
 </style>

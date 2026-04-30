@@ -9,11 +9,12 @@ import type { MetricLineConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricLineConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -94,9 +95,20 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <svg class="vellum-preview-line" viewBox="0 0 100 36" preserveAspectRatio="none">
+        <polyline points="0,28 14,22 28,25 42,15 56,18 70,9 84,12 100,5"
+          fill="none" stroke="var(--color-ember-500)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="0,32 14,29 28,30 42,24 56,26 70,22 84,21 100,18"
+          fill="none" stroke="var(--color-graphite-500)" stroke-width="1.4" stroke-opacity="0.55" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="0,18 14,16 28,17 42,12 56,14 70,8 84,10 100,4"
+          fill="none" stroke="var(--color-sage-500)" stroke-width="1.4" stroke-opacity="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </template>
     <template #default="{ width, height }">
       <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
         {{ t('dashboard.widgets.notConfigured') }}
@@ -107,3 +119,11 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </template>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-line {
+  flex: 1;
+  height: 100%;
+  padding: 0.4rem 0.6rem;
+}
+</style>

@@ -10,11 +10,12 @@ import { type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricGaugeConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -150,9 +151,21 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-gauge">
+        <svg viewBox="0 0 100 60" class="vellum-preview-gauge__svg">
+          <!-- track -->
+          <path d="M 10 55 A 40 40 0 0 1 90 55" fill="none" stroke="currentColor" stroke-opacity="0.18" stroke-width="6" stroke-linecap="round"/>
+          <!-- value arc — fills ~70% of the half circle -->
+          <path d="M 10 55 A 40 40 0 0 1 78 22" fill="none" stroke="var(--color-ember-500)" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <span class="vellum-preview-gauge__value">72%</span>
+      </div>
+    </template>
     <template #default="{ width, height }">
       <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
         {{ t('dashboard.widgets.notConfigured') }}
@@ -209,3 +222,28 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </template>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-gauge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--color-graphite-500);
+}
+.vellum-preview-gauge__svg {
+  width: 70%;
+  height: auto;
+}
+.vellum-preview-gauge__value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-ember-700);
+  font-variant-numeric: tabular-nums;
+}
+:global(html.dark) .vellum-preview-gauge__value { color: var(--color-ember-400); }
+</style>

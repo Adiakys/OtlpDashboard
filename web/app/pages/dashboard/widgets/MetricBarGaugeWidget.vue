@@ -11,11 +11,12 @@ import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: MetricBarGaugeConfig
   isEditing: boolean
   liveTick: number
-}>()
+  preview?: boolean
+}>(), { preview: false })
 
 defineEmits<{
   edit: []
@@ -102,9 +103,18 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     :loading="loading"
     :error="error"
     :show-skeleton="showSkeleton"
+    :preview="preview"
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #preview>
+      <div class="vellum-preview-bargauge">
+        <div class="vellum-preview-bargauge__row" style="--w: 92%; --c: var(--color-ember-500);" />
+        <div class="vellum-preview-bargauge__row" style="--w: 70%; --c: var(--color-ember-500);" />
+        <div class="vellum-preview-bargauge__row" style="--w: 50%; --c: var(--color-graphite-500);" />
+        <div class="vellum-preview-bargauge__row" style="--w: 32%; --c: var(--color-graphite-500);" />
+      </div>
+    </template>
     <template #default>
       <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
         {{ t('dashboard.widgets.notConfigured') }}
@@ -135,3 +145,22 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </template>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-preview-bargauge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  justify-content: center;
+}
+.vellum-preview-bargauge__row {
+  height: 0.5rem;
+  width: var(--w);
+  background: var(--c);
+  opacity: 0.85;
+  border-radius: var(--radius-pill);
+}
+.vellum-preview-bargauge__row:nth-child(odd) { opacity: 0.55; }
+</style>
