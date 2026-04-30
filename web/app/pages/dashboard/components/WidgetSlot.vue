@@ -9,10 +9,10 @@ import type { WidgetItem } from '../types'
  * definition through the dynamic catalog so the same slot handles builtin,
  * custom, and library-sourced widgets uniformly.
  *
- * If a kind isn't registered (e.g. a deleted custom widget still referenced
- * by an existing dashboard), the slot renders a placeholder rather than
- * crashing — matching the "metric binding not resolvable" UX already used
- * by `dashboardLayoutIO`.
+ * If a kind isn't registered (deleted custom widget) or its engine isn't
+ * implemented yet (spec/composite from a library, prior to iter 2/5), the
+ * slot renders a placeholder rather than crashing — matching the
+ * "metric binding not resolvable" UX from `dashboardLayoutIO`.
  */
 const props = defineProps<{
   item: WidgetItem
@@ -25,9 +25,30 @@ const emit = defineEmits<{
   remove: []
 }>()
 
+const { t } = useI18n()
 const catalog = useWidgetCatalog()
 const definition = computed(() => catalog.byKind(props.item.kind))
 const component = computed(() => resolveWidgetComponent(definition.value))
+
+/**
+ * Placeholder copy when there's no component to mount. Distinguishes
+ * "kind not in the catalog" (deleted / unknown) from "kind present but
+ * needs an engine the SPA hasn't shipped yet" so the user knows whether
+ * to remove the widget or wait for a future release.
+ */
+const placeholderMessage = computed(() => {
+  const def = definition.value
+  if (def === null) {
+    return t('dashboard.widgets.notAvailable', { kind: props.item.kind })
+  }
+  if (def.engine === 'spec') {
+    return t('dashboard.widgets.engineSpecUnavailable')
+  }
+  if (def.engine === 'composite') {
+    return t('dashboard.widgets.engineCompositeUnavailable')
+  }
+  return t('dashboard.widgets.notAvailable', { kind: props.item.kind })
+})
 </script>
 
 <template>
@@ -45,6 +66,6 @@ const component = computed(() => resolveWidgetComponent(definition.value))
     class="size-full flex items-center justify-center px-4 text-center text-overline"
     style="color: var(--color-graphite-500);"
   >
-    {{ $t('dashboard.widgets.notAvailable', { kind: item.kind }) }}
+    {{ placeholderMessage }}
   </div>
 </template>

@@ -224,3 +224,41 @@ export interface SaveWidgetDefinitionRequest {
   defaultH: number
   rowVersion: number
 }
+
+// =============================================================
+// Widget libraries (filesystem-discovered packs)
+// =============================================================
+
+/** Origin of a library directory. Drives the SPA's "Update" affordance —
+ *  filesystem-installed libraries are managed externally; git-installed
+ *  ones can be re-pulled in place (iter 4). */
+export type LibraryInstallSource = 'Filesystem' | 'Git'
+
+export interface LibraryWidgetDto {
+  kindId: string
+  name: string
+  description: string | null
+  icon: string
+  engine: WidgetEngine
+  baseKind: string | null
+  config: Record<string, unknown> | null
+  spec: Record<string, unknown> | null
+  defaultW: number
+  defaultH: number
+}
+
+export interface WidgetLibraryDto {
+  id: string
+  name: string
+  version: string
+  author: string | null
+  license: string | null
+  description: string | null
+  installSource: LibraryInstallSource
+  /** Git origin URL — null for filesystem-installed libraries. */
+  gitUrl: string | null
+  gitRef: string | null
+  gitRefResolved: string | null
+  installedAt: string | null
+  widgets: LibraryWidgetDto[]
+}

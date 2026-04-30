@@ -137,14 +137,19 @@ Notes:
 ### Widget libraries
 
 A widget library is a directory containing one or more widget definitions.
-The dashboard scans `appsettings:Widgets:LibrariesPath` (default
-`/var/lib/oteldash/libraries`) at startup and surfaces every valid library
-in the picker as its own group.
+The dashboard scans `Dashboard:Widgets:LibrariesPath` and surfaces every
+valid library in the picker as its own group. The default path is
+`./data/widget-libraries` (relative to the host's working directory) so
+libraries live next to the SQLite file under `data/`. In Docker that
+resolves to `/app/data/widget-libraries`, which is already inside the
+`dashboard-data` named volume — drop a folder in there (or `cp` into the
+volume) and the next reload picks it up.
 
 Install one of two ways:
 
 1. **Drop a folder.** Copy the library into the libraries path
-   (volume-mount, Ansible, etc.). The next reload picks it up.
+   (volume-mount, Ansible, etc.). Click the refresh icon in the widget
+   picker (or `POST /api/v1/widgets/libraries/reload`) to re-scan.
 2. **Install from a Git repo** (planned, iter 4 of the roadmap). The
    server clones the repo into the libraries path; updates are explicit
    ("Update" button → `git fetch && git reset --hard <ref>`).
@@ -248,6 +253,8 @@ library.
 | GET    | `/api/v1/traces`, `/logs`, `/metrics` | Query API (paginated)         |
 | GET/POST/PUT/DELETE | `/api/v1/dashboards`     | Dashboards CRUD               |
 | GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
+| GET    | `/api/v1/widgets/libraries`           | Discovered widget libraries   |
+| POST   | `/api/v1/widgets/libraries/reload`    | Re-scan the libraries path    |
 
 The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
 

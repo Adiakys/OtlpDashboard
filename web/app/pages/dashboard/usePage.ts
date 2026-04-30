@@ -197,11 +197,12 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
   const widgetCatalog = useWidgetCatalog()
 
   async function loadWidgetCatalog(): Promise<void> {
-    try {
-      await widgetCatalog.refreshCustom()
-    } catch {
-      /* builtin definitions are still available */
-    }
+    // Custom and library catalogs are independent — a failure on one mustn't
+    // sink the other. Builtin widgets keep working in either case.
+    await Promise.allSettled([
+      widgetCatalog.refreshCustom(),
+      widgetCatalog.refreshLibraries()
+    ])
   }
 
   // Initial fetch — list envelope, current dashboard, widget catalog in parallel.

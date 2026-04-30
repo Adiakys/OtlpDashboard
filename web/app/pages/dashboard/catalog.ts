@@ -10,7 +10,11 @@ import {
   type WidgetEngine,
   type WidgetSource
 } from './types'
-import type { WidgetDefinitionDto, WidgetEngine as WidgetEngineWire } from '~/services/types'
+import type {
+  WidgetDefinitionDto,
+  WidgetEngine as WidgetEngineWire,
+  WidgetLibraryDto
+} from '~/services/types'
 
 /**
  * Static definitions of every builtin kind, projected into the same
@@ -189,6 +193,31 @@ function engineToWire(engine: WidgetEngine): WidgetEngineWire {
 export { engineFromWire, engineToWire }
 
 /**
+ * Flatten a library DTO (filesystem-discovered pack) into a list of
+ * `WidgetDefinition`s, one per widget. The fully-qualified kind takes the
+ * shape `library:<libraryId>/<kindId>` so the resolver can disambiguate
+ * between libraries that happen to expose the same kind id.
+ */
+export function libraryDtoToDefinitions(lib: WidgetLibraryDto): WidgetDefinition[] {
+  const out: WidgetDefinition[] = []
+  for (const w of lib.widgets) {
+    out.push({
+      kind: `library:${lib.id}/${w.kindId}`,
+      source: { library: lib.id },
+      name: w.name,
+      description: w.description ?? undefined,
+      icon: w.icon,
+      engine: engineFromWire(w.engine),
+      defaultSize: { w: w.defaultW, h: w.defaultH },
+      baseKind: (w.baseKind ?? undefined) as BuiltinKind | undefined,
+      defaultConfig: (w.config ?? {}) as unknown as WidgetConfig,
+      spec: w.spec ?? undefined
+    })
+  }
+  return out
+}
+
+/**
  * Convert a server DTO (custom widget) into the catalog's `WidgetDefinition`
  * shape. Source is always `custom` here.
  */
@@ -248,8 +277,11 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
   }
 
   async function refreshLibraries() {
-    // Wired in iter 3 (filesystem) and iter 4 (git install).
-    libraryDefs.value = []
+    const { $widgetService } = useNuxtApp()
+    const libs = await $widgetService.listLibraries()
+    const flattened: WidgetDefinition[] = []
+    for (const lib of libs) flattened.push(...libraryDtoToDefinitions(lib))
+    libraryDefs.value = flattened
   }
 
   const hydrated = computed(() => hydratedFlag.value)

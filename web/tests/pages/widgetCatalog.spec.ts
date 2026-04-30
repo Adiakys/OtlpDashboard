@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
-import { buildWidgetCatalog, dtoToDefinition, STD_DEFINITIONS } from '~/pages/dashboard/catalog'
+import {
+  buildWidgetCatalog,
+  dtoToDefinition,
+  libraryDtoToDefinitions,
+  STD_DEFINITIONS
+} from '~/pages/dashboard/catalog'
 import { formatKind, normalizeKind, parseKind } from '~/pages/dashboard/types'
 import type { WidgetDefinition } from '~/pages/dashboard/types'
-import type { WidgetDefinitionDto } from '~/services/types'
+import type { WidgetDefinitionDto, WidgetLibraryDto } from '~/services/types'
 
 describe('FQ kind parsing', () => {
   it('treats a bare builtin kind as std', () => {
@@ -121,6 +126,76 @@ describe('catalog merge', () => {
 
     customs.value = [makeCustom('uid-2', 'metric-line')]
     expect(catalog.byKind('custom:uid-2')?.name).toBe('custom-uid-2')
+  })
+})
+
+describe('libraryDtoToDefinitions', () => {
+  function makeLibrary(): WidgetLibraryDto {
+    return {
+      id: 'team-pack',
+      name: 'Team Pack',
+      version: '1.2.0',
+      author: null,
+      license: null,
+      description: null,
+      installSource: 'Filesystem',
+      gitUrl: null,
+      gitRef: null,
+      gitRefResolved: null,
+      installedAt: null,
+      widgets: [
+        {
+          kindId: 'sla-tracker',
+          name: 'SLA Tracker',
+          description: 'p99 latency',
+          icon: 'i-ph-target',
+          engine: 'Preset',
+          baseKind: 'metric-stat',
+          config: { calc: 'last' },
+          spec: null,
+          defaultW: 4,
+          defaultH: 3
+        },
+        {
+          kindId: 'trace-heatmap',
+          name: 'Trace heatmap',
+          description: null,
+          icon: 'i-ph-grid-four',
+          engine: 'Spec',
+          baseKind: null,
+          config: null,
+          spec: { mark: 'rect' },
+          defaultW: 6,
+          defaultH: 4
+        }
+      ]
+    }
+  }
+
+  it('flattens widgets and namespaces kinds with the library id', () => {
+    const defs = libraryDtoToDefinitions(makeLibrary())
+
+    expect(defs).toHaveLength(2)
+    expect(defs[0]!.kind).toBe('library:team-pack/sla-tracker')
+    expect(defs[0]!.source).toEqual({ library: 'team-pack' })
+    expect(defs[0]!.engine).toBe('preset')
+    expect(defs[0]!.baseKind).toBe('metric-stat')
+
+    expect(defs[1]!.kind).toBe('library:team-pack/trace-heatmap')
+    expect(defs[1]!.engine).toBe('spec')
+    expect(defs[1]!.spec).toEqual({ mark: 'rect' })
+  })
+
+  it('library widgets resolve through the catalog and are bucketed by library', () => {
+    const defs = libraryDtoToDefinitions(makeLibrary())
+    const catalog = buildWidgetCatalog(ref([]), ref(defs))
+
+    expect(catalog.byKind('library:team-pack/sla-tracker')?.name).toBe('SLA Tracker')
+    expect(catalog.bySource('library').value.length).toBe(2)
+
+    const grouped = catalog.byLibrary.value
+    expect(grouped.size).toBe(1)
+    expect(grouped.get('team-pack')?.length).toBe(2)
   })
 })
 

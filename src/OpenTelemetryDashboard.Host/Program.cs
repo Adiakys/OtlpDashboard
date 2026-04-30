@@ -109,7 +109,7 @@ builder.Services.AddTelemetryRetention(builder.Configuration);
 
 builder.Services.AddQueryApi(builder.Configuration);
 
-builder.Services.AddDashboards();
+builder.Services.AddDashboards(builder.Configuration);
 
 builder.Services.AddDashboardAuth(builder.Configuration);
 

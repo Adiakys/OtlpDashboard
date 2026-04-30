@@ -85,4 +85,22 @@ describe('WidgetService', () => {
 
     expect(http.delete).toHaveBeenCalledWith('/v1/widgets/definitions/abc')
   })
+
+  it('lists libraries via GET /v1/widgets/libraries', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.listLibraries()
+
+    expect(http.get).toHaveBeenCalledWith('/v1/widgets/libraries')
+  })
+
+  it('reloads libraries via POST /v1/widgets/libraries/reload', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.reloadLibraries()
+
+    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/reload')
+  })
 })

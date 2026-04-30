@@ -1,5 +1,9 @@
 import type { HttpClientService } from './HttpClientService'
-import type { SaveWidgetDefinitionRequest, WidgetDefinitionDto } from './types'
+import type {
+  SaveWidgetDefinitionRequest,
+  WidgetDefinitionDto,
+  WidgetLibraryDto
+} from './types'
 
 /**
  * CRUD client for the custom widget definitions API. Library-sourced
@@ -42,5 +46,17 @@ export class WidgetService {
     return this.http.delete<void>(
       `/v1/widgets/definitions/${encodeURIComponent(id)}`
     )
+  }
+
+  // ---------- Filesystem libraries (read-only, iter 3) ----------
+
+  listLibraries(): Promise<WidgetLibraryDto[]> {
+    return this.http.get<WidgetLibraryDto[]>('/v1/widgets/libraries')
+  }
+
+  /** Re-scan the libraries path on the server. Picks up new directories
+   *  dropped under the path without restarting the host. */
+  reloadLibraries(): Promise<void> {
+    return this.http.post<void>('/v1/widgets/libraries/reload')
   }
 }

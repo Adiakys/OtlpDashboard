@@ -128,6 +128,8 @@
       "notConfigured": "Apri la configurazione per scegliere una metrica.",
       "noData": "Nessun dato nell'intervallo selezionato.",
       "notAvailable": "Widget '{kind}' non disponibile",
+      "engineSpecUnavailable": "Engine Vega-Lite non ancora disponibile",
+      "engineCompositeUnavailable": "Engine composite non ancora disponibile",
       "metricStat": {
         "title": "Stat",
         "desc": "Singolo valore di una metrica con delta opzionale e mini-sparkline."
@@ -371,7 +373,8 @@
       "builtinSection": "Builtin",
       "customSection": "I miei widget",
       "customEmpty": "Nessun widget personale ancora. Usa 'Salva come widget' nel config drawer.",
-      "noMatch": "Nessun widget corrisponde alla ricerca."
+      "noMatch": "Nessun widget corrisponde alla ricerca.",
+      "reloadLibraries": "Ricarica librerie"
     },
     "saveAs": {
       "action": "Salva come widget",

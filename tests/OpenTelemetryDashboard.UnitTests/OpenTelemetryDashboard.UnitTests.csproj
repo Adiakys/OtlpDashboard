@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence\OpenTelemetryDashboard.Persistence.csproj" />
     <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Ingestion\OpenTelemetryDashboard.Ingestion.csproj" />
     <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Api\OpenTelemetryDashboard.Api.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Dashboards\OpenTelemetryDashboard.Dashboards.csproj" />
   </ItemGroup>
 
 </Project>

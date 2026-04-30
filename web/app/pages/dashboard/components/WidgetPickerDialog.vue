@@ -114,6 +114,24 @@ async function deleteCustom(def: WidgetDefinition, e: Event) {
 function customId(kind: FQKind): string {
   return parseKind(kind).id
 }
+
+// ----- Reload libraries -----
+
+const isReloadingLibraries = ref(false)
+
+async function reloadLibraries() {
+  if (isReloadingLibraries.value) return
+  isReloadingLibraries.value = true
+  error.value = null
+  try {
+    await $widgetService.reloadLibraries()
+    await catalog.refreshLibraries()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    isReloadingLibraries.value = false
+  }
+}
 </script>
 
 <template>
@@ -124,13 +142,25 @@ function customId(kind: FQKind): string {
   >
     <template #body>
       <div class="flex flex-col gap-4">
-        <UInput
-          v-model="search"
-          :placeholder="t('widgets.picker.search')"
-          icon="i-ph-magnifying-glass"
-          size="sm"
-          autofocus
-        />
+        <div class="flex items-center gap-2">
+          <UInput
+            v-model="search"
+            class="flex-1"
+            :placeholder="t('widgets.picker.search')"
+            icon="i-ph-magnifying-glass"
+            size="sm"
+            autofocus
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-ph-arrows-clockwise"
+            :loading="isReloadingLibraries"
+            :aria-label="t('widgets.picker.reloadLibraries')"
+            @click="reloadLibraries"
+          />
+        </div>
 
         <p
           v-if="error"

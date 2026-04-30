@@ -68,6 +68,11 @@ public static class DashboardsEndpointRouteBuilderExtensions
         group.MapDelete("/definitions/{id}", WidgetEndpoints.DeleteDefinitionAsync)
             .WithName("DeleteWidgetDefinition");
 
+        group.MapGet("/libraries", LibraryEndpoints.GetLibrariesAsync)
+            .WithName("GetWidgetLibraries");
+        group.MapPost("/libraries/reload", LibraryEndpoints.ReloadLibrariesAsync)
+            .WithName("ReloadWidgetLibraries");
+
         return group;
     }
 }
