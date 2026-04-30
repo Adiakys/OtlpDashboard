@@ -59,6 +59,14 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.15.1-beta.1" />
   </ItemGroup>
 
+  <ItemGroup Label="Git client (LibGit2Sharp for widget library installs)">
+    <!-- LibGit2Sharp ships native libgit2 binaries for linux-x64 (musl & glibc),
+         linux-arm64, win-x64, and osx-x64/arm64 via the NativeBinaries package
+         pinned in its dependency set. The 0.31.x line is the current stable
+         release matching .NET 10. -->
+    <PackageVersion Include="LibGit2Sharp" Version="0.31.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

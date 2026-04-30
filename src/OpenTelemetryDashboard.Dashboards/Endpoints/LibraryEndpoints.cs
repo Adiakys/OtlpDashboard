@@ -43,6 +43,90 @@ internal static class LibraryEndpoints
         return TypedResults.NoContent();
     }
 
+    public static async Task<Results<Created<WidgetLibraryDto>, ValidationProblem, BadRequest<ProblemDetails>, Conflict<ProblemDetails>, UnprocessableEntity<ProblemDetails>>>
+        InstallLibraryAsync(
+            [FromBody] InstallLibraryRequest request,
+            IWidgetLibraryInstaller installer,
+            CancellationToken cancellationToken)
+    {
+        if (request is null
+            || string.IsNullOrWhiteSpace(request.Url)
+            || string.IsNullOrWhiteSpace(request.Ref))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["body"] = ["The 'url' and 'ref' fields are required."]
+            });
+        }
+
+        try
+        {
+            var lib = await installer.InstallAsync(request.Url, request.Ref, cancellationToken);
+            return TypedResults.Created($"/api/v1/widgets/libraries/{lib.Id}", ToDto(lib));
+        }
+        catch (WidgetLibraryHostNotAllowedException ex)
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Host not allowed",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+        catch (WidgetLibraryIdCollisionException ex)
+        {
+            return TypedResults.Conflict(new ProblemDetails
+            {
+                Title = "Library id collision",
+                Detail = ex.Message,
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+        catch (WidgetLibraryManifestInvalidException ex)
+        {
+            return TypedResults.UnprocessableEntity(new ProblemDetails
+            {
+                Title = "manifest.json invalid",
+                Detail = ex.Message,
+                Status = StatusCodes.Status422UnprocessableEntity
+            });
+        }
+    }
+
+    public static async Task<Results<Ok<WidgetLibraryDto>, ValidationProblem, NotFound, BadRequest<ProblemDetails>>>
+        UpdateLibraryAsync(
+            [FromRoute] string id,
+            IWidgetLibraryInstaller installer,
+            CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id.Length > 64 || !LibraryIdRegex.IsMatch(id))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["id"] = ["Library id must be lowercase alphanumeric with optional hyphens (max 64 chars)."]
+            });
+        }
+
+        try
+        {
+            var lib = await installer.UpdateAsync(id, cancellationToken);
+            return TypedResults.Ok(ToDto(lib));
+        }
+        catch (WidgetLibraryNotFoundException)
+        {
+            return TypedResults.NotFound();
+        }
+        catch (WidgetLibraryNotGitInstalledException ex)
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Library not git-installed",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+    }
+
     public static async Task<Results<NoContent, NotFound, ValidationProblem, BadRequest<ProblemDetails>>>
         UninstallLibraryAsync(
             [FromRoute] string id,

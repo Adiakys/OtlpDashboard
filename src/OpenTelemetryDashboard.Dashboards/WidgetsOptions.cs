@@ -30,4 +30,16 @@ public sealed class WidgetsOptions
     /// skipped with a logged warning.
     /// </summary>
     public int MaxLibraries { get; set; } = 32;
+
+    /// <summary>
+    /// Allow-list of git hosts the install endpoint accepts. Anything else
+    /// returns 400 before any network call. Lowercase, no path, no scheme.
+    /// </summary>
+    public List<string> AllowedGitHosts { get; set; } = ["github.com", "gitlab.com"];
+
+    /// <summary>
+    /// Timeout applied to every git operation (clone, fetch, reset). The
+    /// LibGit2Sharp callbacks honour the value to abort runaway transfers.
+    /// </summary>
+    public int GitInstallTimeoutSeconds { get; set; } = 60;
 }

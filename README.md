@@ -172,9 +172,15 @@ Install one of two ways:
 1. **Drop a folder.** Copy the library into the libraries path
    (volume-mount, Ansible, etc.). Click the refresh icon in the widget
    picker (or `POST /api/v1/widgets/libraries/reload`) to re-scan.
-2. **Install from a Git repo** (planned, iter 4 of the roadmap). The
-   server clones the repo into the libraries path; updates are explicit
-   ("Update" button → `git fetch && git reset --hard <ref>`).
+2. **Install from a Git repo.** Click the git-branch icon in the picker
+   header (or `POST /api/v1/widgets/libraries/install` with
+   `{ url, ref }`). The server runs a shallow clone via LibGit2Sharp,
+   parses `manifest.json`, resolves HEAD to a commit SHA, and atomically
+   moves the directory into the runtime-managed root. Allowed hosts are
+   `Dashboard:Widgets:AllowedGitHosts` (default `github.com, gitlab.com`).
+   Use a tag for stable pinning; branches work but get a UI warning.
+   Updates: "Update" button on git-installed library headers re-pulls
+   the same ref (`fetch && reset --hard`).
 
 #### Repository / folder layout
 
@@ -277,6 +283,9 @@ library.
 | GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
 | GET    | `/api/v1/widgets/libraries`           | Discovered widget libraries   |
 | POST   | `/api/v1/widgets/libraries/reload`    | Re-scan the libraries path    |
+| POST   | `/api/v1/widgets/libraries/install`   | Clone from git (`{url,ref}`)  |
+| POST   | `/api/v1/widgets/libraries/{id}/update` | Re-pull a git-installed lib |
+| DELETE | `/api/v1/widgets/libraries/{id}`      | Uninstall a library           |
 
 The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
 

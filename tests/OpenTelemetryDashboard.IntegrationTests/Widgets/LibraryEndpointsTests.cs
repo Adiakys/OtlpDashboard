@@ -3,9 +3,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetryDashboard.Dashboards.Contracts;
 using OpenTelemetryDashboard.Dashboards.Library;
 using OpenTelemetryDashboard.Persistence;
@@ -99,6 +101,84 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
     }
 
     [Fact]
+    public async Task Install_From_Git_Creates_Library_And_Returns_201()
+    {
+        _host.GitInstaller.SeedAction = dir =>
+        {
+            File.WriteAllText(Path.Combine(dir, "manifest.json"),
+                """{"id":"installed-pack","name":"Installed Pack","version":"1.0.0"}""");
+            var widgetDir = Path.Combine(dir, "widgets", "stat");
+            Directory.CreateDirectory(widgetDir);
+            File.WriteAllText(Path.Combine(widgetDir, "widget.json"),
+                """{"name":"Stat","icon":"i-ph-target","engine":"preset","baseKind":"metric-stat"}""");
+        };
+        _host.GitInstaller.HeadSha = "abc1234567890";
+
+        using var client = _host.CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            new Uri("/api/v1/widgets/libraries/install", UriKind.Relative),
+            new InstallLibraryRequest("https://github.com/org/installed-pack", "v1.0.0"),
+            JsonOptions);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var dto = await response.Content.ReadFromJsonAsync<WidgetLibraryDto>(JsonOptions);
+        dto.ShouldNotBeNull();
+        dto!.Id.ShouldBe("installed-pack");
+        dto.InstallSource.ShouldBe(LibraryInstallSource.Git);
+        dto.GitRefResolved.ShouldBe("abc1234567890");
+
+        Directory.Exists(Path.Combine(_host.LibrariesPath, "installed-pack")).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Install_From_Disallowed_Host_Returns_400()
+    {
+        using var client = _host.CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            new Uri("/api/v1/widgets/libraries/install", UriKind.Relative),
+            new InstallLibraryRequest("https://evil.example.com/pack", "main"),
+            JsonOptions);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Install_With_Empty_Body_Returns_400()
+    {
+        using var client = _host.CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            new Uri("/api/v1/widgets/libraries/install", UriKind.Relative),
+            new InstallLibraryRequest("", ""),
+            JsonOptions);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Update_Of_Filesystem_Library_Returns_400()
+    {
+        using var client = _host.CreateClient();
+        // alpha-pack is seeded by the fixture as a filesystem library — no
+        // .install.json present, so update must refuse.
+        using var response = await client.PostAsync(
+            new Uri("/api/v1/widgets/libraries/alpha-pack/update", UriKind.Relative),
+            content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Update_Of_Unknown_Library_Returns_404()
+    {
+        using var client = _host.CreateClient();
+        using var response = await client.PostAsync(
+            new Uri("/api/v1/widgets/libraries/no-such-thing/update", UriKind.Relative),
+            content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task ReloadLibraries_Picks_Up_New_Library_Without_Restart()
     {
         using var client = _host.CreateClient();
@@ -148,6 +228,13 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
 
         public string ConnectionString => $"Data Source={DatabasePath}";
 
+        /// <summary>
+        /// Stand-in for the real LibGit2Sharp installer. Tests assign
+        /// <c>SeedAction</c> + <c>HeadSha</c> before hitting the install
+        /// endpoint to drive the response.
+        /// </summary>
+        public FakeGitInstaller GitInstaller { get; } = new();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             ArgumentNullException.ThrowIfNull(builder);
@@ -170,6 +257,15 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
                     ["OpenTelemetryDashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
                     ["Dashboard:Widgets:LibrariesPaths:0"] = LibrariesPath,
                 });
+            });
+
+            // Replace the real git installer with a fake that writes
+            // straight to disk. Real network clone would make this suite
+            // dependent on GitHub being reachable from CI.
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IGitInstaller>();
+                services.AddSingleton<IGitInstaller>(GitInstaller);
             });
         }
 
@@ -221,5 +317,29 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
             try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
             catch (IOException) { /* leave temp dir behind on slow shutdown */ }
         }
+    }
+
+    public sealed class FakeGitInstaller : IGitInstaller
+    {
+        /// <summary>What to write into the cloned dir; defaults to a no-op.</summary>
+        public Action<string> SeedAction { get; set; } = _ => { };
+
+        /// <summary>SHA returned by <see cref="ResolveHead"/>.</summary>
+        public string HeadSha { get; set; } = "deadbeef0000000000000000000000000000beef";
+
+        public Task CloneAsync(string url, string gitRef, string targetDir, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            Directory.CreateDirectory(targetDir);
+            SeedAction(targetDir);
+            return Task.CompletedTask;
+        }
+
+        public Task FetchAndResetAsync(string repoDir, string gitRef, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            SeedAction(repoDir);
+            return Task.CompletedTask;
+        }
+
+        public string ResolveHead(string repoDir) => HeadSha;
     }
 }

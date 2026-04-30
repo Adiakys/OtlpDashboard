@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { defaultConfigForDefinition, useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
+import InstallLibraryDialog from './InstallLibraryDialog.vue'
 import SaveAsTemplateDialog from './SaveAsTemplateDialog.vue'
 import type { BuiltinKind, FQKind, WidgetConfig, WidgetDefinition } from '../types'
 import { parseKind } from '../types'
@@ -255,6 +256,35 @@ async function uninstallLibrary(libId: string) {
     isUninstalling.value = null
   }
 }
+
+// ----- Install / update from git -----
+
+const installDialogOpen = ref(false)
+const isUpdating = ref<string | null>(null)
+
+async function onInstalled() {
+  // The install endpoint returned 201; still hit refreshLibraries() so
+  // the picker reflects the freshly registered DTO (including
+  // `installSource: 'Git'` which gates the Update button).
+  await catalog.refreshLibraries()
+}
+
+async function updateLibrary(libId: string) {
+  if (isUpdating.value) return
+  isUpdating.value = libId
+  error.value = null
+  try {
+    await $widgetService.updateLibrary(libId)
+    await catalog.refreshLibraries()
+  } catch (err) {
+    const detail = (err as { data?: { detail?: unknown } } | undefined)?.data?.detail
+    error.value = typeof detail === 'string'
+      ? detail
+      : (err instanceof Error ? err.message : String(err))
+  } finally {
+    isUpdating.value = null
+  }
+}
 </script>
 
 <template>
@@ -301,6 +331,14 @@ async function uninstallLibrary(libId: string) {
               icon="i-ph-magnifying-glass"
               size="sm"
               autofocus
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-ph-cloud-arrow-down"
+              :label="t('widgets.picker.installFromGit')"
+              @click="installDialogOpen = true"
             />
             <UButton
               color="neutral"
@@ -434,6 +472,18 @@ async function uninstallLibrary(libId: string) {
                   {{ lib.widgets.length }}
                 </span>
                 <UButton
+                  v-if="catalog.libraryById(lib.id)?.installSource === 'Git'"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-ph-arrow-clockwise"
+                  square
+                  :loading="isUpdating === lib.id"
+                  :disabled="isUpdating !== null"
+                  :aria-label="t('widgets.picker.updateLibrary')"
+                  @click="updateLibrary(lib.id)"
+                />
+                <UButton
                   v-if="catalog.libraryById(lib.id)?.removable"
                   color="error"
                   variant="ghost"
@@ -481,16 +531,23 @@ async function uninstallLibrary(libId: string) {
     v-model:open="editOpen"
     :existing="editingDef ?? undefined"
   />
+
+  <InstallLibraryDialog
+    v-model:open="installDialogOpen"
+    @installed="onInstalled"
+  />
 </template>
 
 <style scoped>
 /* Click-to-close layer behind the panel. Fully transparent — the
    dashboard underneath stays visible at rest. The shell itself supplies
-   the solid background; only it dims while the user drags it. */
+   the solid background; only it dims while the user drags it.
+   z-index sits below Nuxt UI's `UModal` (z-50) so dialogs spawned from
+   inside the picker (Save-as-template, Install-from-git) stack on top. */
 .vellum-picker-overlay {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 30;
   background: transparent;
 }
 
@@ -502,7 +559,8 @@ async function uninstallLibrary(libId: string) {
      folds the centering offset (-50%, -50%) with the drag delta. */
   top: 50%;
   left: 50%;
-  z-index: 50;
+  /* Sits below Nuxt UI's `UModal` (z-50) — see overlay rule above. */
+  z-index: 40;
   display: flex;
   flex-direction: column;
   width: min(1100px, 92vw);

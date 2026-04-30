@@ -104,6 +104,25 @@ describe('WidgetService', () => {
     expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/reload')
   })
 
+  it('installs a library via POST /v1/widgets/libraries/install', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.installLibrary({ url: 'https://github.com/org/pack', ref: 'v1.2.0' })
+
+    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/install',
+      { url: 'https://github.com/org/pack', ref: 'v1.2.0' })
+  })
+
+  it('updates a library via POST .../update, id encoded', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.updateLibrary('team-pack')
+
+    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/team-pack/update')
+  })
+
   it('uninstalls a library via DELETE, id encoded', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)

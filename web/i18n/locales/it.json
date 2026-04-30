@@ -376,7 +376,16 @@
       "noMatch": "Nessun widget corrisponde alla ricerca.",
       "reloadLibraries": "Ricarica librerie",
       "uninstallLibrary": "Disinstalla libreria",
-      "uninstallLibraryConfirm": "Disinstallare la libreria '{id}'? Le dashboard che usano i suoi widget mostreranno un placeholder. L'azione non è reversibile."
+      "uninstallLibraryConfirm": "Disinstallare la libreria '{id}'? Le dashboard che usano i suoi widget mostreranno un placeholder. L'azione non è reversibile.",
+      "installFromGit": "Installa da Git",
+      "installUrlLabel": "URL del repository",
+      "installUrlPlaceholder": "https://github.com/org/widget-pack",
+      "installUrlHint": "Sono ammessi solo gli host git in allow-list (default: github.com, gitlab.com).",
+      "installRefLabel": "Ref (tag, branch o commit SHA)",
+      "installRefHint": "I tag fissano una release immutabile. I commit SHA danno il pinning più stretto.",
+      "installRefBranchWarning": "I branch cambiano nel tempo — pinning debole. In produzione, preferisci un tag.",
+      "installSubmit": "Installa",
+      "updateLibrary": "Aggiorna libreria"
     },
     "saveAs": {
       "action": "Salva come widget",

@@ -22,7 +22,17 @@ public static class DashboardsServiceCollectionExtensions
         services.AddOptions<WidgetsOptions>()
             .Bind(configuration.GetSection(WidgetsOptions.SectionName));
 
-        services.AddSingleton<IWidgetLibraryRegistry, FilesystemWidgetLibraryRegistry>();
+        // The registry is registered both under its concrete type (so the
+        // installer can read the primary path) and the read-side port that
+        // every other consumer talks to. Two registrations point at the
+        // same singleton instance so the cache invalidation paths line up.
+        services.AddSingleton<FilesystemWidgetLibraryRegistry>();
+        services.AddSingleton<IWidgetLibraryRegistry>(sp =>
+            sp.GetRequiredService<FilesystemWidgetLibraryRegistry>());
+
+        services.AddSingleton<IGitInstaller, LibGit2SharpInstaller>();
+        services.AddSingleton<IWidgetLibraryInstaller, LibraryInstallService>();
+
         return services;
     }
 }

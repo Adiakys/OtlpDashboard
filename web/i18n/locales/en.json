@@ -375,7 +375,16 @@
       "noMatch": "No widgets match the search.",
       "reloadLibraries": "Reload libraries",
       "uninstallLibrary": "Uninstall library",
-      "uninstallLibraryConfirm": "Uninstall library '{id}'? Existing dashboards using its widgets will show a placeholder. This cannot be undone."
+      "uninstallLibraryConfirm": "Uninstall library '{id}'? Existing dashboards using its widgets will show a placeholder. This cannot be undone.",
+      "installFromGit": "Install from Git",
+      "installUrlLabel": "Repository URL",
+      "installUrlPlaceholder": "https://github.com/org/widget-pack",
+      "installUrlHint": "Only allow-listed git hosts (default: github.com, gitlab.com).",
+      "installRefLabel": "Ref (tag, branch, or commit SHA)",
+      "installRefHint": "Tags pin you to an immutable release. Use commit SHAs for the strongest pinning.",
+      "installRefBranchWarning": "Branch refs move over time — pinning is weak. Prefer a tag for production.",
+      "installSubmit": "Install",
+      "updateLibrary": "Update library"
     },
     "saveAs": {
       "action": "Save as widget",

@@ -68,4 +68,21 @@ export class WidgetService {
       `/v1/widgets/libraries/${encodeURIComponent(libraryId)}`
     )
   }
+
+  /** Clone a widget library from a git host (allow-listed). The server
+   *  validates the URL, runs a shallow clone, parses `manifest.json`,
+   *  resolves HEAD to a commit SHA, and atomically moves the directory
+   *  into place. */
+  installLibrary(request: { url: string; ref: string }): Promise<WidgetLibraryDto> {
+    return this.http.post<WidgetLibraryDto>('/v1/widgets/libraries/install', request)
+  }
+
+  /** Re-pull a previously git-installed library and reset its working
+   *  tree to the original ref. Returns 400 if the library wasn't
+   *  installed via git in the first place. */
+  updateLibrary(libraryId: string): Promise<WidgetLibraryDto> {
+    return this.http.post<WidgetLibraryDto>(
+      `/v1/widgets/libraries/${encodeURIComponent(libraryId)}/update`
+    )
+  }
 }
