@@ -373,7 +373,9 @@
       "customSection": "My widgets",
       "customEmpty": "No personal widgets yet. Use 'Save as widget' from the config drawer.",
       "noMatch": "No widgets match the search.",
-      "reloadLibraries": "Reload libraries"
+      "reloadLibraries": "Reload libraries",
+      "uninstallLibrary": "Uninstall library",
+      "uninstallLibraryConfirm": "Uninstall library '{id}'? Existing dashboards using its widgets will show a placeholder. This cannot be undone."
     },
     "saveAs": {
       "action": "Save as widget",

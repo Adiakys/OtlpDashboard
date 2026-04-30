@@ -260,5 +260,9 @@ export interface WidgetLibraryDto {
   gitRef: string | null
   gitRefResolved: string | null
   installedAt: string | null
+  /** True only when the library lives in the runtime-managed root (the
+   *  first configured path). Drives the visibility of the uninstall
+   *  button — baked-in libraries from image layers are read-only. */
+  removable: boolean
   widgets: LibraryWidgetDto[]
 }

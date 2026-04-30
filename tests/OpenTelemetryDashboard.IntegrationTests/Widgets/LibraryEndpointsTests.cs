@@ -47,6 +47,58 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
     }
 
     [Fact]
+    public async Task Delete_Library_Removes_Directory_And_Drops_From_Listing()
+    {
+        using var client = _host.CreateClient();
+
+        // Drop a fresh library so the test stays independent of seeded data.
+        var libId = $"trash-{Guid.NewGuid():N}"[..20];
+        var dir = Path.Combine(_host.LibrariesPath, libId);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "manifest.json"),
+            $$"""{"id":"{{libId}}","name":"Trash","version":"1.0.0"}""");
+        var widgetDir = Path.Combine(dir, "widgets", "stat");
+        Directory.CreateDirectory(widgetDir);
+        File.WriteAllText(Path.Combine(widgetDir, "widget.json"),
+            """{"name":"Stat","icon":"i-ph-target","engine":"preset","baseKind":"metric-stat"}""");
+
+        using var reload = await client.PostAsync(
+            new Uri("/api/v1/widgets/libraries/reload", UriKind.Relative), content: null);
+        reload.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        using var del = await client.DeleteAsync(
+            new Uri($"/api/v1/widgets/libraries/{libId}", UriKind.Relative));
+        del.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        Directory.Exists(dir).ShouldBeFalse();
+
+        var libs = await client.GetFromJsonAsync<WidgetLibraryDto[]>(
+            new Uri("/api/v1/widgets/libraries", UriKind.Relative), JsonOptions);
+        libs.ShouldNotBeNull();
+        libs!.Any(l => l.Id == libId).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Delete_Unknown_Library_Returns_404()
+    {
+        using var client = _host.CreateClient();
+
+        using var del = await client.DeleteAsync(
+            new Uri("/api/v1/widgets/libraries/never-installed", UriKind.Relative));
+        del.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_Library_With_Bad_Id_Returns_400()
+    {
+        using var client = _host.CreateClient();
+
+        using var del = await client.DeleteAsync(
+            new Uri("/api/v1/widgets/libraries/Bad..Name", UriKind.Relative));
+        del.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task ReloadLibraries_Picks_Up_New_Library_Without_Restart()
     {
         using var client = _host.CreateClient();

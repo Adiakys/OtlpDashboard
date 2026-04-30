@@ -258,6 +258,9 @@ export interface DashboardWidgetCatalog extends WidgetCatalog {
   refreshCustom: () => Promise<void>
   /** Reload library definitions from the server (iter 3+). */
   refreshLibraries: () => Promise<void>
+  /** Look up the source library's metadata (e.g. `removable`) by id.
+   *  Returns null when the catalog hasn't seen the library yet. */
+  libraryById: (id: string) => WidgetLibraryDto | null
   /** Quick check: is the catalog hydrated? Useful for skeleton states. */
   hydrated: ComputedRef<boolean>
 }
@@ -265,6 +268,7 @@ export interface DashboardWidgetCatalog extends WidgetCatalog {
 export function useWidgetCatalog(): DashboardWidgetCatalog {
   const customDefs = useState<WidgetDefinition[]>('widget-catalog:custom', () => [])
   const libraryDefs = useState<WidgetDefinition[]>('widget-catalog:library', () => [])
+  const libraryDtos = useState<WidgetLibraryDto[]>('widget-catalog:libraryDtos', () => [])
   const hydratedFlag = useState<boolean>('widget-catalog:hydrated', () => false)
 
   const catalog = buildWidgetCatalog(customDefs, libraryDefs)
@@ -282,6 +286,11 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
     const flattened: WidgetDefinition[] = []
     for (const lib of libs) flattened.push(...libraryDtoToDefinitions(lib))
     libraryDefs.value = flattened
+    libraryDtos.value = libs
+  }
+
+  function libraryById(id: string): WidgetLibraryDto | null {
+    return libraryDtos.value.find(l => l.id === id) ?? null
   }
 
   const hydrated = computed(() => hydratedFlag.value)
@@ -290,6 +299,7 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
     ...catalog,
     refreshCustom,
     refreshLibraries,
+    libraryById,
     hydrated
   }
 }

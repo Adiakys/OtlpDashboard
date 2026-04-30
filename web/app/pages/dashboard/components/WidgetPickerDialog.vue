@@ -132,6 +132,25 @@ async function reloadLibraries() {
     isReloadingLibraries.value = false
   }
 }
+
+// ----- Uninstall library -----
+
+const isUninstalling = ref<string | null>(null)
+
+async function uninstallLibrary(libId: string) {
+  if (isUninstalling.value) return
+  if (!confirm(t('widgets.picker.uninstallLibraryConfirm', { id: libId }))) return
+  isUninstalling.value = libId
+  error.value = null
+  try {
+    await $widgetService.uninstallLibrary(libId)
+    await catalog.refreshLibraries()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    isUninstalling.value = null
+  }
+}
 </script>
 
 <template>
@@ -256,12 +275,26 @@ async function reloadLibraries() {
 
         <!-- LIBRERIE ----------------------------------------------- -->
         <section v-for="lib in filteredLibraries" :key="lib.id">
-          <header class="mb-2 flex items-baseline justify-between">
-            <span class="text-overline" style="color: var(--color-graphite-500);">
+          <header class="mb-2 flex items-baseline justify-between gap-2">
+            <span class="text-overline truncate" style="color: var(--color-graphite-500);">
               {{ lib.id }}
             </span>
-            <span class="text-mono-sm" style="color: var(--color-graphite-500);">
-              {{ lib.widgets.length }}
+            <span class="flex items-center gap-1.5">
+              <span class="text-mono-sm" style="color: var(--color-graphite-500);">
+                {{ lib.widgets.length }}
+              </span>
+              <UButton
+                v-if="catalog.libraryById(lib.id)?.removable"
+                color="error"
+                variant="ghost"
+                size="xs"
+                icon="i-ph-trash"
+                square
+                :loading="isUninstalling === lib.id"
+                :disabled="isUninstalling !== null"
+                :aria-label="t('widgets.picker.uninstallLibrary')"
+                @click="uninstallLibrary(lib.id)"
+              />
             </span>
           </header>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">

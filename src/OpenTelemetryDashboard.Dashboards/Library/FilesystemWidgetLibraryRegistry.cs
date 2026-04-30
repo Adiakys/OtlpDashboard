@@ -73,6 +73,59 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
         await LoadAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task UninstallAsync(string libraryId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(libraryId);
+
+        // Make sure the cache is hot — a fresh server hasn't loaded yet on
+        // first request, and we need the cache to find the library's root.
+        await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
+
+        var match = _cache?.FirstOrDefault(l => string.Equals(l.Id, libraryId, StringComparison.Ordinal));
+        if (match is null)
+        {
+            throw new WidgetLibraryNotFoundException(libraryId);
+        }
+        if (!match.Removable)
+        {
+            throw new WidgetLibraryNotRemovableException(libraryId);
+        }
+
+        // Defence in depth: even though `match.RootPath` is server-trusted
+        // (set at load time), re-verify the resolved path is contained in
+        // the primary root. Any drift (manifest tampering, race) bails here
+        // instead of touching files outside the managed dir.
+        var primaryRoot = Path.GetFullPath(_librariesPaths[0]);
+        var libRoot = Path.GetFullPath(match.RootPath);
+        var primaryWithSep = primaryRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? primaryRoot
+            : primaryRoot + Path.DirectorySeparatorChar;
+        if (!libRoot.StartsWith(primaryWithSep, StringComparison.Ordinal))
+        {
+            throw new WidgetLibraryNotRemovableException(libraryId);
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (Directory.Exists(libRoot))
+            {
+                Directory.Delete(libRoot, recursive: true);
+            }
+            // Invalidate the cache so the next ListAsync re-scans from disk.
+            _cache = null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        // Refresh outside the gate so callers see the new state without
+        // racing against the next ListAsync.
+        await LoadAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LibraryUninstalled(libraryId, libRoot);
+    }
+
     public void Dispose() => _gate.Dispose();
 
     private async Task EnsureLoadedAsync(CancellationToken cancellationToken)
@@ -94,6 +147,11 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
             var seenIds = new HashSet<string>(StringComparer.Ordinal);
             var capReached = false;
 
+            // Only the first configured path is "removable" — that's the
+            // runtime-managed root (volume mount, git installs, drop-in).
+            // Subsequent paths are baked-in (image layers, read-only).
+            var primaryRoot = _librariesPaths[0];
+
             foreach (var root in _librariesPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -103,6 +161,8 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
                     _logger.LibrariesPathMissing(root);
                     continue;
                 }
+
+                var isPrimary = string.Equals(root, primaryRoot, StringComparison.Ordinal);
 
                 var directories = Directory.EnumerateDirectories(root)
                     .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
@@ -129,7 +189,7 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
                         continue;
                     }
 
-                    if (!TryLoadLibrary(dir, out var library)) continue;
+                    if (!TryLoadLibrary(dir, isPrimary, out var library)) continue;
 
                     if (!seenIds.Add(library.Id))
                     {
@@ -156,7 +216,7 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
         }
     }
 
-    private bool TryLoadLibrary(string dir, out WidgetLibrary library)
+    private bool TryLoadLibrary(string dir, bool removable, out WidgetLibrary library)
     {
         library = default!;
         var dirName = Path.GetFileName(dir);
@@ -234,6 +294,8 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
             GitRef = gitInfo?.Ref,
             GitRefResolved = gitInfo?.RefResolved,
             InstalledAt = gitInfo?.InstalledAt,
+            RootPath = Path.GetFullPath(dir),
+            Removable = removable,
             Widgets = widgets
         };
         return true;
@@ -332,4 +394,8 @@ internal static partial class FilesystemWidgetLibraryRegistryLogs
     [LoggerMessage(EventId = 12, Level = LogLevel.Warning,
         Message = "Library id '{LibId}' from {Dir} is already exposed by an earlier path in the scan order; skipping.")]
     public static partial void LibraryIdShadowed(this ILogger logger, string libId, string dir);
+
+    [LoggerMessage(EventId = 13, Level = LogLevel.Information,
+        Message = "Uninstalled library '{LibId}' (deleted {Path}).")]
+    public static partial void LibraryUninstalled(this ILogger logger, string libId, string path);
 }

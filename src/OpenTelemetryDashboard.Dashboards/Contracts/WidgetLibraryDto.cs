@@ -18,4 +18,5 @@ public sealed record WidgetLibraryDto(
     string? GitRef,
     string? GitRefResolved,
     DateTimeOffset? InstalledAt,
+    bool Removable,
     IReadOnlyList<LibraryWidgetDto> Widgets);

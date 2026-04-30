@@ -1,6 +1,8 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using OpenTelemetryDashboard.Dashboards.Contracts;
 using OpenTelemetryDashboard.Dashboards.Library;
 
@@ -13,6 +15,15 @@ namespace OpenTelemetryDashboard.Dashboards.Endpoints;
 /// </summary>
 internal static class LibraryEndpoints
 {
+    /// <summary>
+    /// Library ids must match the same shape the manifest parser enforces.
+    /// Validating here turns "/api/v1/widgets/libraries/../etc/passwd" into
+    /// a 400 long before the registry sees it.
+    /// </summary>
+    private static readonly Regex LibraryIdRegex = new(
+        @"^[a-z0-9](-?[a-z0-9])*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     public static async Task<Ok<IReadOnlyList<WidgetLibraryDto>>>
         GetLibrariesAsync(IWidgetLibraryRegistry registry, CancellationToken cancellationToken)
     {
@@ -30,6 +41,40 @@ internal static class LibraryEndpoints
     {
         await registry.ReloadAsync(cancellationToken);
         return TypedResults.NoContent();
+    }
+
+    public static async Task<Results<NoContent, NotFound, ValidationProblem, BadRequest<ProblemDetails>>>
+        UninstallLibraryAsync(
+            [FromRoute] string id,
+            IWidgetLibraryRegistry registry,
+            CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id.Length > 64 || !LibraryIdRegex.IsMatch(id))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["id"] = ["Library id must be lowercase alphanumeric with optional hyphens (max 64 chars)."]
+            });
+        }
+
+        try
+        {
+            await registry.UninstallAsync(id, cancellationToken);
+            return TypedResults.NoContent();
+        }
+        catch (WidgetLibraryNotFoundException)
+        {
+            return TypedResults.NotFound();
+        }
+        catch (WidgetLibraryNotRemovableException ex)
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Library not removable",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
     }
 
     private static WidgetLibraryDto ToDto(WidgetLibrary lib)
@@ -62,6 +107,7 @@ internal static class LibraryEndpoints
             lib.GitRef,
             lib.GitRefResolved,
             lib.InstalledAt,
+            lib.Removable,
             widgets);
     }
 }

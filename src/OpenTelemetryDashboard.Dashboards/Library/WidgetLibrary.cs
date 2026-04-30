@@ -28,6 +28,21 @@ public sealed class WidgetLibrary
     public LibraryInstallSource InstallSource { get; init; } = LibraryInstallSource.Filesystem;
 
     /// <summary>
+    /// Absolute path of the directory the library was loaded from. Internal
+    /// detail used by uninstall — never serialized over the wire so we
+    /// don't leak server filesystem layout to clients.
+    /// </summary>
+    internal string RootPath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// True when the registry can delete this library on uninstall. Set to
+    /// true only for libraries living in the first configured path (the
+    /// runtime-managed root). Baked-in libraries shipped via image layers
+    /// are read-only by convention.
+    /// </summary>
+    public bool Removable { get; init; }
+
+    /// <summary>
     /// For <see cref="LibraryInstallSource.Git"/>: the URL the library was
     /// cloned from. Null otherwise. Read from <c>.install.json</c>.
     /// </summary>

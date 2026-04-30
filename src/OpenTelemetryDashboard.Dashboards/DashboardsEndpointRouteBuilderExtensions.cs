@@ -72,6 +72,8 @@ public static class DashboardsEndpointRouteBuilderExtensions
             .WithName("GetWidgetLibraries");
         group.MapPost("/libraries/reload", LibraryEndpoints.ReloadLibrariesAsync)
             .WithName("ReloadWidgetLibraries");
+        group.MapDelete("/libraries/{id}", LibraryEndpoints.UninstallLibraryAsync)
+            .WithName("UninstallWidgetLibrary");
 
         return group;
     }

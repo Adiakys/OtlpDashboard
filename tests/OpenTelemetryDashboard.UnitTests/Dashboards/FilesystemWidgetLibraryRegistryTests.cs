@@ -138,6 +138,58 @@ public sealed class FilesystemWidgetLibraryRegistryTests : IDisposable
     }
 
     [Fact]
+    public async Task Uninstall_Removes_Library_Directory_And_Refreshes_Cache()
+    {
+        WriteLibrary("removable", """{"id":"removable","name":"Removable","version":"1.0.0"}""");
+        WriteWidget("removable", "w", """{"name":"W","icon":"i-ph-target","engine":"preset","baseKind":"text"}""");
+        WriteLibrary("keeper", """{"id":"keeper","name":"Keeper","version":"1.0.0"}""");
+        WriteWidget("keeper", "k", """{"name":"K","icon":"i-ph-target","engine":"preset","baseKind":"text"}""");
+
+        using var registry = NewRegistry();
+        (await registry.ListAsync(CancellationToken.None)).Count.ShouldBe(2);
+
+        await registry.UninstallAsync("removable", CancellationToken.None);
+
+        Directory.Exists(Path.Combine(_root, "removable")).ShouldBeFalse();
+        var after = await registry.ListAsync(CancellationToken.None);
+        after.Select(l => l.Id).ShouldBe(["keeper"]);
+    }
+
+    [Fact]
+    public async Task Uninstall_Unknown_Library_Throws_NotFound()
+    {
+        using var registry = NewRegistry();
+
+        await Should.ThrowAsync<WidgetLibraryNotFoundException>(
+            () => registry.UninstallAsync("does-not-exist", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Uninstall_Of_BakedIn_Library_Throws_NotRemovable()
+    {
+        var primary = Path.Combine(_root, "primary");
+        var bakedIn = Path.Combine(_root, "baked-in");
+        Directory.CreateDirectory(primary);
+        Directory.CreateDirectory(bakedIn);
+
+        WriteLibraryAt(bakedIn, "from-image", """{"id":"from-image","name":"Image","version":"1.0.0"}""");
+        WriteWidgetAt(bakedIn, "from-image", "w", """{"name":"W","icon":"i-ph-target","engine":"preset","baseKind":"text"}""");
+
+        var opts = Options.Create(new WidgetsOptions { LibrariesPaths = [primary, bakedIn] });
+        using var registry = new FilesystemWidgetLibraryRegistry(
+            opts, new TestHostEnvironment(), NullLogger<FilesystemWidgetLibraryRegistry>.Instance);
+
+        var libs = await registry.ListAsync(CancellationToken.None);
+        libs.Count.ShouldBe(1);
+        libs[0].Removable.ShouldBeFalse();
+
+        await Should.ThrowAsync<WidgetLibraryNotRemovableException>(
+            () => registry.UninstallAsync("from-image", CancellationToken.None));
+
+        Directory.Exists(Path.Combine(bakedIn, "from-image")).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Multiple_Paths_Are_Both_Scanned_And_First_Wins_On_Id_Collision()
     {
         // Two roots, both contain a library with id "shared". The first

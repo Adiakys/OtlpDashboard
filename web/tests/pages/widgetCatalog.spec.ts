@@ -143,6 +143,7 @@ describe('libraryDtoToDefinitions', () => {
       gitRef: null,
       gitRefResolved: null,
       installedAt: null,
+      removable: true,
       widgets: [
         {
           kindId: 'sla-tracker',

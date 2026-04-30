@@ -374,7 +374,9 @@
       "customSection": "I miei widget",
       "customEmpty": "Nessun widget personale ancora. Usa 'Salva come widget' nel config drawer.",
       "noMatch": "Nessun widget corrisponde alla ricerca.",
-      "reloadLibraries": "Ricarica librerie"
+      "reloadLibraries": "Ricarica librerie",
+      "uninstallLibrary": "Disinstalla libreria",
+      "uninstallLibraryConfirm": "Disinstallare la libreria '{id}'? Le dashboard che usano i suoi widget mostreranno un placeholder. L'azione non è reversibile."
     },
     "saveAs": {
       "action": "Salva come widget",

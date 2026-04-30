@@ -21,4 +21,13 @@ public interface IWidgetLibraryRegistry
     /// once the scan completes.
     /// </summary>
     Task ReloadAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Permanently remove the library directory from disk and refresh the
+    /// cache. Throws <see cref="WidgetLibraryNotFoundException"/> if the id
+    /// isn't currently registered, or
+    /// <see cref="WidgetLibraryNotRemovableException"/> if the library
+    /// lives outside the runtime-managed root.
+    /// </summary>
+    Task UninstallAsync(string libraryId, CancellationToken cancellationToken);
 }

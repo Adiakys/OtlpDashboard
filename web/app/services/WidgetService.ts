@@ -59,4 +59,13 @@ export class WidgetService {
   reloadLibraries(): Promise<void> {
     return this.http.post<void>('/v1/widgets/libraries/reload')
   }
+
+  /** Permanently remove a library directory from the runtime-managed
+   *  path. The server returns 400 if the library lives in a baked-in path
+   *  (image layer) — those can only be removed by rebuilding the image. */
+  uninstallLibrary(libraryId: string): Promise<void> {
+    return this.http.delete<void>(
+      `/v1/widgets/libraries/${encodeURIComponent(libraryId)}`
+    )
+  }
 }

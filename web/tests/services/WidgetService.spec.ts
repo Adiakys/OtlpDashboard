@@ -103,4 +103,13 @@ describe('WidgetService', () => {
 
     expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/reload')
   })
+
+  it('uninstalls a library via DELETE, id encoded', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.uninstallLibrary('team pack')
+
+    expect(http.delete).toHaveBeenCalledWith('/v1/widgets/libraries/team%20pack')
+  })
 })
