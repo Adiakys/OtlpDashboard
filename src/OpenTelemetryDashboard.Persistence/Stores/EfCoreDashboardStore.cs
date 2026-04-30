@@ -29,6 +29,16 @@ public sealed class EfCoreDashboardStore : IDashboardStore
             .ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<Guid>> GetAllIdsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        return await context.Dashboards
+            .AsNoTracking()
+            .Select(d => d.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<Dashboard?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);

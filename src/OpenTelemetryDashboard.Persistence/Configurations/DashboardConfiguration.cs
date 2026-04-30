@@ -34,17 +34,10 @@ public sealed class DashboardConfiguration : IEntityTypeConfiguration<Dashboard>
         builder.Property(d => d.RowVersion)
             .IsConcurrencyToken();
 
-        // Seed the singleton "default" dashboard so a fresh install always
-        // has at least one row. The SPA renders it as the landing page.
-        // Protected from deletion at the API boundary. Kept in a separate
-        // migration (`SeedDefaultDashboard`) so the InsertData runs against
-        // the post-rebuild schema on SQLite.
-        builder.HasData(new Dashboard()
-        {
-            Id = Dashboard.DefaultId,
-            Name = "main",
-            UpdatedAt = DateTimeOffset.MinValue,
-        });
+        // The default dashboard is no longer seeded via HasData. The
+        // historic `SeedDefaultDashboard` migration still runs against
+        // pre-existing databases (idempotent), and `BuiltinDashboardSeeder`
+        // handles fresh installs and file-driven defaults at runtime.
     }
 }
 

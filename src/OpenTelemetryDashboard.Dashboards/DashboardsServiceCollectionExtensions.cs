@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetryDashboard.Dashboards.Library;
+using OpenTelemetryDashboard.Dashboards.Seeding;
 
 namespace OpenTelemetryDashboard.Dashboards;
 
@@ -32,6 +33,10 @@ public static class DashboardsServiceCollectionExtensions
 
         services.AddSingleton<IGitInstaller, LibGit2SharpInstaller>();
         services.AddSingleton<IWidgetLibraryInstaller, LibraryInstallService>();
+
+        services.AddOptions<DashboardsOptions>()
+            .Bind(configuration.GetSection(DashboardsOptions.SectionName));
+        services.AddSingleton<IBuiltinDashboardSeeder, BuiltinDashboardSeeder>();
 
         return services;
     }

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Api;
 using OpenTelemetryDashboard.Core;
 using OpenTelemetryDashboard.Dashboards;
+using OpenTelemetryDashboard.Dashboards.Seeding;
 using OpenTelemetryDashboard.Host.Authentication;
 using OpenTelemetryDashboard.Host.Configuration;
 using OpenTelemetryDashboard.Ingestion;
@@ -138,6 +139,12 @@ await using (var scope = app.Services.CreateAsyncScope())
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
     await using var context = await factory.CreateDbContextAsync();
     await context.Database.MigrateAsync();
+
+    // Seed built-in dashboards from filesystem after the schema is ready.
+    // Idempotent: an id already in the store is skipped silently, so this
+    // safe to run on every boot.
+    var seeder = scope.ServiceProvider.GetRequiredService<IBuiltinDashboardSeeder>();
+    await seeder.SeedAsync(CancellationToken.None);
 }
 
 app.UseRateLimiter();

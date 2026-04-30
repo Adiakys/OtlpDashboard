@@ -272,6 +272,69 @@ library.
 
 ---
 
+## Built-in dashboards
+
+Dashboards can be shipped to a deployment as JSON files, scanned at boot
+by the `BuiltinDashboardSeeder`. The format matches the one the SPA
+emits via "Export JSON" — drop an exported file in the scan path and
+it's persisted on the next start.
+
+The shipped image configures **two paths** in scan order:
+
+1. `/app/data/dashboards` — runtime-managed (volume), drop files here
+2. `/app/builtin-dashboards` — baked into the image layer (no volume
+   shadowing on rebuild)
+
+Derived images don't need any env-var override — just `COPY` JSONs into
+the second path:
+
+```dockerfile
+FROM opentelemetrydashboard:latest
+COPY my-dashboards/ /app/builtin-dashboards/
+```
+
+### File format
+
+Same envelope produced by the SPA's export, plus an optional top-level
+`id`:
+
+```json
+{
+  "version": 1,
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Production Overview",
+  "widgets": [
+    { "id": "...", "kind": "std:metric-stat", "x": 0, "y": 0, "w": 4, "h": 3, "config": { /* opaque */ } }
+  ]
+}
+```
+
+### Id resolution (precedence)
+
+1. **Explicit `id`** in the JSON wins, must parse as a Guid.
+2. **`default.json`** filename → `00000000-0000-0000-0000-000000000001`
+   (the well-known default dashboard id). Convenient for distributing a
+   non-empty default.
+3. **Any other filename** → SHA-256 of the filename, truncated to 16
+   bytes (RFC 9562 v8). Stable across deployments — same filename
+   always produces the same dashboard id.
+
+### Idempotency
+
+The seeder runs every boot but uses **skip-if-exists** semantics: an id
+already in the store is left alone. The single special case is the
+default dashboard — when `default.json` is present and the existing
+default row is still pristine (no widgets, RowVersion 0), the seeder
+upserts it once. Any user edit (saved widgets or RowVersion ≥ 1) makes
+the seeder back off.
+
+To re-apply a built-in file, delete the dashboard via the UI first.
+
+A demo lives at `dashboards-demo/`, mounted by `docker-compose.yml`
+into the runtime path.
+
+---
+
 ## Endpoints
 
 | Method | Path                                  | Purpose                       |
@@ -283,6 +346,7 @@ library.
 | GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
 | GET    | `/api/v1/widgets/libraries`           | Discovered widget libraries   |
 | POST   | `/api/v1/widgets/libraries/reload`    | Re-scan the libraries path    |
+| (boot) | seed dashboards from JSON             | Built-in dashboards loaded after migrations, idempotent |
 | POST   | `/api/v1/widgets/libraries/install`   | Clone from git (`{url,ref}`)  |
 | POST   | `/api/v1/widgets/libraries/{id}/update` | Re-pull a git-installed lib |
 | DELETE | `/api/v1/widgets/libraries/{id}`      | Uninstall a library           |

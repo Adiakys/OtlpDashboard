@@ -10,7 +10,15 @@ namespace OpenTelemetryDashboard.Dashboards.Storage;
 public interface IDashboardStore
 {
     Task<IReadOnlyList<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default);
-    
+
+    /// <summary>
+    /// Lightweight projection of every persisted dashboard's id. Used by the
+    /// built-in seeder to decide which library files are already present in
+    /// the store without paying for the widget hydration that
+    /// <see cref="GetAllAsync"/> performs.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetAllIdsAsync(CancellationToken cancellationToken = default);
+
     Task<Dashboard?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     
     Task AddAsync(Dashboard dashboard, CancellationToken cancellationToken = default);
