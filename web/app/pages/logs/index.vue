@@ -89,47 +89,56 @@ const timeFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   fractionalSecondDigits: 3
 }))
 
+// Column sizing — paired with AppDataGrid's `autoSizeStrategy: fitGridWidth`.
+// The grid scales these `width` values up to fit the viewport on first paint.
+// `body` carries the largest target: the actual log message is the column
+// that earns visual weight; everything else is metadata.
 const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
   {
     field: 'time',
     headerName: t('logs.col.time'),
-    width: 140,
+    width: 120,
+    minWidth: 100,
     sort: 'desc',
-    cellClass: 'font-mono text-xs',
+    cellClass: 'vellum-cell-mono',
     valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
   },
   {
     field: 'serviceName',
     headerName: t('logs.col.service'),
-    width: 160,
-    cellClass: 'font-mono text-xs',
+    width: 130,
+    minWidth: 100,
+    cellClass: 'vellum-cell-mono',
     valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'severityNumber',
     headerName: t('logs.col.severity'),
-    width: 140,
+    width: 96,
+    minWidth: 88,
     cellRenderer: SeverityBadgeCell
   },
   {
     field: 'body',
     headerName: t('logs.col.body'),
-    flex: 1,
-    minWidth: 240,
+    width: 480,
+    minWidth: 200,
     tooltipField: 'body',
     cellClass: 'truncate'
   },
   {
     field: 'scopeName',
     headerName: t('logs.col.scope'),
-    width: 160,
-    cellClass: 'text-xs text-muted',
+    width: 130,
+    minWidth: 100,
+    cellClass: 'vellum-cell-muted',
     valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'traceId',
     headerName: t('logs.col.trace'),
-    width: 100,
+    width: 96,
+    minWidth: 80,
     cellRenderer: TraceLinkCell
   }
 ])
@@ -184,6 +193,7 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
       :error-title="t('logs.errorTitle')"
       :has-more="!page.isLive.value && page.hasMore.value"
       :loading-more="page.isLoading.value && page.items.value.length > 0"
+      :row-height="30"
       @row-click="row => page.selected.value = row"
       @retry="page.reload"
       @load-more="page.loadMore"

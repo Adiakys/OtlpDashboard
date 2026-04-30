@@ -4,8 +4,9 @@
 @import "./animations.css";
 @import "./aggrid.css";
 
-@import "ag-grid-community/styles/ag-grid.css";
-@import "ag-grid-community/styles/ag-theme-quartz.css";
+/* AG Grid v33 ships its base styles via the Theming API JS object — we no
+   longer need `ag-grid.css` / `ag-theme-quartz.css`. The Vellum theme lives
+   in `~/lib/aggrid/theme.ts` and is passed to the grid as a prop. */
 
 /* Self-hosted variable fonts (no FOUT, no Google CDN). */
 @import "@fontsource-variable/geist/index.css";

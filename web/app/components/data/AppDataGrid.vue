@@ -11,6 +11,7 @@ import type {
 } from 'ag-grid-community'
 import AppErrorState from '~/components/ui/AppErrorState.vue'
 import AppEmptyState from '~/components/ui/AppEmptyState.vue'
+import { vellumGridTheme } from '~/lib/aggrid/theme'
 
 const props = withDefaults(defineProps<{
   columnDefs: ColDef<TRow>[]
@@ -51,14 +52,31 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const colorMode = useColorMode()
-const themeClass = computed(() => colorMode.value === 'dark' ? 'ag-theme-quartz-dark' : 'ag-theme-quartz')
+// Drives the `data-ag-theme-mode` attribute that tells the Vellum theme
+// which set of params (`light` vs `dark`) to render.
+const themeMode = computed(() => colorMode.value === 'dark' ? 'dark' : 'light')
 
 const defaultColDef = computed<ColDef>(() => ({
   resizable: true,
   sortable: true,
   filter: false,
-  minWidth: 80
+  // Floor for column width. Pages override per-column when the content needs
+  // extra room (badge + label, monospace IDs, etc.).
+  minWidth: 70
 }))
+
+// First-render strategy. AG Grid v33 will distribute the available grid
+// width across all columns proportional to their declared `width`, scaling
+// up so the rightmost column meets the right edge — no blank filler space,
+// no horizontal scroll on first paint. After the user manually resizes a
+// column, the strategy disengages for that column and scroll surfaces only
+// when needed. autoSizeStrategy is mutually exclusive with `colDef.flex`,
+// so column defs across the app declare `width` (the proportion / target
+// size) and we let the grid scale them up to fit.
+const autoSizeStrategy = {
+  type: 'fitGridWidth' as const,
+  defaultMinWidth: 70
+}
 
 const gridApi = shallowRef<GridApi<TRow> | null>(null)
 
@@ -146,10 +164,6 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
 <template>
   <div
     class="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-default"
-    :style="{
-      borderTop: '1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent)',
-      borderBottom: '1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent)'
-    }"
   >
     <AppErrorState
       v-if="showFatalError"
@@ -174,15 +188,16 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
         </div>
       </Transition>
 
-      <div class="flex-1 min-h-0 flex flex-col">
+      <div class="flex-1 min-h-0 flex flex-col vellum-grid-host" :data-ag-theme-mode="themeMode">
         <div class="flex-1 min-h-0 relative">
           <AgGridVue
-            :class="themeClass"
             style="position: absolute; inset: 0; height: 100%; width: 100%;"
+            :theme="vellumGridTheme"
             :column-defs="columnDefs"
             :row-data="rowData"
             :loading="loading && rowData.length === 0"
             :default-col-def="defaultColDef"
+            :auto-size-strategy="autoSizeStrategy"
             :get-row-id="getRowId ? (params: any) => getRowId!(params.data) : undefined"
             :animate-rows="true"
             :suppress-cell-focus="true"

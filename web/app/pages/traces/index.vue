@@ -69,53 +69,64 @@ const timeFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   second: '2-digit'
 }))
 
+// Column sizing — paired with AppDataGrid's `autoSizeStrategy: fitGridWidth`.
+// `width` here is the proportional target the grid scales up so columns
+// exactly meet the right edge on first paint. `minWidth` floors each column
+// at its smallest legible state — narrow viewports get horizontal scroll
+// instead of unreadable squashed cells.
 const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
   {
     field: 'start',
     headerName: t('traces.col.start'),
-    width: 110,
+    width: 100,
+    minWidth: 90,
     sort: 'desc',
-    cellClass: 'font-mono text-xs',
+    cellClass: 'vellum-cell-mono',
     valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
   },
   {
     field: 'serviceName',
     headerName: t('traces.col.service'),
-    width: 160,
-    cellClass: 'font-mono text-xs',
+    width: 130,
+    minWidth: 100,
+    cellClass: 'vellum-cell-mono',
     valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'rootSpanName',
     headerName: t('traces.col.rootSpan'),
-    flex: 1,
-    minWidth: 200
+    width: 320,
+    minWidth: 160
   },
   {
     field: 'durationMs',
     headerName: t('traces.col.duration'),
-    width: 200,
+    width: 170,
+    minWidth: 130,
     cellRenderer: DurationBarCell,
     cellRendererParams: { max: () => maxDuration.value }
   },
   {
     field: 'spanCount',
     headerName: t('traces.col.spans'),
-    width: 80,
-    cellClass: 'font-mono text-xs',
+    width: 72,
+    minWidth: 60,
+    cellClass: 'vellum-cell-mono vellum-cell-num',
     type: 'rightAligned'
   },
   {
     field: 'rootStatusCode',
     headerName: t('traces.col.status'),
-    width: 110,
+    width: 88,
+    minWidth: 80,
     cellRenderer: TraceStatusBadgeCell
   },
   {
     field: 'traceId',
     headerName: t('traces.col.traceId'),
-    width: 140,
-    cellClass: 'font-mono text-xs text-muted',
+    width: 130,
+    minWidth: 110,
+    cellClass: 'vellum-cell-mono vellum-cell-muted',
     valueFormatter: p => (p.value as string).slice(0, 16) + '…',
     tooltipField: 'traceId'
   }
