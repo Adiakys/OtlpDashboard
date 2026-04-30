@@ -50,7 +50,11 @@ async function load() {
       from: window.from,
       to: window.to,
       limit: limit.value,
-      service: props.config.service ?? undefined
+      service: props.config.service ?? undefined,
+      // Server-side severity filter: the column is indexed, so cutting at
+      // Warn / Error here avoids streaming the noisy Info tail. Zero means
+      // "no cutoff", which the server treats as a no-op.
+      minSeverity: minSeverityNumber.value > 0 ? minSeverityNumber.value : undefined
     })
     if (ticket !== inFlight) return
     logs.value = response.items
@@ -64,15 +68,13 @@ async function load() {
 }
 
 watch(
-  () => [props.config.range, props.config.service, props.config.limit, props.liveTick],
+  () => [props.config.range, props.config.service, props.config.limit, props.config.minSeverity, props.liveTick],
   load,
   { immediate: true }
 )
 
 const filtered = computed(() => {
-  const min = minSeverityNumber.value
   return logs.value
-    .filter(l => l.severityNumber >= min)
     .slice(0, limit.value)
     // Most-recent first.
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())

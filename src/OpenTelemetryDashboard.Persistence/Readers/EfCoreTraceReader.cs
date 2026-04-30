@@ -91,21 +91,29 @@ public sealed class EfCoreTraceReader : ITraceReader
         // which is more useful for discovery (e.g. "show every trace that
         // touches frontend") than root-only filtering. The summary column
         // still shows the root's service so the UI stays consistent.
+        //
+        // Implementation: pre-compute the candidate resource hashes for the
+        // service (small set, fed by the indexed Resources.ServiceName), then
+        // emit an EXISTS-correlated `s2` lookup. The previous version went
+        // through a `SELECT DISTINCT trace_id IN (...)` semi-join which
+        // forced the planner to materialise the inner set; EXISTS lets it
+        // short-circuit at the first matching span per trace_id, which is
+        // markedly faster on large windows because the typical trace touches
+        // only a handful of services.
         if (!string.IsNullOrEmpty(query.ServiceName))
         {
             var service = query.ServiceName;
-            var matchingTraceIds = context.Spans
+            var serviceHashes = context.Resources
                 .AsNoTracking()
-                .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
-                .Join(
-                    context.Resources.AsNoTracking(),
-                    s => s.ResourceHash,
-                    r => r.Hash,
-                    (s, r) => new { s.TraceId, r.ServiceName })
-                .Where(x => x.ServiceName == service)
-                .Select(x => x.TraceId)
-                .Distinct();
-            baseSpans = baseSpans.Where(s => matchingTraceIds.Contains(s.TraceId));
+                .Where(r => r.ServiceName == service)
+                .Select(r => r.Hash);
+            baseSpans = baseSpans.Where(s =>
+                context.Spans
+                    .AsNoTracking()
+                    .Any(s2 =>
+                        s2.TraceId == s.TraceId &&
+                        s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                        serviceHashes.Contains(s2.ResourceHash)));
         }
 
         var aggregateQuery = baseSpans

@@ -15,7 +15,8 @@ export class LogsService {
       limit: query.limit,
       cursor: query.cursor,
       traceId: query.traceId,
-      service: query.service
+      service: query.service,
+      minSeverity: query.minSeverity
     })
   }
 

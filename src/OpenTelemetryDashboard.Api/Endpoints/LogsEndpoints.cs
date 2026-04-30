@@ -17,7 +17,8 @@ internal sealed record LogQueryParameters(
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
     [FromQuery(Name = "traceId")] string? TraceId = null,
-    [FromQuery(Name = "service")] string? Service = null);
+    [FromQuery(Name = "service")] string? Service = null,
+    [FromQuery(Name = "minSeverity")] int? MinSeverity = null);
 
 /// <summary>
 /// HTTP handler(s) for the log-listing endpoint. Wiring (path, method, name)

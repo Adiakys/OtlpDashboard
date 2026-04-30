@@ -66,7 +66,17 @@ internal static class QueryValidation
 
         var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
 
-        query = new LogQuery(from, to, limit, cursor, traceId, service);
+        // OTLP severity_number is in [0, 24]; anything beyond is the caller's
+        // mistake. 0/null disables the filter, so we only validate the upper
+        // bound — the reader skips zero-or-negative values.
+        if (parameters.MinSeverity is { } minSev && minSev > 24)
+        {
+            query = null;
+            errors = SingleError("minSeverity", "'minSeverity' must be in the range 0–24 (OTLP severity_number).");
+            return false;
+        }
+
+        query = new LogQuery(from, to, limit, cursor, traceId, service, parameters.MinSeverity);
         errors = null;
         return true;
     }

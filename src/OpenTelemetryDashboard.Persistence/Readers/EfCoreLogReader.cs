@@ -57,6 +57,13 @@ public sealed class EfCoreLogReader : ILogReader
             baseQuery = baseQuery.Where(l => l.TraceId == traceId);
         }
 
+        if (query.MinSeverityNumber is { } minSeverity && minSeverity > 0)
+        {
+            // Maps directly onto the (severity_number) index. The cast is
+            // safe because the column conversion stores the enum as int.
+            baseQuery = baseQuery.Where(l => (int)l.SeverityNumber >= minSeverity);
+        }
+
         if (query.After is { } cursor)
         {
             baseQuery = baseQuery.Where(l =>

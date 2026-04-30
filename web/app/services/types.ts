@@ -80,6 +80,13 @@ export interface PageQuery extends TimeWindow {
   traceId?: string
   /** Optional filter: restrict to rows whose resource `service.name` matches. */
   service?: string
+  /**
+   * Optional log filter: drop records whose OTLP severity_number is below
+   * this cutoff (inclusive). 0/undefined keeps everything. Indexed
+   * server-side, so high cutoffs ('Warn'+/13, 'Error'+/17) avoid streaming
+   * the noisy Info/Debug tail to the client.
+   */
+  minSeverity?: number
 }
 
 export interface DashboardInfoDto {

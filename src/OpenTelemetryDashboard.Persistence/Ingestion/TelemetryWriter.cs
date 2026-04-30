@@ -164,17 +164,31 @@ public sealed class TelemetryWriter : BackgroundService
         activity?.SetTag("dashboard.batch.logs", logBatches?.Count ?? 0);
         activity?.SetTag("dashboard.batch.metrics", metricBatches?.Count ?? 0);
 
+        // Each sink owns its own DbContext and writes to a disjoint table set
+        // (Spans / SpanEvents / SpanLinks vs. Logs vs. Instruments / MetricPoints).
+        // No shared change-tracker, no FK overlap on the write path — the
+        // resource upsert reads the same Resources row but each sink takes its
+        // own snapshot. On Postgres / SqlServer (where IO is the bottleneck)
+        // running them concurrently roughly cuts the dispatch latency in
+        // proportion to the kinds present in the batch. SQLite serialises
+        // writes at the DB level, but the CPU work (tracking, JSON encode)
+        // still parallelises.
+        var tasks = new List<Task>(3);
         if (traceBatches is { Count: > 0 })
         {
-            await _traceSink.WriteAsync(traceBatches, cancellationToken).ConfigureAwait(false);
+            tasks.Add(_traceSink.WriteAsync(traceBatches, cancellationToken));
         }
         if (logBatches is { Count: > 0 })
         {
-            await _logSink.WriteAsync(logBatches, cancellationToken).ConfigureAwait(false);
+            tasks.Add(_logSink.WriteAsync(logBatches, cancellationToken));
         }
         if (metricBatches is { Count: > 0 })
         {
-            await _metricSink.WriteAsync(metricBatches, cancellationToken).ConfigureAwait(false);
+            tasks.Add(_metricSink.WriteAsync(metricBatches, cancellationToken));
+        }
+        if (tasks.Count > 0)
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Builder;
@@ -45,7 +46,7 @@ public static class OtlpHttpEndpoints
         ExportTraceServiceRequest request;
         try
         {
-            request = await ParseAsync(context.Request.Body, ExportTraceServiceRequest.Parser, cancellationToken);
+            request = await ParseAsync(context.Request, ExportTraceServiceRequest.Parser, cancellationToken);
         }
         catch (InvalidProtocolBufferException)
         {
@@ -85,7 +86,7 @@ public static class OtlpHttpEndpoints
         ExportLogsServiceRequest request;
         try
         {
-            request = await ParseAsync(context.Request.Body, ExportLogsServiceRequest.Parser, cancellationToken);
+            request = await ParseAsync(context.Request, ExportLogsServiceRequest.Parser, cancellationToken);
         }
         catch (InvalidProtocolBufferException)
         {
@@ -125,7 +126,7 @@ public static class OtlpHttpEndpoints
         ExportMetricsServiceRequest request;
         try
         {
-            request = await ParseAsync(context.Request.Body, ExportMetricsServiceRequest.Parser, cancellationToken);
+            request = await ParseAsync(context.Request, ExportMetricsServiceRequest.Parser, cancellationToken);
         }
         catch (InvalidProtocolBufferException)
         {
@@ -151,15 +152,45 @@ public static class OtlpHttpEndpoints
     }
 
     private static async Task<T> ParseAsync<T>(
-        Stream body,
+        HttpRequest request,
         MessageParser<T> parser,
         CancellationToken cancellationToken)
         where T : IMessage<T>
     {
+        // Fast path — Content-Length is known (the common case for OTLP HTTP):
+        // rent a pooled buffer, read exactly N bytes into it, then hand the
+        // span to the parser. Avoids the per-request MemoryStream allocation
+        // (which can hit ~16 MB on large payloads) and the LOH pressure that
+        // came with it.
+        var contentLength = request.ContentLength;
+        if (contentLength is { } len && len >= 0 && len <= int.MaxValue)
+        {
+            if (len == 0)
+            {
+                return parser.ParseFrom(ReadOnlySpan<byte>.Empty);
+            }
+
+            var size = (int)len;
+            var rented = ArrayPool<byte>.Shared.Rent(size);
+            try
+            {
+                await request.Body.ReadExactlyAsync(rented.AsMemory(0, size), cancellationToken)
+                    .ConfigureAwait(false);
+                return parser.ParseFrom(rented.AsSpan(0, size));
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+
+        // Fallback for chunked transfer-encoding (no Content-Length): we still
+        // need to buffer because protobuf wants the full payload, but the
+        // pool-backed MemoryStream from the SDK is preferable to a fresh `new`
+        // every call. Kestrel caps the body length for us.
         await using var buffer = new MemoryStream();
-        await body.CopyToAsync(buffer, cancellationToken);
-        buffer.Position = 0;
-        return parser.ParseFrom(buffer);
+        await request.Body.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+        return parser.ParseFrom(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
     }
 
     private static IResult ProtobufResult<T>(T message) where T : IMessage<T>

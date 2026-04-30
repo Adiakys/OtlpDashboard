@@ -15,7 +15,10 @@ public readonly record struct CursorPosition(long Time, long SecondaryKey);
 /// Parameters for a time-windowed, keyset-paginated log query. All fields
 /// are pre-validated by the caller: <c>From &lt; To</c>, <c>Limit &gt; 0</c>,
 /// both timestamps UTC. When <see cref="TraceId"/> is set, results are
-/// restricted to log records correlated to that trace.
+/// restricted to log records correlated to that trace. <see cref="MinSeverityNumber"/>
+/// is inclusive — only records with <c>SeverityNumber &gt;= MinSeverityNumber</c>
+/// pass the filter. <c>0</c> (or <c>null</c>) disables the filter; the
+/// indexed column makes higher cutoffs cheap on large windows.
 /// </summary>
 public sealed record LogQuery(
     DateTimeOffset From,
@@ -23,7 +26,8 @@ public sealed record LogQuery(
     int Limit,
     CursorPosition? After,
     TraceId? TraceId = null,
-    string? ServiceName = null);
+    string? ServiceName = null,
+    int? MinSeverityNumber = null);
 
 /// <summary>
 /// Parameters for a time-windowed, keyset-paginated trace-summary query.
