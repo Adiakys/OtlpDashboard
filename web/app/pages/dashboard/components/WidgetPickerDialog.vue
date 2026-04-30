@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
 import SaveAsTemplateDialog from './SaveAsTemplateDialog.vue'
 import type { BuiltinKind, FQKind, WidgetDefinition } from '../types'
 import { parseKind } from '../types'
 
-defineProps<{
+const props = defineProps<{
   open: boolean
 }>()
 
@@ -79,6 +79,85 @@ const filteredLibraries = computed(() => {
 function pick(def: WidgetDefinition) {
   emit('select', def.kind)
 }
+
+function close() {
+  emit('update:open', false)
+}
+
+// ----- Drag the panel around -----
+
+// Translation applied to the panel relative to its initial centered
+// position. Reset every time the modal re-opens so power users who drag
+// it across the screen don't carry the offset over.
+const offset = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+let dragStart: { mouseX: number; mouseY: number; startX: number; startY: number } | null = null
+
+function startDrag(e: MouseEvent) {
+  // Only react to the primary button so right-click / middle-click stay free.
+  if (e.button !== 0) return
+  // Don't start a drag from buttons or controls inside the header — those
+  // need their own click handling.
+  const target = e.target as HTMLElement | null
+  if (target?.closest('button, input, [role="button"]')) return
+  e.preventDefault()
+  isDragging.value = true
+  dragStart = {
+    mouseX: e.clientX,
+    mouseY: e.clientY,
+    startX: offset.value.x,
+    startY: offset.value.y
+  }
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', endDrag)
+  // Suppress text selection while dragging so the cursor doesn't flicker
+  // between grabby and I-beam.
+  document.body.style.userSelect = 'none'
+}
+
+function onDrag(e: MouseEvent) {
+  if (!dragStart) return
+  offset.value = {
+    x: dragStart.startX + (e.clientX - dragStart.mouseX),
+    y: dragStart.startY + (e.clientY - dragStart.mouseY)
+  }
+}
+
+function endDrag() {
+  isDragging.value = false
+  dragStart = null
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', endDrag)
+  document.body.style.userSelect = ''
+}
+
+// Reset position when the dialog re-opens — feels less surprising than
+// "remember where I left it" when the user comes back from a different
+// dashboard.
+watch(() => props.open, (isOpen) => {
+  if (isOpen) offset.value = { x: 0, y: 0 }
+})
+
+// Esc closes — same affordance UModal gave for free.
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open) close()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  // Defensive cleanup if the component unmounts mid-drag.
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', endDrag)
+  document.body.style.userSelect = ''
+})
+
+const shellStyle = computed(() => ({
+  // Compose the centering offset (-50%, -50%) with the user's drag delta
+  // in a single transform. Two separate transforms can't co-exist on the
+  // same element — the inline binding always wins, so we pre-fold them.
+  transform: `translate(calc(-50% + ${offset.value.x}px), calc(-50% + ${offset.value.y}px))`
+}))
 
 // ----- Inline edit / delete on custom cards -----
 
@@ -154,168 +233,197 @@ async function uninstallLibrary(libId: string) {
 </script>
 
 <template>
-  <UModal
-    :open="open"
-    :title="t('dashboard.picker.title')"
-    @update:open="(v) => emit('update:open', v)"
-  >
-    <template #body>
-      <div class="flex flex-col gap-4">
-        <div class="flex items-center gap-2">
-          <UInput
-            v-model="search"
-            class="flex-1"
-            :placeholder="t('widgets.picker.search')"
-            icon="i-ph-magnifying-glass"
-            size="sm"
-            autofocus
-          />
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="open"
+        class="vellum-picker-overlay"
+        @mousedown.self="close"
+      />
+    </Transition>
+    <Transition name="picker-pop">
+      <div
+        v-if="open"
+        class="vellum-picker-shell bg-default text-default"
+        :class="{ 'vellum-picker-shell--dragging': isDragging }"
+        :style="shellStyle"
+        role="dialog"
+        :aria-label="t('dashboard.picker.title')"
+      >
+        <header
+          class="vellum-picker-headbar"
+          @mousedown="startDrag"
+        >
+          <UIcon name="i-ph-dots-six" class="size-4 shrink-0 vellum-picker-grip" />
+          <h2 class="text-headline truncate flex-1">{{ t('dashboard.picker.title') }}</h2>
           <UButton
+            size="xs"
             color="neutral"
             variant="ghost"
-            size="sm"
-            icon="i-ph-arrows-clockwise"
-            :loading="isReloadingLibraries"
-            :aria-label="t('widgets.picker.reloadLibraries')"
-            @click="reloadLibraries"
+            icon="i-ph-x"
+            square
+            :aria-label="t('common.close')"
+            @click="close"
           />
-        </div>
+        </header>
 
-        <p
-          v-if="error"
-          role="alert"
-          class="text-mono-sm"
-          style="color: var(--color-rust-700);"
-        >
-          {{ error }}
-        </p>
-
-        <!-- BUILTIN ------------------------------------------------ -->
-        <section>
-          <header class="mb-2 flex items-baseline justify-between">
-            <span class="text-overline" style="color: var(--color-graphite-500);">
-              {{ t('widgets.picker.builtinSection') }}
-            </span>
-            <span class="text-mono-sm" style="color: var(--color-graphite-500);">
-              {{ filteredBuiltin.length }}
-            </span>
-          </header>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            <button
-              v-for="def in filteredBuiltin"
-              :key="def.kind"
-              type="button"
-              class="vellum-picker-card"
-              @click="pick(def)"
-            >
-              <div class="vellum-picker-card__head">
-                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-                <span class="font-medium text-sm truncate">{{ displayName(def) }}</span>
-              </div>
-              <p class="vellum-picker-card__desc">{{ displayDescription(def) }}</p>
-            </button>
+        <div class="vellum-picker-body">
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="search"
+              class="flex-1"
+              :placeholder="t('widgets.picker.search')"
+              icon="i-ph-magnifying-glass"
+              size="sm"
+              autofocus
+            />
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-ph-arrows-clockwise"
+              :loading="isReloadingLibraries"
+              :aria-label="t('widgets.picker.reloadLibraries')"
+              @click="reloadLibraries"
+            />
           </div>
-        </section>
 
-        <!-- I MIEI WIDGET ----------------------------------------- -->
-        <section>
-          <header class="mb-2 flex items-baseline justify-between">
-            <span class="text-overline" style="color: var(--color-graphite-500);">
-              {{ t('widgets.picker.customSection') }}
-            </span>
-            <span class="text-mono-sm" style="color: var(--color-graphite-500);">
-              {{ filteredCustom.length }}
-            </span>
-          </header>
-          <div
-            v-if="filteredCustom.length === 0"
-            class="text-mono-sm py-3 px-1"
-            style="color: var(--color-graphite-500);"
+          <p
+            v-if="error"
+            role="alert"
+            class="text-mono-sm"
+            style="color: var(--color-rust-700);"
           >
-            {{ search.trim() ? t('widgets.picker.noMatch') : t('widgets.picker.customEmpty') }}
-          </div>
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            <button
-              v-for="def in filteredCustom"
-              :key="def.kind"
-              type="button"
-              class="vellum-picker-card vellum-picker-card--actionable"
-              @click="pick(def)"
-            >
-              <div class="vellum-picker-card__head">
-                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-                <span class="font-medium text-sm truncate flex-1">{{ def.name }}</span>
-                <span class="vellum-picker-card__actions">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    icon="i-ph-pencil-simple"
-                    square
-                    :aria-label="t('widgets.edit.action')"
-                    @click="(e) => startEdit(def, e)"
-                  />
-                  <UButton
-                    color="error"
-                    variant="ghost"
-                    size="xs"
-                    icon="i-ph-trash"
-                    square
-                    :loading="isDeleting === customId(def.kind)"
-                    :disabled="isDeleting !== null"
-                    :aria-label="t('widgets.delete')"
-                    @click="(e) => deleteCustom(def, e)"
-                  />
-                </span>
-              </div>
-              <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
-            </button>
-          </div>
-        </section>
+            {{ error }}
+          </p>
 
-        <!-- LIBRERIE ----------------------------------------------- -->
-        <section v-for="lib in filteredLibraries" :key="lib.id">
-          <header class="mb-2 flex items-baseline justify-between gap-2">
-            <span class="text-overline truncate" style="color: var(--color-graphite-500);">
-              {{ lib.id }}
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="text-mono-sm" style="color: var(--color-graphite-500);">
-                {{ lib.widgets.length }}
+          <!-- BUILTIN ------------------------------------------------ -->
+          <section>
+            <header class="mb-2 flex items-baseline justify-between">
+              <span class="text-overline" style="color: var(--color-graphite-500);">
+                {{ t('widgets.picker.builtinSection') }}
               </span>
-              <UButton
-                v-if="catalog.libraryById(lib.id)?.removable"
-                color="error"
-                variant="ghost"
-                size="xs"
-                icon="i-ph-trash"
-                square
-                :loading="isUninstalling === lib.id"
-                :disabled="isUninstalling !== null"
-                :aria-label="t('widgets.picker.uninstallLibrary')"
-                @click="uninstallLibrary(lib.id)"
-              />
-            </span>
-          </header>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            <button
-              v-for="def in lib.widgets"
-              :key="def.kind"
-              type="button"
-              class="vellum-picker-card"
-              @click="pick(def)"
+              <span class="text-mono-sm" style="color: var(--color-graphite-500);">
+                {{ filteredBuiltin.length }}
+              </span>
+            </header>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              <button
+                v-for="def in filteredBuiltin"
+                :key="def.kind"
+                type="button"
+                class="vellum-picker-card"
+                @click="pick(def)"
+              >
+                <div class="vellum-picker-card__head">
+                  <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                  <span class="font-medium text-sm truncate">{{ displayName(def) }}</span>
+                </div>
+                <p class="vellum-picker-card__desc">{{ displayDescription(def) }}</p>
+              </button>
+            </div>
+          </section>
+
+          <!-- I MIEI WIDGET ----------------------------------------- -->
+          <section>
+            <header class="mb-2 flex items-baseline justify-between">
+              <span class="text-overline" style="color: var(--color-graphite-500);">
+                {{ t('widgets.picker.customSection') }}
+              </span>
+              <span class="text-mono-sm" style="color: var(--color-graphite-500);">
+                {{ filteredCustom.length }}
+              </span>
+            </header>
+            <div
+              v-if="filteredCustom.length === 0"
+              class="text-mono-sm py-3 px-1"
+              style="color: var(--color-graphite-500);"
             >
-              <div class="vellum-picker-card__head">
-                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-                <span class="font-medium text-sm truncate">{{ def.name }}</span>
-              </div>
-              <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
-            </button>
-          </div>
-        </section>
+              {{ search.trim() ? t('widgets.picker.noMatch') : t('widgets.picker.customEmpty') }}
+            </div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              <button
+                v-for="def in filteredCustom"
+                :key="def.kind"
+                type="button"
+                class="vellum-picker-card vellum-picker-card--actionable"
+                @click="pick(def)"
+              >
+                <div class="vellum-picker-card__head">
+                  <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                  <span class="font-medium text-sm truncate flex-1">{{ def.name }}</span>
+                  <span class="vellum-picker-card__actions">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      icon="i-ph-pencil-simple"
+                      square
+                      :aria-label="t('widgets.edit.action')"
+                      @click="(e) => startEdit(def, e)"
+                    />
+                    <UButton
+                      color="error"
+                      variant="ghost"
+                      size="xs"
+                      icon="i-ph-trash"
+                      square
+                      :loading="isDeleting === customId(def.kind)"
+                      :disabled="isDeleting !== null"
+                      :aria-label="t('widgets.delete')"
+                      @click="(e) => deleteCustom(def, e)"
+                    />
+                  </span>
+                </div>
+                <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
+              </button>
+            </div>
+          </section>
+
+          <!-- LIBRERIE ----------------------------------------------- -->
+          <section v-for="lib in filteredLibraries" :key="lib.id">
+            <header class="mb-2 flex items-baseline justify-between gap-2">
+              <span class="text-overline truncate" style="color: var(--color-graphite-500);">
+                {{ lib.id }}
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="text-mono-sm" style="color: var(--color-graphite-500);">
+                  {{ lib.widgets.length }}
+                </span>
+                <UButton
+                  v-if="catalog.libraryById(lib.id)?.removable"
+                  color="error"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-ph-trash"
+                  square
+                  :loading="isUninstalling === lib.id"
+                  :disabled="isUninstalling !== null"
+                  :aria-label="t('widgets.picker.uninstallLibrary')"
+                  @click="uninstallLibrary(lib.id)"
+                />
+              </span>
+            </header>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              <button
+                v-for="def in lib.widgets"
+                :key="def.kind"
+                type="button"
+                class="vellum-picker-card"
+                @click="pick(def)"
+              >
+                <div class="vellum-picker-card__head">
+                  <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                  <span class="font-medium text-sm truncate">{{ def.name }}</span>
+                </div>
+                <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
+              </button>
+            </div>
+          </section>
+        </div>
       </div>
-    </template>
-  </UModal>
+    </Transition>
+  </Teleport>
 
   <SaveAsTemplateDialog
     v-model:open="editOpen"
@@ -324,6 +432,93 @@ async function uninstallLibrary(libId: string) {
 </template>
 
 <style scoped>
+/* Click-to-close layer behind the panel. Fully transparent — the
+   dashboard underneath stays visible at rest. The shell itself supplies
+   the solid background; only it dims while the user drags it. */
+.vellum-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+
+/* The draggable shell. Centered initially via flex-pinned anchor, then
+   shifted via `transform: translate(...)` while the user drags. */
+.vellum-picker-shell {
+  position: fixed;
+  /* Anchor at the viewport centre; the inline `transform` (set in JS)
+     folds the centering offset (-50%, -50%) with the drag delta. */
+  top: 50%;
+  left: 50%;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 92vw);
+  max-height: 85vh;
+  /* Background + text colour come from the `bg-default text-default`
+     utility classes on the element so they track theme switches; this
+     rule only owns layout and the drag-time opacity dimming. */
+  border: 1px solid color-mix(in oklab, var(--color-graphite-500) 22%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3), var(--shadow-inset-edge);
+  overflow: hidden;
+  transition: opacity var(--t-instant) var(--ease-out);
+}
+
+/* While dragging, the panel turns semi-transparent so the user can see
+   the dashboard underneath and judge where to drop it. */
+.vellum-picker-shell--dragging {
+  opacity: 0.55;
+  transition: opacity 0ms;
+}
+
+.vellum-picker-headbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  cursor: grab;
+  user-select: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-graphite-500) 14%, transparent);
+}
+.vellum-picker-headbar:active {
+  cursor: grabbing;
+}
+.vellum-picker-grip {
+  color: var(--color-graphite-500);
+}
+
+.vellum-picker-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* The shell uses `transform` for both centering and drag offset, so we
+   can't rely on a plain `transform` transition (it would fight the
+   inline style). Animate opacity + scale via a wrapper-like trick. */
+.picker-pop-enter-active,
+.picker-pop-leave-active {
+  transition: opacity var(--t-base) var(--ease-out);
+}
+.picker-pop-enter-from,
+.picker-pop-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--t-base) var(--ease-out);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .vellum-picker-card {
   display: flex;
   flex-direction: column;
