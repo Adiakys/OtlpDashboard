@@ -1,4 +1,4 @@
-﻿**/.dockerignore
+**/.dockerignore
 **/.env
 **/.git
 **/.gitignore
@@ -23,6 +23,15 @@
 **/values.dev.yaml
 LICENSE
 README.md
+
+# Tests are never part of the runtime image — strip ~250 MB of build context.
+tests/
+
+# Local-only artifacts that have no business in any image.
+dashboard-data/
+docs/
+**/*.db
+**/*.log
 
 # Nuxt build/cache dirs — regenerated inside the web-build stage
 web/.nuxt
