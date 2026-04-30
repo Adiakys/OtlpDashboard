@@ -29,7 +29,8 @@ const colorMode = useColorMode()
 const metrics = useSingleMetric(() => props.config.metric)
 const range = computed(() => props.config.range)
 const { series, loading, error, hasLoaded } = useWidgetSeries(
-  $metricsService, metrics, range, () => props.liveTick
+  $metricsService, metrics, range, () => props.liveTick,
+  { includeAttributes: true }
 )
 
 const headerTitle = computed(() =>

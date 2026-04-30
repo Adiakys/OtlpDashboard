@@ -42,6 +42,10 @@ public sealed class EfCoreTraceSink : ITraceSink
         }
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        // Pure Add path — no entity mutated in place, so DetectChanges has
+        // nothing to scan. Disabling it skips O(N) snapshots across spans
+        // (each carrying an attribute map and owned events/links) per save.
+        context.ChangeTracker.AutoDetectChangesEnabled = false;
 
         var resourcesByHash = new Dictionary<byte[], Resource>(ByteArrayEqualityComparer.Instance);
         var spanCount = 0;

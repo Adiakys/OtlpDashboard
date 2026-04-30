@@ -20,10 +20,18 @@ public sealed class EfCoreMetricReader : IMetricReader
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        // Single query: instrument joined with resource (for the service
-        // name) and aggregated point count via a left subquery. Keeps the
-        // listing endpoint at one round-trip regardless of how many
-        // instruments are in the store.
+        // Two cheap round-trips beat the single query that EF used to emit:
+        // a correlated `(SELECT COUNT(*) FROM metric_points WHERE instrument_id = i.id)`
+        // per row balloons to N subqueries on the wire. A flat GROUP BY on
+        // metric_points is one index scan; the instrument metadata join is
+        // another. Both are bounded by the instrument count, not by points.
+        var counts = await context.MetricPoints
+            .AsNoTracking()
+            .GroupBy(p => p.InstrumentId)
+            .Select(g => new { InstrumentId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.InstrumentId, x => x.Count, cancellationToken)
+            .ConfigureAwait(false);
+
         var rows = await (
             from i in context.Instruments.AsNoTracking()
             join r in context.Resources.AsNoTracking() on i.ResourceHash equals r.Hash into rj
@@ -41,7 +49,6 @@ public sealed class EfCoreMetricReader : IMetricReader
                 i.IsMonotonic,
                 i.Temporality,
                 ServiceName = r != null ? r.ServiceName : null,
-                PointCount = context.MetricPoints.Count(p => p.InstrumentId == i.Id),
             })
             .OrderBy(x => x.ScopeName)
             .ThenBy(x => x.Name)
@@ -53,7 +60,7 @@ public sealed class EfCoreMetricReader : IMetricReader
         foreach (var row in rows)
         {
             var key = new InstrumentKey(
-                Convert.ToHexString(row.ResourceHash).ToLowerInvariant(),
+                Convert.ToHexStringLower(row.ResourceHash),
                 row.ScopeName,
                 row.Name,
                 row.Kind);
@@ -68,7 +75,8 @@ public sealed class EfCoreMetricReader : IMetricReader
                 Temporality = row.Temporality,
             };
 
-            items.Add(new InstrumentSummary(key, instrument, row.PointCount, row.ServiceName));
+            counts.TryGetValue(row.Id, out var pointCount);
+            items.Add(new InstrumentSummary(key, instrument, pointCount, row.ServiceName));
         }
 
         return items;
@@ -77,6 +85,7 @@ public sealed class EfCoreMetricReader : IMetricReader
     public async Task<MetricSeriesSnapshot?> GetSeriesAsync(
         InstrumentKey key,
         MetricWindow? window,
+        bool includeAttributes,
         CancellationToken cancellationToken)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
@@ -133,28 +142,62 @@ public sealed class EfCoreMetricReader : IMetricReader
             pointsQuery = pointsQuery.Where(p => p.TimeUnixNano >= fromNano && p.TimeUnixNano < toNano);
         }
 
-        var pointRows = await pointsQuery
-            .OrderBy(p => p.TimeUnixNano)
-            .Select(p => new
-            {
-                p.TimeUnixNano,
-                p.StartTimeUnixNano,
-                p.Value,
-                p.Attributes,
-            })
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var points = new List<DataPoint>(pointRows.Count);
-        foreach (var row in pointRows)
+        // Two projections so the JSON column is left out of the SELECT list
+        // entirely when the caller doesn't want attributes — the EF value
+        // converter only deserialises columns that come back from the
+        // database, so omitting `p.Attributes` skips both the bytes on the
+        // wire and the JSON parse for every row.
+        List<DataPoint> points;
+        if (includeAttributes)
         {
-            points.Add(new DataPoint
+            var rows = await pointsQuery
+                .OrderBy(p => p.TimeUnixNano)
+                .Select(p => new
+                {
+                    p.TimeUnixNano,
+                    p.StartTimeUnixNano,
+                    p.Value,
+                    p.Attributes,
+                })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            points = new List<DataPoint>(rows.Count);
+            foreach (var row in rows)
             {
-                TimeUnixNano = row.TimeUnixNano,
-                StartTimeUnixNano = row.StartTimeUnixNano,
-                Value = row.Value,
-                Attributes = row.Attributes,
-            });
+                points.Add(new DataPoint
+                {
+                    TimeUnixNano = row.TimeUnixNano,
+                    StartTimeUnixNano = row.StartTimeUnixNano,
+                    Value = row.Value,
+                    Attributes = row.Attributes,
+                });
+            }
+        }
+        else
+        {
+            var rows = await pointsQuery
+                .OrderBy(p => p.TimeUnixNano)
+                .Select(p => new
+                {
+                    p.TimeUnixNano,
+                    p.StartTimeUnixNano,
+                    p.Value,
+                })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            points = new List<DataPoint>(rows.Count);
+            foreach (var row in rows)
+            {
+                points.Add(new DataPoint
+                {
+                    TimeUnixNano = row.TimeUnixNano,
+                    StartTimeUnixNano = row.StartTimeUnixNano,
+                    Value = row.Value,
+                    Attributes = AttributeMap.Empty,
+                });
+            }
         }
 
         var instrument = new Instrument

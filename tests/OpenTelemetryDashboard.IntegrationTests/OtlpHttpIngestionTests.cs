@@ -280,7 +280,7 @@ public sealed class OtlpHttpIngestionTests : IClassFixture<TestHostFixture>
         }
 
         matched.ShouldNotBeNull();
-        var series = await reader.GetSeriesAsync(matched!.Key, window: null, CancellationToken.None);
+        var series = await reader.GetSeriesAsync(matched!.Key, window: null, includeAttributes: false, CancellationToken.None);
         series.ShouldNotBeNull();
         series!.Points.Count.ShouldBe(1);
         series.Points[0].Value.ShouldBe(42.5);

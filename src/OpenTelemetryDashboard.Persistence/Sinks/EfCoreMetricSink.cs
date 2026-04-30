@@ -51,6 +51,8 @@ public sealed class EfCoreMetricSink : IMetricSink
         }
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        // Pure Add path — see EfCoreTraceSink for the rationale.
+        context.ChangeTracker.AutoDetectChangesEnabled = false;
 
         var resourcesByHash = new Dictionary<byte[], Resource>(ByteArrayEqualityComparer.Instance);
         var sampleCount = 0;

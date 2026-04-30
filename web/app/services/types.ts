@@ -127,6 +127,13 @@ export interface MetricPointsQuery extends InstrumentRef {
   /** Optional time window. When both are absent, the full series is returned. */
   from?: string
   to?: string
+  /**
+   * Hydrate the per-point attribute map. Off by default — single-value
+   * widgets (Stat, Sparkline, Gauge) ignore attributes, so skipping the
+   * JSON column saves both bytes and parse time on the wire. Widgets that
+   * split-by an attribute key (Line, BarGauge, Pie, Heatmap) opt in.
+   */
+  includeAttributes?: boolean
 }
 
 /**

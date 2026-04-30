@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -21,11 +22,18 @@ public sealed class AttributesJsonConverter : ValueConverter<IReadOnlyDictionary
     {
     }
 
+    // Reference-equality comparer + identity snapshot. The previous JSON-based
+    // comparer round-tripped every attribute map through Serialize+Deserialize
+    // on the change-tracker hot path (one Snapshot per tracked entity per
+    // SaveChanges) — a pure waste because the sinks only Add entities (never
+    // mutate them in place). Sinks that take the Add-only path also flip
+    // ChangeTracker.AutoDetectChangesEnabled = false so EF skips DetectChanges
+    // entirely.
     public static readonly ValueComparer<IReadOnlyDictionary<string, object?>> Comparer =
         new(
-            (a, b) => ReferenceEquals(a, b) || Serialize(a) == Serialize(b),
-            d => Serialize(d).GetHashCode(StringComparison.Ordinal),
-            d => Deserialize(Serialize(d)));
+            (a, b) => ReferenceEquals(a, b),
+            d => RuntimeHelpers.GetHashCode(d),
+            d => d);
 
     private static JsonSerializerOptions CreateOptions()
     {

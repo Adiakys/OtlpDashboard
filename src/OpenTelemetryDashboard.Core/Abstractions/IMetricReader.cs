@@ -20,10 +20,20 @@ public interface IMetricReader
     /// Returns the points for the instrument identified by <paramref name="key"/>,
     /// optionally filtered by <paramref name="window"/> (half-open <c>[From, To)</c>).
     /// Returns <c>null</c> if no instrument matches the key.
+    /// <para>
+    /// <paramref name="includeAttributes"/> controls whether each point's
+    /// per-sample attribute map is hydrated. The map is the only large field
+    /// in the row and is stored as a JSON string column, so deserialising it
+    /// for queries that ignore the dimension (single-value widgets like Stat,
+    /// Sparkline, Gauge) wastes most of the time on a wide window. Default
+    /// is <c>false</c>; widgets that split-by an attribute key (Line,
+    /// BarGauge, Pie, Heatmap) opt in.
+    /// </para>
     /// </summary>
     Task<MetricSeriesSnapshot?> GetSeriesAsync(
         InstrumentKey key,
         MetricWindow? window,
+        bool includeAttributes,
         CancellationToken cancellationToken);
 
     /// <summary>

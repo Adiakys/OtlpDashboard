@@ -15,14 +15,18 @@ export class MetricsService {
   }
 
   getPoints(query: MetricPointsQuery): Promise<MetricSeriesDto> {
-    return this.http.get<MetricSeriesDto>('/v1/metrics/points', {
+    // `includeAttributes` is omitted from the wire when false (the server
+    // default) so URLs stay short for the common case.
+    const params: Record<string, string | number | boolean | undefined> = {
       resourceHash: query.resourceHash,
       scopeName: query.scopeName,
       instrumentName: query.instrumentName,
       kind: query.kind,
       from: query.from,
       to: query.to
-    })
+    }
+    if (query.includeAttributes) params.includeAttributes = true
+    return this.http.get<MetricSeriesDto>('/v1/metrics/points', params)
   }
 
   /** Distinct `service.name` values across currently-recorded instruments. */

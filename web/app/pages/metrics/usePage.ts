@@ -140,7 +140,11 @@ export function useMetricsPage(service: MetricsService) {
           instrumentName: snap.name,
           kind: snap.kind,
           from: fromQ,
-          to: toQ
+          to: toQ,
+          // The Metrics page renders the full table (with the per-point
+          // attribute column) and supports split-by; the attribute map is
+          // load-bearing here.
+          includeAttributes: true
         })
         return { key, series: next }
       } catch (e) {

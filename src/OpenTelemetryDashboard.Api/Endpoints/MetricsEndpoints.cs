@@ -14,7 +14,10 @@ namespace OpenTelemetryDashboard.Api.Endpoints;
 /// The four identity fields (<c>resourceHash</c>, <c>scopeName</c>,
 /// <c>instrumentName</c>, <c>kind</c>) together pick a single time-series
 /// out of the metric store; <c>from</c>/<c>to</c> narrow the point list
-/// to a time window.
+/// to a time window. <c>includeAttributes</c> is opt-in (default
+/// <c>false</c>): the per-point attribute map is a JSON-encoded column,
+/// so callers that only need the scalar value (Stat, Sparkline, Gauge)
+/// skip both the bytes on the wire and the deserialisation cost.
 /// </summary>
 internal sealed record MetricPointsQueryParameters(
     [FromQuery(Name = "resourceHash")] string? ResourceHash,
@@ -22,7 +25,8 @@ internal sealed record MetricPointsQueryParameters(
     [FromQuery(Name = "instrumentName")] string? InstrumentName,
     [FromQuery(Name = "kind")] string? Kind,
     [FromQuery(Name = "from")] DateTimeOffset? From,
-    [FromQuery(Name = "to")] DateTimeOffset? To);
+    [FromQuery(Name = "to")] DateTimeOffset? To,
+    [FromQuery(Name = "includeAttributes")] bool? IncludeAttributes = null);
 
 /// <summary>
 /// HTTP handlers for the metrics read-side. Wiring lives in
@@ -58,7 +62,10 @@ internal static class MetricsEndpoints
         }
 
         var metricWindow = window is { } w ? new MetricWindow(w.From, w.To) : (MetricWindow?)null;
-        var series = await reader.GetSeriesAsync(key.Value, metricWindow, cancellationToken).ConfigureAwait(false);
+        var includeAttributes = parameters.IncludeAttributes ?? false;
+        var series = await reader
+            .GetSeriesAsync(key.Value, metricWindow, includeAttributes, cancellationToken)
+            .ConfigureAwait(false);
         if (series is null)
         {
             return TypedResults.NotFound();

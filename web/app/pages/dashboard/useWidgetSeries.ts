@@ -44,8 +44,10 @@ export function useWidgetSeries(
   service: MetricsService,
   metrics: ComputedRef<MetricBinding[]>,
   range: ComputedRef<RangePreset>,
-  liveTick: () => number
+  liveTick: () => number,
+  options: { includeAttributes?: boolean } = {}
 ) {
+  const includeAttributes = options.includeAttributes === true
   const catalog = useInstrumentCatalog(service)
   const cache = useMetricSeriesCache(service)
 
@@ -97,7 +99,7 @@ export function useWidgetSeries(
       scopeName: resolved.scopeName,
       instrumentName: resolved.instrumentName,
       kind: resolved.kind
-    }, window)
+    }, window, { includeAttributes })
   }
 
   watch(metrics, load, { immediate: true, deep: true })
