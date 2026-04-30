@@ -1,0 +1,12 @@
+{
+  "name": "Welcome",
+  "description": "Markdown panel that introduces the demo pack. Renders without a metric binding.",
+  "icon": "i-ph-hand-waving",
+  "defaultSize": { "w": 6, "h": 3 },
+  "engine": "preset",
+  "baseKind": "text",
+  "defaultConfig": {
+    "markdown": "## Welcome to the demo pack\n\nThis library was loaded from `widget-libraries/demo-pack/` to show how filesystem-installed widgets surface in the picker. Each widget here is a **preset** wrapping a builtin — drop one onto a dashboard and configure its metric binding.",
+    "align": "left"
+  }
+}

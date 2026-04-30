@@ -137,13 +137,35 @@ Notes:
 ### Widget libraries
 
 A widget library is a directory containing one or more widget definitions.
-The dashboard scans `Dashboard:Widgets:LibrariesPath` and surfaces every
-valid library in the picker as its own group. The default path is
-`./data/widget-libraries` (relative to the host's working directory) so
-libraries live next to the SQLite file under `data/`. In Docker that
-resolves to `/app/data/widget-libraries`, which is already inside the
-`dashboard-data` named volume — drop a folder in there (or `cp` into the
-volume) and the next reload picks it up.
+The dashboard scans every entry in `Dashboard:Widgets:LibrariesPaths` (in
+order) and surfaces valid libraries in the picker grouped by source. The
+default is a single path `./data/widget-libraries`, which in Docker
+resolves to `/app/data/widget-libraries` — already inside the
+`dashboard-data` named volume, so drag-and-drop / git installs persist
+across container restarts.
+
+The shipped image already configures **two paths** in scan order:
+
+1. `/app/data/widget-libraries` — runtime-managed (volume, git installs,
+   drag-and-drop)
+2. `/app/builtin-libraries` — baked into the image layer (no volume
+   shadowing on rebuild)
+
+Derived images don't need to set any environment variable — just `COPY`
+into the second path:
+
+```dockerfile
+FROM opentelemetrydashboard:latest
+COPY my-libs/ /app/builtin-libraries/
+```
+
+When two paths expose libraries with the same `manifest.id`, the first
+in scan order wins and the rest are skipped with a warning — so a
+runtime install can override a baked-in default by sharing its id.
+
+A sample library lives at `widget-libraries-demo/demo-pack/` and is
+bind-mounted by `docker-compose.yml` so `docker compose up --build`
+shows a **demo-pack** section in the picker out of the box.
 
 Install one of two ways:
 

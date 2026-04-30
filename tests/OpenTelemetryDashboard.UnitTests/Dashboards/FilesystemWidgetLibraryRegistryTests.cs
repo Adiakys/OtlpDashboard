@@ -137,11 +137,60 @@ public sealed class FilesystemWidgetLibraryRegistryTests : IDisposable
         lib.InstalledAt.ShouldBe(installedAt);
     }
 
+    [Fact]
+    public async Task Multiple_Paths_Are_Both_Scanned_And_First_Wins_On_Id_Collision()
+    {
+        // Two roots, both contain a library with id "shared". The first
+        // root in the configured list must win; the second is shadowed.
+        var primary = Path.Combine(_root, "primary");
+        var secondary = Path.Combine(_root, "secondary");
+        Directory.CreateDirectory(primary);
+        Directory.CreateDirectory(secondary);
+
+        // Primary holds "shared" with one widget, plus a unique "alpha".
+        WriteLibraryAt(primary, "shared", """{"id":"shared","name":"Shared (primary)","version":"1.0.0"}""");
+        WriteWidgetAt(primary, "shared", "p", """{"name":"P","icon":"i-ph-target","engine":"preset","baseKind":"metric-stat"}""");
+        WriteLibraryAt(primary, "alpha", """{"id":"alpha","name":"Alpha","version":"1.0.0"}""");
+        WriteWidgetAt(primary, "alpha", "x", """{"name":"X","icon":"i-ph-target","engine":"preset","baseKind":"text"}""");
+
+        // Secondary holds the shadowed "shared" plus a unique "beta".
+        WriteLibraryAt(secondary, "shared", """{"id":"shared","name":"Shared (secondary)","version":"9.9.9"}""");
+        WriteWidgetAt(secondary, "shared", "q", """{"name":"Q","icon":"i-ph-target","engine":"preset","baseKind":"metric-stat"}""");
+        WriteLibraryAt(secondary, "beta", """{"id":"beta","name":"Beta","version":"1.0.0"}""");
+        WriteWidgetAt(secondary, "beta", "y", """{"name":"Y","icon":"i-ph-target","engine":"preset","baseKind":"text"}""");
+
+        var opts = Options.Create(new WidgetsOptions
+        {
+            LibrariesPaths = [primary, secondary]
+        });
+        using var registry = new FilesystemWidgetLibraryRegistry(
+            opts, new TestHostEnvironment(), NullLogger<FilesystemWidgetLibraryRegistry>.Instance);
+
+        var libs = await registry.ListAsync(CancellationToken.None);
+
+        libs.Select(l => l.Id).OrderBy(id => id, StringComparer.Ordinal).ShouldBe(["alpha", "beta", "shared"]);
+        libs.First(l => l.Id == "shared").Name.ShouldBe("Shared (primary)");
+    }
+
     private FilesystemWidgetLibraryRegistry NewRegistry()
     {
-        var opts = Options.Create(new WidgetsOptions { LibrariesPath = _root });
+        var opts = Options.Create(new WidgetsOptions { LibrariesPaths = [_root] });
         var env = new TestHostEnvironment();
         return new FilesystemWidgetLibraryRegistry(opts, env, NullLogger<FilesystemWidgetLibraryRegistry>.Instance);
+    }
+
+    private static void WriteLibraryAt(string root, string id, string manifest)
+    {
+        var dir = Path.Combine(root, id);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "manifest.json"), manifest);
+    }
+
+    private static void WriteWidgetAt(string root, string libId, string kindId, string widgetJson)
+    {
+        var dir = Path.Combine(root, libId, "widgets", kindId);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "widget.json"), widgetJson);
     }
 
     private void WriteLibrary(string id, string manifest)

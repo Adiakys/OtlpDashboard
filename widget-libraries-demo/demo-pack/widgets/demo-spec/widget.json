@@ -1,0 +1,15 @@
+{
+  "name": "Demo Vega-Lite",
+  "description": "Placeholder spec-engine widget. Loads in the picker; once dropped, it shows 'Vega-Lite engine not yet available' until iter 2 lands.",
+  "icon": "i-ph-shapes",
+  "defaultSize": { "w": 6, "h": 4 },
+  "engine": "spec",
+  "spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "mark": "bar",
+    "encoding": {
+      "x": { "field": "service", "type": "nominal" },
+      "y": { "field": "count", "type": "quantitative" }
+    }
+  }
+}

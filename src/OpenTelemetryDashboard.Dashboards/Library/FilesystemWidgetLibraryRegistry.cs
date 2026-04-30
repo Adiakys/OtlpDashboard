@@ -6,15 +6,16 @@ using Microsoft.Extensions.Options;
 namespace OpenTelemetryDashboard.Dashboards.Library;
 
 /// <summary>
-/// Default <see cref="IWidgetLibraryRegistry"/>: scans
-/// <see cref="WidgetsOptions.LibrariesPath"/> for subdirectories containing
-/// <c>manifest.json</c> + <c>widgets/&lt;kind&gt;/widget.json</c> files.
-/// Symlinks at the top level are skipped so a malicious library cannot
-/// escape the configured root by linking to <c>/etc</c>.
+/// Default <see cref="IWidgetLibraryRegistry"/>: scans every directory in
+/// <see cref="WidgetsOptions.LibrariesPaths"/> (and the back-compat
+/// <see cref="WidgetsOptions.LibrariesPath"/>) for subdirectories
+/// containing <c>manifest.json</c> + <c>widgets/&lt;kind&gt;/widget.json</c>
+/// files. Symlinks at the top level are skipped so a malicious library
+/// cannot escape its configured root via <c>/etc</c>.
 /// </summary>
 public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, IDisposable
 {
-    private readonly string _librariesPath;
+    private readonly string[] _librariesPaths;
     private readonly int _maxLibraries;
     private readonly ILogger<FilesystemWidgetLibraryRegistry> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -30,17 +31,35 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(logger);
 
-        var configured = options.Value.LibrariesPath;
-        _librariesPath = string.IsNullOrWhiteSpace(configured)
-            ? Path.Combine(env.ContentRootPath, "widget-libraries")
-            : Path.GetFullPath(configured);
+        var raw = new List<string>(options.Value.LibrariesPaths.Count);
+        foreach (var p in options.Value.LibrariesPaths)
+        {
+            if (!string.IsNullOrWhiteSpace(p)) raw.Add(p);
+        }
+
+        if (raw.Count == 0)
+        {
+            raw.Add(Path.Combine(env.ContentRootPath, "widget-libraries"));
+        }
+
+        // Resolve to absolute and dedupe — repeated paths in config would
+        // double-load every library inside, then trip the collision check.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var resolved = new List<string>(raw.Count);
+        foreach (var p in raw)
+        {
+            var full = Path.GetFullPath(p);
+            if (seen.Add(full)) resolved.Add(full);
+        }
+
+        _librariesPaths = [.. resolved];
         _maxLibraries = Math.Max(1, options.Value.MaxLibraries);
         _logger = logger;
     }
 
-    /// <summary>The resolved absolute path the registry is watching. Surfaced
-    /// for diagnostics endpoints — never used as input from outside.</summary>
-    public string LibrariesPath => _librariesPath;
+    /// <summary>The absolute paths the registry is watching, in scan order.
+    /// Surfaced for diagnostics — never used as input from outside.</summary>
+    public IReadOnlyList<string> LibrariesPaths => _librariesPaths;
 
     public async Task<IReadOnlyList<WidgetLibrary>> ListAsync(CancellationToken cancellationToken)
     {
@@ -67,41 +86,61 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!Directory.Exists(_librariesPath))
-            {
-                _logger.LibrariesPathMissing(_librariesPath);
-                _cache = [];
-                return;
-            }
-
+            // Dedupe across all scanned paths: if two paths surface a library
+            // with the same manifest id, the first one wins. This is what
+            // makes the layered-image pattern work — runtime path listed
+            // first overrides the baked-in fallback for the same id.
             var libraries = new List<WidgetLibrary>();
-            var directories = Directory.EnumerateDirectories(_librariesPath)
-                .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
-                .ToArray();
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+            var capReached = false;
 
-            foreach (var dir in directories)
+            foreach (var root in _librariesPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (libraries.Count >= _maxLibraries)
+                if (!Directory.Exists(root))
                 {
-                    _logger.LibraryCapReached(_maxLibraries, _librariesPath);
-                    break;
-                }
-
-                // Reject top-level symlinks — they could point outside the
-                // configured root. Honest copies / mounts on the path are fine.
-                var info = new DirectoryInfo(dir);
-                if (info.LinkTarget is not null)
-                {
-                    _logger.SymlinkSkipped(dir);
+                    _logger.LibrariesPathMissing(root);
                     continue;
                 }
 
-                if (TryLoadLibrary(dir, out var library))
+                var directories = Directory.EnumerateDirectories(root)
+                    .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
+                    .ToArray();
+
+                foreach (var dir in directories)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (libraries.Count >= _maxLibraries)
+                    {
+                        _logger.LibraryCapReached(_maxLibraries, root);
+                        capReached = true;
+                        break;
+                    }
+
+                    // Reject top-level symlinks — they could point outside
+                    // the configured root. Honest copies / mounts on the
+                    // path are fine.
+                    var info = new DirectoryInfo(dir);
+                    if (info.LinkTarget is not null)
+                    {
+                        _logger.SymlinkSkipped(dir);
+                        continue;
+                    }
+
+                    if (!TryLoadLibrary(dir, out var library)) continue;
+
+                    if (!seenIds.Add(library.Id))
+                    {
+                        _logger.LibraryIdShadowed(library.Id, dir);
+                        continue;
+                    }
+
                     libraries.Add(library);
                 }
+
+                if (capReached) break;
             }
 
             _cache = libraries
@@ -109,7 +148,7 @@ public sealed class FilesystemWidgetLibraryRegistry : IWidgetLibraryRegistry, ID
                 .ThenBy(l => l.Id, StringComparer.Ordinal)
                 .ToArray();
 
-            _logger.LibrariesLoaded(_cache.Length, _librariesPath);
+            _logger.LibrariesLoaded(_cache.Length, _librariesPaths.Length, _librariesPaths[0]);
         }
         finally
         {
@@ -259,8 +298,8 @@ internal static partial class FilesystemWidgetLibraryRegistryLogs
     public static partial void SymlinkSkipped(this ILogger logger, string dir);
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information,
-        Message = "Loaded {Count} widget library/ies from {Path}.")]
-    public static partial void LibrariesLoaded(this ILogger logger, int count, string path);
+        Message = "Loaded {Count} widget library/ies from {PathCount} configured path(s) (first: {FirstPath}).")]
+    public static partial void LibrariesLoaded(this ILogger logger, int count, int pathCount, string firstPath);
 
     [LoggerMessage(EventId = 5, Level = LogLevel.Warning,
         Message = "Skipping {Dir}: missing manifest.json.")]
@@ -289,4 +328,8 @@ internal static partial class FilesystemWidgetLibraryRegistryLogs
     [LoggerMessage(EventId = 11, Level = LogLevel.Warning,
         Message = ".install.json under {Dir} could not be parsed; treating library as filesystem-installed.")]
     public static partial void InstallMetadataUnreadable(this ILogger logger, Exception ex, string dir);
+
+    [LoggerMessage(EventId = 12, Level = LogLevel.Warning,
+        Message = "Library id '{LibId}' from {Dir} is already exposed by an earlier path in the scan order; skipping.")]
+    public static partial void LibraryIdShadowed(this ILogger logger, string libId, string dir);
 }

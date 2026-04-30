@@ -81,10 +81,10 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
     }
 
     /// <summary>
-    /// Bootstraps a host whose <c>Dashboard:Widgets:LibrariesPath</c> points
-    /// at a temp directory pre-populated with sample libraries. Independent
-    /// from <see cref="TestHostFixture"/> so the two suites don't share a
-    /// registry singleton.
+    /// Bootstraps a host whose <c>Dashboard:Widgets:LibrariesPaths:0</c>
+    /// points at a temp directory pre-populated with sample libraries.
+    /// Independent from <see cref="TestHostFixture"/> so the two suites
+    /// don't share a registry singleton.
     /// </summary>
     public sealed class LibrariesTestHost : WebApplicationFactory<Program>, IAsyncLifetime
     {
@@ -116,7 +116,7 @@ public sealed class LibraryEndpointsTests : IClassFixture<LibraryEndpointsTests.
                     ["OpenTelemetryDashboard:Ingestion:Channel:Capacity"] = "1000",
                     ["OpenTelemetryDashboard:Ingestion:Channel:MaxBatchSize"] = "64",
                     ["OpenTelemetryDashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
-                    ["Dashboard:Widgets:LibrariesPath"] = LibrariesPath,
+                    ["Dashboard:Widgets:LibrariesPaths:0"] = LibrariesPath,
                 });
             });
         }

@@ -38,6 +38,11 @@ services:
       ConnectionStrings__PostgreSql: "${CONN_POSTGRESQL:-Host=postgres;Database=telemetry;Username=otel;Password=otel}"
     volumes:
       - dashboard-data:/app/data
+      # Demo widget library — mounted read-only inside the volume so it
+      # ships out-of-the-box with `docker compose up --build`. Drop your
+      # own libraries via `docker cp ... otel-dashboard:/app/data/widget-libraries/<id>/`
+      # or remove this line if you don't want the sample showing up.
+      - ./widget-libraries-demo/demo-pack:/app/data/widget-libraries/demo-pack:ro
     # Soft caps tuned for the typical self-hosted deployment. Combined with
     # DOTNET_GCConserveMemory=9 / GCRetainVM=0 in the image, the runtime
     # actively returns pages to the OS instead of holding them as headroom.

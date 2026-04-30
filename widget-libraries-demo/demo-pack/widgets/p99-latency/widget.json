@@ -1,0 +1,21 @@
+{
+  "name": "p99 latency (ms)",
+  "description": "Single-value latency stat with green/amber/red thresholds at 200/500 ms. Bind any millisecond histogram metric.",
+  "icon": "i-ph-target",
+  "defaultSize": { "w": 3, "h": 3 },
+  "engine": "preset",
+  "baseKind": "metric-stat",
+  "defaultConfig": {
+    "metric": null,
+    "range": "last-1h",
+    "showSparkline": true,
+    "decimals": 1,
+    "unitKind": "ms",
+    "calc": "last",
+    "thresholds": [
+      { "value": 0,   "color": "#7AAA7A" },
+      { "value": 200, "color": "#D9B566" },
+      { "value": 500, "color": "#E27A3F" }
+    ]
+  }
+}
