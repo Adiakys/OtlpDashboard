@@ -74,6 +74,10 @@ export interface WidgetDefinition {
   /** For `engine === 'spec'` / `'composite'`: the engine-specific spec
    *  (Vega-Lite spec, composite layout DSL). Wired in iter 2/5. */
   spec?: unknown
+  /** Optimistic concurrency token. Present only for `custom` widgets
+   *  (DB-backed). Required when calling `updateCustom` so the server can
+   *  detect stale writes. `std` and library defs don't have one. */
+  rowVersion?: number
 }
 
 /**

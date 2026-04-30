@@ -1,20 +1,29 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
-import type { BuiltinKind, WidgetItem } from '../types'
+import type { BuiltinKind, WidgetDefinition, WidgetItem } from '../types'
 import { parseKind } from '../types'
 import type { SaveWidgetDefinitionRequest } from '~/services/types'
 
 /**
- * Modal that asks the user to name a widget definition (preset wrapping the
- * currently-edited builtin) and persists it via the WidgetService. The new
- * custom widget shows up in the picker on the next open thanks to the
- * catalog refresh wired here.
+ * Modal that names + persists a widget template. Two flavors:
+ *  - **save-as-new** (`widget` prop): wraps the currently-edited builtin
+ *    instance into a new custom definition (POST).
+ *  - **edit** (`existing` prop): updates name / description / icon / size
+ *    of an existing custom definition (PUT, optimistic concurrency).
+ *
+ * The seed config is *not* edited here — for save-as-new we snapshot the
+ * widget's current config; for edit we keep the previously stored
+ * defaultConfig untouched.
  */
 const props = defineProps<{
   open: boolean
-  widget: WidgetItem
+  /** Save-as-new mode: the live widget instance to capture. */
+  widget?: WidgetItem
+  /** Edit mode: the existing custom definition. Takes precedence over
+   *  `widget` when both are provided. */
+  existing?: WidgetDefinition
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +35,15 @@ const { t } = useI18n()
 const { $widgetService } = useNuxtApp()
 const catalog = useWidgetCatalog()
 
+const isEditMode = computed(() => props.existing != null)
+
+/**
+ * Builtin kind being wrapped. In save-as-new it comes from the live
+ * widget; in edit mode it stays as the existing definition's baseKind.
+ */
 const baseKind = computed<BuiltinKind | null>(() => {
+  if (props.existing?.baseKind) return props.existing.baseKind
+  if (!props.widget) return null
   const parsed = parseKind(props.widget.kind)
   if (parsed.source !== 'std') return null
   if (parsed.id in WIDGET_REGISTRY) return parsed.id as BuiltinKind
@@ -43,18 +60,31 @@ const error = ref<string | null>(null)
 
 watch(() => props.open, isOpen => {
   if (!isOpen) return
-  // Reset draft when re-opening; pre-populate icon + defaultSize from the
-  // builtin we're wrapping so the user only has to type a name in the
-  // common case.
-  const bk = baseKind.value
-  const meta = bk ? WIDGET_REGISTRY[bk] : null
-  name.value = ''
-  description.value = ''
-  icon.value = meta?.icon ?? 'i-ph-puzzle-piece'
-  defaultW.value = meta?.defaultSize.w ?? 3
-  defaultH.value = meta?.defaultSize.h ?? 3
+  // Reset / pre-populate based on mode.
+  if (props.existing) {
+    name.value = props.existing.name
+    description.value = props.existing.description ?? ''
+    icon.value = props.existing.icon
+    defaultW.value = props.existing.defaultSize.w
+    defaultH.value = props.existing.defaultSize.h
+  } else {
+    const bk = baseKind.value
+    const meta = bk ? WIDGET_REGISTRY[bk] : null
+    name.value = ''
+    description.value = ''
+    icon.value = meta?.icon ?? 'i-ph-puzzle-piece'
+    defaultW.value = meta?.defaultSize.w ?? 3
+    defaultH.value = meta?.defaultSize.h ?? 3
+  }
   error.value = null
 })
+
+const headerTitle = computed(() =>
+  isEditMode.value ? t('widgets.edit.title') : t('widgets.saveAs.title')
+)
+const submitLabel = computed(() =>
+  isEditMode.value ? t('widgets.edit.submit') : t('widgets.saveAs.submit')
+)
 
 async function submit() {
   if (isSaving.value) return
@@ -70,22 +100,42 @@ async function submit() {
   isSaving.value = true
   error.value = null
   try {
-    const request: SaveWidgetDefinitionRequest = {
-      name: name.value.trim(),
-      description: description.value.trim() || null,
-      icon: icon.value.trim(),
-      engine: 'Preset',
-      baseKind: baseKind.value,
-      // Snapshot the current per-instance config as the new template's seed.
-      // JSON round-trip strips reactivity proxies and matches what the
-      // server will store.
-      config: JSON.parse(JSON.stringify(props.widget.config)),
-      spec: null,
-      defaultW: defaultW.value,
-      defaultH: defaultH.value,
-      rowVersion: 0
+    if (props.existing) {
+      // Edit mode: keep the existing seed config untouched, bump metadata.
+      const id = parseKind(props.existing.kind).id
+      const request: SaveWidgetDefinitionRequest = {
+        name: name.value.trim(),
+        description: description.value.trim() || null,
+        icon: icon.value.trim(),
+        engine: 'Preset',
+        baseKind: baseKind.value,
+        config: (props.existing.defaultConfig ?? {}) as unknown as Record<string, unknown>,
+        spec: null,
+        defaultW: defaultW.value,
+        defaultH: defaultH.value,
+        rowVersion: props.existing.rowVersion ?? 0
+      }
+      await $widgetService.updateCustom(id, request)
+    } else if (props.widget) {
+      // Save-as-new mode: snapshot the current widget config into a fresh
+      // template. JSON round-trip strips Vue reactivity proxies and matches
+      // what the server will store.
+      const seedConfig = JSON.parse(JSON.stringify(props.widget.config))
+      const request: SaveWidgetDefinitionRequest = {
+        name: name.value.trim(),
+        description: description.value.trim() || null,
+        icon: icon.value.trim(),
+        engine: 'Preset',
+        baseKind: baseKind.value,
+        config: seedConfig,
+        spec: null,
+        defaultW: defaultW.value,
+        defaultH: defaultH.value,
+        rowVersion: 0
+      }
+      await $widgetService.createCustom(request)
     }
-    await $widgetService.createCustom(request)
+
     await catalog.refreshCustom()
     emit('saved')
     emit('update:open', false)
@@ -105,7 +155,7 @@ function close() {
 <template>
   <UModal
     :open="open"
-    :title="t('widgets.saveAs.title')"
+    :title="headerTitle"
     @update:open="(v) => emit('update:open', v)"
   >
     <template #body>
@@ -205,7 +255,7 @@ function close() {
           {{ t('dashboard.actions.cancel') }}
         </UButton>
         <UButton color="primary" :loading="isSaving" :disabled="!baseKind || !name.trim()" @click="submit">
-          {{ t('widgets.saveAs.submit') }}
+          {{ submitLabel }}
         </UButton>
       </div>
     </template>

@@ -39,7 +39,6 @@
     "traces": "Traces",
     "logs": "Logs",
     "metrics": "Metrics",
-    "widgets": "Widgets",
     "logout": "Logout",
     "collapse": "Collapse menu",
     "expand": "Expand menu"
@@ -364,18 +363,13 @@
     }
   },
   "widgets": {
-    "title": "Widgets",
-    "subtitle": "{count} personal widget(s)",
-    "emptyTitle": "No personal widgets yet",
-    "emptyDescription": "Configure a widget on a dashboard and use 'Save as my widget' to reuse it.",
     "delete": "Delete",
     "deleteConfirm": "Delete this widget? Existing dashboard instances will show a placeholder.",
-    "howToCreate": "To create a personal widget: open a dashboard in edit mode, configure a widget, and press 'Save as my widget' in the configuration drawer.",
     "picker": {
-      "search": "Search widgets…",
+      "search": "Search widgets — name, description or source (std, custom, library)…",
       "builtinSection": "Builtin",
       "customSection": "My widgets",
-      "customEmpty": "No personal widgets yet. Use 'Save as my widget' from the config drawer.",
+      "customEmpty": "No personal widgets yet. Use 'Save as widget' from the config drawer.",
       "noMatch": "No widgets match the search."
     },
     "saveAs": {
@@ -392,6 +386,11 @@
       "submit": "Save",
       "nameRequired": "Please enter a name.",
       "notSupported": "This widget kind cannot be saved as a template."
+    },
+    "edit": {
+      "action": "Edit",
+      "title": "Edit personal widget",
+      "submit": "Update"
     }
   },
   "auth": {

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useWidgetCatalog } from '../catalog'
 import { WIDGET_REGISTRY } from '../registry'
+import SaveAsTemplateDialog from './SaveAsTemplateDialog.vue'
 import type { BuiltinKind, FQKind, WidgetDefinition } from '../types'
 import { parseKind } from '../types'
 
@@ -15,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { $widgetService } = useNuxtApp()
 
 const catalog = useWidgetCatalog()
 const search = ref('')
@@ -49,9 +51,16 @@ function displayDescription(def: WidgetDefinition): string {
   return def.description ?? ''
 }
 
+/**
+ * Search matches across name, description, and source attribution. The
+ * source token is the first thing we check so users can type "std" /
+ * "custom" / "<libraryId>" to filter a whole bucket at once.
+ */
 function matchesSearch(def: WidgetDefinition): boolean {
   const q = search.value.trim().toLowerCase()
   if (!q) return true
+  const sourceLabel = typeof def.source === 'object' ? def.source.library : def.source
+  if (sourceLabel.toLowerCase().includes(q)) return true
   return displayName(def).toLowerCase().includes(q)
     || displayDescription(def).toLowerCase().includes(q)
 }
@@ -70,6 +79,41 @@ const filteredLibraries = computed(() => {
 function pick(def: WidgetDefinition) {
   emit('select', def.kind)
 }
+
+// ----- Inline edit / delete on custom cards -----
+
+const editingDef = ref<WidgetDefinition | null>(null)
+const editOpen = ref(false)
+const isDeleting = ref<string | null>(null)
+const error = ref<string | null>(null)
+
+function startEdit(def: WidgetDefinition, e: Event) {
+  // Stop the click from bubbling to the card (which would emit 'select').
+  e.stopPropagation()
+  editingDef.value = def
+  editOpen.value = true
+}
+
+async function deleteCustom(def: WidgetDefinition, e: Event) {
+  e.stopPropagation()
+  if (isDeleting.value) return
+  if (!confirm(t('widgets.deleteConfirm'))) return
+  const id = parseKind(def.kind).id
+  isDeleting.value = id
+  error.value = null
+  try {
+    await $widgetService.deleteCustom(id)
+    await catalog.refreshCustom()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    isDeleting.value = null
+  }
+}
+
+function customId(kind: FQKind): string {
+  return parseKind(kind).id
+}
 </script>
 
 <template>
@@ -80,8 +124,6 @@ function pick(def: WidgetDefinition) {
   >
     <template #body>
       <div class="flex flex-col gap-4">
-        <!-- Search box. Mono input so monospace metric / instrument names
-             paste cleanly without re-flowing. -->
         <UInput
           v-model="search"
           :placeholder="t('widgets.picker.search')"
@@ -89,6 +131,15 @@ function pick(def: WidgetDefinition) {
           size="sm"
           autofocus
         />
+
+        <p
+          v-if="error"
+          role="alert"
+          class="text-mono-sm"
+          style="color: var(--color-rust-700);"
+        >
+          {{ error }}
+        </p>
 
         <!-- BUILTIN ------------------------------------------------ -->
         <section>
@@ -108,8 +159,10 @@ function pick(def: WidgetDefinition) {
               class="vellum-picker-card"
               @click="pick(def)"
             >
-              <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-              <span class="font-medium text-sm truncate">{{ displayName(def) }}</span>
+              <div class="vellum-picker-card__head">
+                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                <span class="font-medium text-sm truncate">{{ displayName(def) }}</span>
+              </div>
               <p class="vellum-picker-card__desc">{{ displayDescription(def) }}</p>
             </button>
           </div>
@@ -137,11 +190,35 @@ function pick(def: WidgetDefinition) {
               v-for="def in filteredCustom"
               :key="def.kind"
               type="button"
-              class="vellum-picker-card"
+              class="vellum-picker-card vellum-picker-card--actionable"
               @click="pick(def)"
             >
-              <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-              <span class="font-medium text-sm truncate">{{ def.name }}</span>
+              <div class="vellum-picker-card__head">
+                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                <span class="font-medium text-sm truncate flex-1">{{ def.name }}</span>
+                <span class="vellum-picker-card__actions">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-ph-pencil-simple"
+                    square
+                    :aria-label="t('widgets.edit.action')"
+                    @click="(e) => startEdit(def, e)"
+                  />
+                  <UButton
+                    color="error"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-ph-trash"
+                    square
+                    :loading="isDeleting === customId(def.kind)"
+                    :disabled="isDeleting !== null"
+                    :aria-label="t('widgets.delete')"
+                    @click="(e) => deleteCustom(def, e)"
+                  />
+                </span>
+              </div>
               <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
             </button>
           </div>
@@ -165,8 +242,10 @@ function pick(def: WidgetDefinition) {
               class="vellum-picker-card"
               @click="pick(def)"
             >
-              <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
-              <span class="font-medium text-sm truncate">{{ def.name }}</span>
+              <div class="vellum-picker-card__head">
+                <UIcon :name="def.icon" class="size-4 shrink-0" style="color: var(--color-ember-500);" />
+                <span class="font-medium text-sm truncate">{{ def.name }}</span>
+              </div>
               <p class="vellum-picker-card__desc">{{ def.description ?? '' }}</p>
             </button>
           </div>
@@ -174,6 +253,11 @@ function pick(def: WidgetDefinition) {
       </div>
     </template>
   </UModal>
+
+  <SaveAsTemplateDialog
+    v-model:open="editOpen"
+    :existing="editingDef ?? undefined"
+  />
 </template>
 
 <style scoped>
@@ -201,6 +285,27 @@ function pick(def: WidgetDefinition) {
 .vellum-picker-card:focus-visible {
   outline: 2px solid var(--color-ember-500);
   outline-offset: 2px;
+}
+
+.vellum-picker-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Inline action buttons fade in on hover so the card stays calm at rest. */
+.vellum-picker-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity var(--t-instant) var(--ease-out);
+}
+.vellum-picker-card--actionable:hover .vellum-picker-card__actions,
+.vellum-picker-card--actionable:focus-within .vellum-picker-card__actions {
+  opacity: 1;
 }
 
 .vellum-picker-card__desc {

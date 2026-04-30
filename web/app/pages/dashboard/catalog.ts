@@ -206,7 +206,8 @@ export function dtoToDefinition(dto: WidgetDefinitionDto): WidgetDefinition {
     // Server stores config as opaque JSON object — the SPA owns the per-kind
     // shape, so the cast through `unknown` is intentional.
     defaultConfig: dto.config as unknown as WidgetConfig,
-    spec: dto.spec ?? undefined
+    spec: dto.spec ?? undefined,
+    rowVersion: dto.rowVersion
   }
 }
 
