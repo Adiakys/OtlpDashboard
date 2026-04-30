@@ -25,7 +25,7 @@ const selected = computed<string>({
     :items="items"
     :disabled="disabled"
     :placeholder="t('filter.limit')"
-    icon="i-lucide-list"
+    icon="i-ph-list-numbers"
     size="sm"
     class="w-24"
   />

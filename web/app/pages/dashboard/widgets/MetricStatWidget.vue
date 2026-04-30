@@ -62,7 +62,7 @@ const previous = computed(() => {
 const latest = computed(() => sortedPoints.value.at(-1) ?? null)
 
 const formattedValue = computed(() => {
-  if (aggregated.value === null) return '—'
+  if (aggregated.value === null) return '·'
   return formatValue(aggregated.value, unitKind.value, { decimals: decimals.value, locale: locale.value })
 })
 
@@ -89,8 +89,8 @@ const deltaLabel = computed(() => {
 })
 
 const deltaTone = computed(() => {
-  if (delta.value === null || delta.value === 0) return 'text-muted'
-  return delta.value > 0 ? 'text-success' : 'text-error'
+  if (delta.value === null || delta.value === 0) return 'vellum-delta-zero'
+  return delta.value > 0 ? 'vellum-delta-up' : 'vellum-delta-down'
 })
 
 const isDark = computed(() => colorMode.value === 'dark')
@@ -104,7 +104,8 @@ const valueColor = computed<string | undefined>(() => matchedThreshold.value?.co
 
 const sparklineStroke = computed<string>(() => {
   if (matchedThreshold.value) return matchedThreshold.value.color
-  return isDark.value ? '#5eead4' : '#0d9488'
+  // Ember accent — Vellum default series color.
+  return isDark.value ? '#E8895C' : '#C9602F'
 })
 
 const sparkOptions = computed<AgChartOptions>(() => ({
@@ -135,27 +136,34 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     @remove="$emit('remove')"
   >
     <template #default="{ width, height }">
-      <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center">
+      <div v-if="!isConfigured" class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center">
         {{ t('dashboard.widgets.notConfigured') }}
       </div>
-      <div v-else class="flex-1 min-h-0 min-w-0 flex flex-col p-3 gap-2">
+      <div v-else class="flex-1 min-h-0 min-w-0 flex flex-col px-4 py-3 gap-1.5">
         <div class="flex items-baseline gap-2 leading-none min-w-0">
-          <!--
-            Use clamp() to scale the value smoothly with the widget height
-            instead of jumping between text-xl/2xl/3xl tiers. The lower bound
-            keeps the digit legible on tiny widgets; the upper bound caps the
-            growth so a tall narrow widget doesn't run off horizontally.
-          -->
           <span
-            class="font-semibold tabular-nums truncate"
+            class="truncate"
             :style="{
-              fontSize: `clamp(1.125rem, ${Math.round(height * 0.18)}px, 2.5rem)`,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 500,
+              letterSpacing: '-0.01em',
+              fontVariantNumeric: 'tabular-nums',
+              fontSize: `clamp(1.25rem, ${Math.round(height * 0.20)}px, 2.5rem)`,
               ...(valueColor ? { color: valueColor } : {})
             }"
           >{{ formattedValue }}</span>
-          <span v-if="unitLabel && width > 140" class="text-sm text-muted truncate">{{ unitLabel }}</span>
+          <span
+            v-if="unitLabel && width > 140"
+            class="text-overline truncate"
+            style="color: var(--color-graphite-500);"
+          >{{ unitLabel }}</span>
         </div>
-        <div v-if="delta !== null && height >= 100" class="text-xs tabular-nums shrink-0" :class="deltaTone">
+        <div
+          v-if="delta !== null && height >= 100"
+          class="text-mono-sm shrink-0"
+          :class="deltaTone"
+          style="font-variant-numeric: tabular-nums;"
+        >
           Δ {{ deltaLabel }}
         </div>
         <div v-if="config.showSparkline && sortedPoints.length > 1 && height >= 140" class="flex-1 min-h-0 min-w-0">
@@ -165,3 +173,11 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     </template>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-delta-zero { color: var(--color-graphite-500); }
+.vellum-delta-up   { color: var(--color-sage-600); }
+.vellum-delta-down { color: var(--color-rust-600); }
+:global(html.dark) .vellum-delta-up   { color: var(--color-sage-400); }
+:global(html.dark) .vellum-delta-down { color: var(--color-rust-400); }
+</style>

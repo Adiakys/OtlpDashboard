@@ -12,12 +12,26 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="bg-default border border-default rounded-lg flex flex-col min-h-0 transition-colors"
+    class="vellum-card flex flex-col min-h-0 transition-[background-color,border-color] duration-200 ease-out"
     :class="[
-      interactive ? 'hover:border-primary/40 cursor-pointer' : '',
+      interactive ? 'vellum-card--interactive cursor-pointer' : '',
       flush ? '' : 'p-4'
     ]"
   >
     <slot />
   </div>
 </template>
+
+<style scoped>
+/* Refraction edge: 1px highlight on top to suggest a tactile surface,
+   tinted shadow toward the warm neutral. */
+.vellum-card {
+  background: var(--ui-bg-elevated);
+  border: 1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1), var(--shadow-inset-edge);
+}
+.vellum-card--interactive:hover {
+  border-color: color-mix(in oklab, var(--color-ember-500) 35%, transparent);
+}
+</style>

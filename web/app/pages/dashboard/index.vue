@@ -83,7 +83,7 @@ const actions = computed<ActionDescriptor[]>(() => {
     {
       kind: 'custom',
       labelKey: 'dashboard.actions.edit',
-      icon: 'i-lucide-pencil',
+      icon: 'i-ph-pencil-simple',
       onClick: () => page.enterEdit(),
       variant: 'subtle',
       color: 'primary'
@@ -96,7 +96,7 @@ const subtitle = computed(() => {
   const updatedRaw = page.dashboard.value?.updatedAt
   const updatedLabel = updatedRaw
     ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(updatedRaw))
-    : '—'
+    : '·'
   return t('dashboard.subtitle.view', {
     count: page.layout.value.widgets.length,
     updated: updatedLabel
@@ -179,19 +179,19 @@ onBeforeUnmount(() => {
       v-if="page.error.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-alert-triangle"
+      icon="i-ph-warning"
       :title="page.error.value"
       class="mb-4"
     />
 
     <AppEmptyState
       v-if="!page.isEditing.value && page.layout.value.widgets.length === 0"
-      icon="i-lucide-layout-dashboard"
+      icon="i-ph-squares-four"
       :title="t('dashboard.emptyTitle')"
       :description="t('dashboard.emptyDescription')"
     >
       <template #actions>
-        <UButton color="primary" icon="i-lucide-pencil" @click="page.enterEdit">
+        <UButton color="primary" icon="i-ph-pencil-simple" @click="page.enterEdit">
           {{ t('dashboard.startEditing') }}
         </UButton>
       </template>

@@ -22,7 +22,7 @@ defineProps<{
         v-if="loading"
         class="absolute top-2 right-2 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-elevated/80 text-xs text-muted"
       >
-        <UIcon name="i-lucide-loader-2" class="size-3.5 animate-spin" />
+        <UIcon name="i-ph-circle-notch" class="size-3.5 animate-spin" />
         <span>{{ $t('common.loading') }}</span>
       </div>
     </Transition>

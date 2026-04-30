@@ -95,7 +95,7 @@ function onBlur(i: number) {
         @keydown.enter="onBlur(i)"
       />
       <UButton
-        icon="i-lucide-trash-2"
+        icon="i-ph-trash"
         variant="ghost"
         color="error"
         size="xs"
@@ -104,7 +104,7 @@ function onBlur(i: number) {
       />
     </div>
     <UButton
-      icon="i-lucide-plus"
+      icon="i-ph-plus"
       variant="soft"
       size="xs"
       class="self-start"

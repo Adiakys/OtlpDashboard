@@ -126,47 +126,47 @@ function openTrace(traceId: string) {
   >
     <div
       v-if="sorted.length === 0"
-      class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center"
+      class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center"
     >
       {{ t('dashboard.widgets.noData') }}
     </div>
     <div v-else class="flex-1 min-h-0 overflow-auto">
-      <table class="w-full text-xs">
-        <thead class="sticky top-0 bg-default border-b border-default">
-          <tr class="text-left text-muted">
-            <th class="px-2 py-1 font-normal">{{ t('dashboard.col.time') }}</th>
-            <th class="px-2 py-1 font-normal">{{ t('dashboard.col.service') }}</th>
-            <th class="px-2 py-1 font-normal">{{ t('dashboard.col.span') }}</th>
-            <th class="px-2 py-1 font-normal text-right">{{ t('dashboard.col.duration') }}</th>
+      <table class="w-full text-xs vellum-traces-table">
+        <thead class="sticky top-0 bg-elevated">
+          <tr class="text-left">
+            <th class="px-3 py-1.5 text-overline" style="color: var(--color-graphite-500);">{{ t('dashboard.col.time') }}</th>
+            <th class="px-3 py-1.5 text-overline" style="color: var(--color-graphite-500);">{{ t('dashboard.col.service') }}</th>
+            <th class="px-3 py-1.5 text-overline" style="color: var(--color-graphite-500);">{{ t('dashboard.col.span') }}</th>
+            <th class="px-3 py-1.5 text-overline text-right" style="color: var(--color-graphite-500);">{{ t('dashboard.col.duration') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="tr in sorted"
             :key="tr.traceId"
-            class="border-b border-default/40 hover:bg-elevated/30 cursor-pointer"
+            class="vellum-trace-row cursor-pointer"
             @click="openTrace(tr.traceId)"
           >
-            <td class="px-2 py-1 tabular-nums whitespace-nowrap">{{ formatTime(tr.start) }}</td>
-            <td class="px-2 py-1 truncate max-w-[120px]">{{ tr.serviceName ?? '—' }}</td>
-            <td class="px-2 py-1 truncate max-w-[200px]">
+            <td class="px-3 py-1.5 text-mono-sm whitespace-nowrap" style="font-variant-numeric: tabular-nums; color: var(--ui-text-muted);">{{ formatTime(tr.start) }}</td>
+            <td class="px-3 py-1.5 text-mono-sm truncate max-w-[120px]">{{ tr.serviceName ?? '·' }}</td>
+            <td class="px-3 py-1.5 text-body truncate max-w-[200px]">
               <UBadge
                 v-if="tr.rootStatusCode === 'Error'"
                 color="error"
                 variant="subtle"
                 size="xs"
-                class="mr-1"
-              >Err</UBadge>
+                class="mr-1.5 vellum-badge-mono"
+              >ERR</UBadge>
               <UBadge
                 v-else-if="tr.rootStatusCode === 'Ok'"
                 :color="statusColor(tr.rootStatusCode)"
                 variant="subtle"
                 size="xs"
-                class="mr-1"
-              >Ok</UBadge>
+                class="mr-1.5 vellum-badge-mono"
+              >OK</UBadge>
               {{ tr.rootSpanName }}
             </td>
-            <td class="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+            <td class="px-3 py-1.5 text-mono-sm text-right whitespace-nowrap" style="font-variant-numeric: tabular-nums;">
               {{ formatDuration(tr.durationMs) }}
             </td>
           </tr>
@@ -175,3 +175,21 @@ function openTrace(traceId: string) {
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-traces-table thead tr {
+  border-bottom: 1px solid color-mix(in oklab, var(--color-graphite-500) 14%, transparent);
+}
+.vellum-trace-row + .vellum-trace-row {
+  border-top: 1px solid color-mix(in oklab, var(--color-graphite-500) 8%, transparent);
+}
+.vellum-trace-row:hover {
+  background: color-mix(in oklab, var(--color-graphite-500) 6%, transparent);
+}
+:deep(.vellum-badge-mono) {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+</style>

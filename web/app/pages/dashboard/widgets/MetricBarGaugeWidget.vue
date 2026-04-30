@@ -76,7 +76,7 @@ const bars = computed<Bar[]>(() => {
     : autoMax
   const span = max - minValue.value || 1
 
-  const fallback = colorMode.value === 'dark' ? '#5eead4' : '#0d9488'
+  const fallback = colorMode.value === 'dark' ? '#E8895C' : '#C9602F'
   return top.map(b => {
     const matched = pickThreshold(b.value, thresholds.value)
     return {

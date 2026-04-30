@@ -13,7 +13,7 @@ const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
 }))
 
 function fmt(iso: string | null): string {
-  return iso ? formatter.value.format(new Date(iso)) : '—'
+  return iso ? formatter.value.format(new Date(iso)) : '·'
 }
 
 const bucket = computed(() => severityBucketFromNumber(props.record.severityNumber))
@@ -50,7 +50,7 @@ async function copyBody() {
     <section v-if="record.body" class="space-y-1">
       <div class="flex items-center justify-between">
         <h3 class="text-caption uppercase tracking-wide">{{ t('logs.col.body') }}</h3>
-        <UButton size="xs" color="neutral" variant="ghost" :icon="copied ? 'i-lucide-check' : 'i-lucide-copy'" @click="copyBody">
+        <UButton size="xs" color="neutral" variant="ghost" :icon="copied ? 'i-ph-check' : 'i-ph-copy'" @click="copyBody">
           {{ copied ? t('common.copied') : t('common.copy') }}
         </UButton>
       </div>
@@ -64,7 +64,7 @@ async function copyBody() {
         :to="`/traces/${record.traceId}`"
         class="inline-flex items-center gap-1.5 text-primary hover:underline font-mono text-xs"
       >
-        <UIcon name="i-lucide-waypoints" class="size-3.5" />
+        <UIcon name="i-ph-tree-structure" class="size-3.5" />
         {{ record.traceId }}
       </NuxtLink>
       <p v-if="record.spanId" class="font-mono text-xs text-muted">

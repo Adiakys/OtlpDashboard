@@ -36,7 +36,7 @@ const { t } = useI18n()
         {{ t('metrics.chart.title') }}
       </header>
       <AppEmptyState
-        icon="i-lucide-line-chart"
+        icon="i-ph-chart-line"
         :title="t('metrics.chart.empty')"
       />
     </template>

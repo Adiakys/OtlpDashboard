@@ -31,7 +31,7 @@ function expandAll() {
   <div class="flex flex-col h-full min-h-0 border border-default rounded-lg bg-default overflow-hidden">
     <header class="px-3 py-2 flex items-center justify-between gap-2 border-b border-default bg-elevated/50">
       <div class="flex items-center gap-2 min-w-0">
-        <UIcon name="i-lucide-list-tree" class="size-4 text-muted shrink-0" />
+        <UIcon name="i-ph-tree-structure" class="size-4 text-muted shrink-0" />
         <h2 class="text-xs uppercase tracking-wide text-muted truncate">
           {{ t('metrics.tree.title') }}
         </h2>
@@ -47,7 +47,7 @@ function expandAll() {
           :disabled="total === 0"
           @click="expandAll"
         >
-          <UIcon name="i-lucide-unfold-vertical" class="size-3.5" />
+          <UIcon name="i-ph-arrows-out-line-vertical" class="size-3.5" />
         </button>
         <button
           type="button"
@@ -56,7 +56,7 @@ function expandAll() {
           :disabled="total === 0"
           @click="state.collapseAll"
         >
-          <UIcon name="i-lucide-fold-vertical" class="size-3.5" />
+          <UIcon name="i-ph-arrows-in-line-vertical" class="size-3.5" />
         </button>
       </div>
     </header>
@@ -67,7 +67,7 @@ function expandAll() {
       </div>
       <div v-else-if="total === 0" class="h-full flex items-center justify-center">
         <AppEmptyState
-          icon="i-lucide-activity"
+          icon="i-ph-pulse"
           :title="t('metrics.tree.empty')"
         />
       </div>

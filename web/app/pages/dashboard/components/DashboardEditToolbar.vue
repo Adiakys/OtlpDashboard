@@ -39,7 +39,7 @@ function onFileChosen(event: Event) {
 <template>
   <div class="flex items-center gap-2">
     <UButton
-      icon="i-lucide-plus"
+      icon="i-ph-plus"
       size="sm"
       color="primary"
       variant="soft"
@@ -49,7 +49,7 @@ function onFileChosen(event: Event) {
     </UButton>
 
     <UButton
-      icon="i-lucide-layout-dashboard"
+      icon="i-ph-squares-four"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -59,7 +59,7 @@ function onFileChosen(event: Event) {
     />
 
     <UButton
-      icon="i-lucide-trash-2"
+      icon="i-ph-trash"
       size="sm"
       color="error"
       variant="ghost"
@@ -70,7 +70,7 @@ function onFileChosen(event: Event) {
     />
 
     <UButton
-      icon="i-lucide-upload"
+      icon="i-ph-upload-simple"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -80,7 +80,7 @@ function onFileChosen(event: Event) {
     />
 
     <UButton
-      icon="i-lucide-download"
+      icon="i-ph-download-simple"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -90,7 +90,7 @@ function onFileChosen(event: Event) {
     />
 
     <UButton
-      icon="i-lucide-x"
+      icon="i-ph-x"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -100,7 +100,7 @@ function onFileChosen(event: Event) {
     </UButton>
 
     <UButton
-      icon="i-lucide-save"
+      icon="i-ph-floppy-disk"
       size="sm"
       color="primary"
       :loading="isSaving"

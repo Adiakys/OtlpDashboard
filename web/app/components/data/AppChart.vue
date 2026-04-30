@@ -2,12 +2,13 @@
 import { AgCharts } from 'ag-charts-vue3'
 import type { AgChartOptions } from 'ag-charts-community'
 import { computed } from 'vue'
+import { vellumTheme } from '~/lib/agcharts/theme'
 
 /**
- * Theme-aware AG Charts wrapper. The chart options are re-derived only when
- * the input changes (Vue's `computed` already memoizes by referential
- * equality of `props.options`, so widgets that pass a stable computed
- * options object don't pay the re-render cost on unrelated reactivity).
+ * Theme-aware AG Charts wrapper. Always applies the Vellum custom theme,
+ * regardless of what `theme` was set upstream — chartStrategy.ts sets a
+ * placeholder string, this component overrides with the actual theme object
+ * built from current dark/light state.
  */
 const props = defineProps<{
   options: AgChartOptions
@@ -17,7 +18,7 @@ const colorMode = useColorMode()
 
 const themedOptions = computed<AgChartOptions>(() => ({
   ...props.options,
-  theme: colorMode.value === 'dark' ? 'ag-default-dark' : 'ag-default'
+  theme: vellumTheme(colorMode.value === 'dark')
 }))
 </script>
 

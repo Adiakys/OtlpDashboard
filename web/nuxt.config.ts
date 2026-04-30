@@ -13,7 +13,11 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'OpenTelemetry Dashboard',
-      htmlAttrs: { lang: 'it' }
+      htmlAttrs: { lang: 'it' },
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'alternate icon', type: 'image/x-icon', href: '/favicon.ico' }
+      ]
     }
   },
 

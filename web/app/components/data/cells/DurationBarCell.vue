@@ -36,13 +36,24 @@ function format(value: number): string {
 </script>
 
 <template>
-  <div class="flex items-center gap-2 w-full">
-    <div class="h-1.5 rounded-full bg-elevated overflow-hidden flex-1 max-w-32">
+  <div class="flex items-center gap-2.5 w-full">
+    <div
+      class="h-1 overflow-hidden flex-1 max-w-28"
+      :style="{
+        background: 'color-mix(in oklab, var(--color-graphite-500) 12%, transparent)',
+        borderRadius: 'var(--radius-pill)'
+      }"
+    >
       <div
-        class="h-full bg-primary transition-[width] duration-300"
-        :style="{ width: `${ratio * 100}%` }"
+        class="h-full"
+        :style="{
+          width: `${ratio * 100}%`,
+          background: 'var(--color-ember-500)',
+          borderRadius: 'var(--radius-pill)',
+          transition: 'width var(--t-base) var(--ease-out-quart)'
+        }"
       />
     </div>
-    <span class="font-mono text-xs text-muted shrink-0">{{ format(ms) }}</span>
+    <span class="vellum-cell-mono text-muted shrink-0">{{ format(ms) }}</span>
   </div>
 </template>

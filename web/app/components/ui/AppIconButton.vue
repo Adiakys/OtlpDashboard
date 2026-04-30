@@ -38,7 +38,21 @@ withDefaults(defineProps<{
       :disabled="disabled"
       :aria-label="ariaLabel"
       square
-      class="transition-colors"
+      class="vellum-tactile"
     />
   </UTooltip>
 </template>
+
+<style scoped>
+.vellum-tactile {
+  transition:
+    background-color var(--t-instant) var(--ease-out),
+    color var(--t-instant) var(--ease-out),
+    transform var(--t-instant) var(--ease-out),
+    opacity var(--t-instant) var(--ease-out);
+}
+.vellum-tactile:active:not(:disabled) {
+  transform: translateY(1px);
+  opacity: 0.92;
+}
+</style>

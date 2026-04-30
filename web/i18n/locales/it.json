@@ -367,6 +367,9 @@
     "subtitle": "Inserisci la password per accedere.",
     "passwordLabel": "Password",
     "submit": "Entra",
-    "wrongPassword": "Password errata."
+    "wrongPassword": "Password errata.",
+    "overline": "Observability",
+    "tagline": "Tracce, log e metriche in tempo reale dai tuoi servizi.",
+    "signInLabel": "Accesso"
   }
 }

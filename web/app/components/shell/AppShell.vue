@@ -5,7 +5,7 @@ import AppSidebar from './AppSidebar.vue'
 <template>
   <div class="h-screen w-screen flex overflow-hidden bg-default text-default">
     <AppSidebar />
-    <main class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+    <main class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-default text-default">
       <slot />
     </main>
   </div>

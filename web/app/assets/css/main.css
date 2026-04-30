@@ -1,56 +1,111 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./tokens.css";
 @import "./animations.css";
 @import "./aggrid.css";
 
 @import "ag-grid-community/styles/ag-grid.css";
 @import "ag-grid-community/styles/ag-theme-quartz.css";
 
-@theme static {
-  --font-sans: 'Public Sans', sans-serif;
-
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
-}
-
-:root {
-  --t-fast: 100ms;
-  --t-base: 200ms;
-  --t-slow: 350ms;
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
+/* Self-hosted variable fonts (no FOUT, no Google CDN). */
+@import "@fontsource-variable/geist/index.css";
+@import "@fontsource-variable/geist-mono/index.css";
 
 html, body, #__nuxt {
   height: 100%;
 }
 
 body {
-  transition: background-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss03", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out);
 }
 
 @layer components {
+  /* ---------- Type scale (≥1.25 ratio between steps) ---------- */
   .text-display {
-    @apply text-2xl font-semibold tracking-tight;
+    font-size: 2rem;          /* 32px */
+    line-height: 1.10;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .text-headline {
+    font-size: 1.5rem;        /* 24px */
+    line-height: 1.20;
+    font-weight: 600;
+    letter-spacing: -0.015em;
   }
 
   .text-title {
-    @apply text-lg font-semibold;
+    font-size: 1rem;          /* 16px */
+    line-height: 1.40;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .text-body {
+    font-size: 0.875rem;      /* 14px */
+    line-height: 1.55;
+    font-weight: 400;
   }
 
   .text-caption {
-    @apply text-xs text-muted;
+    @apply text-muted;
+    font-size: 0.75rem;       /* 12px */
+    line-height: 1.50;
+    font-weight: 500;
+    letter-spacing: 0.005em;
   }
 
-  .text-mono {
-    @apply font-mono text-xs;
+  .text-overline {
+    font-size: 0.6875rem;     /* 11px */
+    line-height: 1.40;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .text-mono-sm {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;       /* 12px */
+    line-height: 1.45;
+    font-weight: 450;
+  }
+
+  .text-mono-md {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;     /* 13px */
+    line-height: 1.50;
+    font-weight: 450;
+  }
+
+  .text-mono-lg {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;        /* 24px */
+    line-height: 1.20;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ---------- Focus ring (impeccable: visible focus ovunque) ---------- */
+*:focus-visible {
+  outline: 2px solid var(--color-ember-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Reduced motion (impeccable accessibility) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

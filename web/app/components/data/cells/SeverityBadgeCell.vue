@@ -14,7 +14,7 @@ const label = computed(() => {
 </script>
 
 <template>
-  <AppBadge :tone="{ kind: 'severity', bucket }" size="md" class="font-medium uppercase tracking-wide">
+  <AppBadge :tone="{ kind: 'severity', bucket }" size="md" mono>
     {{ label }}
   </AppBadge>
 </template>

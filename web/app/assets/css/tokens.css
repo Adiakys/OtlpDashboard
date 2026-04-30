@@ -1,0 +1,130 @@
+/* ==============================================================
+ * Vellum design tokens
+ * Warm-graphite neutrals + ember accent. OKLCH everywhere.
+ * Never #000 or #fff. Each neutral tinted toward brand hue.
+ * ============================================================== */
+
+@theme static {
+  /* ---------- Fonts ---------- */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* ---------- Graphite (warm neutral, hue 60) ---------- */
+  --color-graphite-50:   oklch(0.985 0.004 65);
+  --color-graphite-100:  oklch(0.965 0.006 65);
+  --color-graphite-200:  oklch(0.925 0.008 65);
+  --color-graphite-300:  oklch(0.860 0.010 65);
+  --color-graphite-400:  oklch(0.720 0.010 65);
+  --color-graphite-500:  oklch(0.560 0.010 60);
+  --color-graphite-600:  oklch(0.430 0.010 60);
+  --color-graphite-700:  oklch(0.330 0.010 55);
+  --color-graphite-800:  oklch(0.230 0.010 50);
+  --color-graphite-900:  oklch(0.165 0.008 45);
+  --color-graphite-950:  oklch(0.115 0.006 40);
+
+  /* ---------- Ember (single accent, hue 32) ---------- */
+  --color-ember-50:   oklch(0.975 0.020 32);
+  --color-ember-100:  oklch(0.940 0.045 32);
+  --color-ember-200:  oklch(0.890 0.090 32);
+  --color-ember-300:  oklch(0.810 0.140 32);
+  --color-ember-400:  oklch(0.730 0.165 32);
+  --color-ember-500:  oklch(0.660 0.180 32);
+  --color-ember-600:  oklch(0.590 0.175 32);
+  --color-ember-700:  oklch(0.510 0.155 32);
+  --color-ember-800:  oklch(0.420 0.130 30);
+  --color-ember-900:  oklch(0.330 0.100 28);
+  --color-ember-950:  oklch(0.220 0.070 26);
+
+  /* ---------- Rust (error — filtered red) ---------- */
+  --color-rust-50:   oklch(0.975 0.018 22);
+  --color-rust-100:  oklch(0.940 0.045 22);
+  --color-rust-200:  oklch(0.890 0.090 22);
+  --color-rust-300:  oklch(0.800 0.135 22);
+  --color-rust-400:  oklch(0.700 0.155 22);
+  --color-rust-500:  oklch(0.620 0.165 22);
+  --color-rust-600:  oklch(0.540 0.155 22);
+  --color-rust-700:  oklch(0.450 0.135 22);
+  --color-rust-800:  oklch(0.360 0.110 22);
+  --color-rust-900:  oklch(0.275 0.085 22);
+  --color-rust-950:  oklch(0.190 0.060 22);
+
+  /* ---------- Amber (warning — warm desaturated) ---------- */
+  --color-amber-50:   oklch(0.985 0.020 75);
+  --color-amber-100:  oklch(0.965 0.045 75);
+  --color-amber-200:  oklch(0.920 0.080 75);
+  --color-amber-300:  oklch(0.870 0.110 75);
+  --color-amber-400:  oklch(0.820 0.125 75);
+  --color-amber-500:  oklch(0.785 0.135 75);
+  --color-amber-600:  oklch(0.690 0.145 70);
+  --color-amber-700:  oklch(0.580 0.135 70);
+  --color-amber-800:  oklch(0.460 0.110 65);
+  --color-amber-900:  oklch(0.355 0.085 65);
+  --color-amber-950:  oklch(0.250 0.060 60);
+
+  /* ---------- Sage (success — soft tinted green, NOT generic) ---------- */
+  --color-sage-50:   oklch(0.980 0.012 145);
+  --color-sage-100:  oklch(0.955 0.025 145);
+  --color-sage-200:  oklch(0.910 0.045 145);
+  --color-sage-300:  oklch(0.840 0.065 145);
+  --color-sage-400:  oklch(0.770 0.080 145);
+  --color-sage-500:  oklch(0.700 0.090 145);
+  --color-sage-600:  oklch(0.610 0.100 145);
+  --color-sage-700:  oklch(0.510 0.090 145);
+  --color-sage-800:  oklch(0.405 0.075 145);
+  --color-sage-900:  oklch(0.310 0.060 145);
+  --color-sage-950:  oklch(0.215 0.045 145);
+
+  /* ---------- Mist (info — slate teal, NOT sky blue) ---------- */
+  --color-mist-50:   oklch(0.980 0.008 220);
+  --color-mist-100:  oklch(0.955 0.015 220);
+  --color-mist-200:  oklch(0.910 0.025 220);
+  --color-mist-300:  oklch(0.835 0.035 220);
+  --color-mist-400:  oklch(0.770 0.040 220);
+  --color-mist-500:  oklch(0.700 0.045 220);
+  --color-mist-600:  oklch(0.600 0.055 220);
+  --color-mist-700:  oklch(0.495 0.055 220);
+  --color-mist-800:  oklch(0.395 0.045 220);
+  --color-mist-900:  oklch(0.300 0.035 220);
+  --color-mist-950:  oklch(0.205 0.025 220);
+
+  /* ---------- Chart palette (8 hues, varied lightness/chroma) ---------- */
+  --chart-1: oklch(0.730 0.165 32);   /* ember */
+  --chart-2: oklch(0.700 0.090 145);  /* sage */
+  --chart-3: oklch(0.700 0.110 270);  /* iris */
+  --chart-4: oklch(0.785 0.135 75);   /* amber */
+  --chart-5: oklch(0.660 0.080 200);  /* mist deep */
+  --chart-6: oklch(0.620 0.140 350);  /* rose dust */
+  --chart-7: oklch(0.760 0.060 95);   /* moss */
+  --chart-8: oklch(0.580 0.090 245);  /* periwinkle */
+
+  /* ---------- Radius ---------- */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+}
+
+/* ==============================================================
+ * Motion + interaction tokens (not exposed as Tailwind vars)
+ * ============================================================== */
+:root {
+  --t-instant: 100ms;
+  --t-fast:    180ms;
+  --t-base:    240ms;
+  --t-slow:    420ms;
+
+  --ease-out-quart: cubic-bezier(0.5, 1, 0.89, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:       var(--ease-out-quart);
+
+  /* Elevation tinted to warm graphite */
+  --shadow-1: 0 1px 2px oklch(0.115 0.006 40 / 0.12);
+  --shadow-2: 0 2px 8px oklch(0.115 0.006 40 / 0.10),
+              0 1px 2px oklch(0.115 0.006 40 / 0.08);
+  --shadow-3: 0 8px 24px oklch(0.115 0.006 40 / 0.18),
+              0 2px 4px oklch(0.115 0.006 40 / 0.10);
+  --shadow-inset-edge: inset 0 1px 0 oklch(1 0 0 / 0.04);
+}

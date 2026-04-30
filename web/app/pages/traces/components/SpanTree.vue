@@ -86,7 +86,7 @@ function fmtDuration(ms: number): string {
           <span :style="{ paddingLeft: `${depth * 0.9}rem` }" class="inline-flex items-center gap-1.5 min-w-0">
             <UIcon
               v-if="depth > 0"
-              name="i-lucide-corner-down-right"
+              name="i-ph-arrow-elbow-down-right"
               class="size-3 text-muted shrink-0"
             />
             <span class="text-sm truncate" :title="span.name">{{ span.name }}</span>

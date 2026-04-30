@@ -72,9 +72,24 @@ const html = computed(() => renderMarkdown(props.config.markdown ?? ''))
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
-    <div class="flex-1 min-h-0 min-w-0 overflow-auto p-3 text-sm text-default" :class="{ 'text-center': isCenter }">
+    <div class="flex-1 min-h-0 min-w-0 overflow-auto px-4 py-3 text-body text-default vellum-text-widget" :class="{ 'text-center': isCenter }">
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div v-html="html" />
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-text-widget :deep(code) {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: color-mix(in oklab, var(--color-graphite-500) 12%, transparent);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-xs);
+}
+.vellum-text-widget :deep(h1),
+.vellum-text-widget :deep(h2),
+.vellum-text-widget :deep(h3) {
+  letter-spacing: -0.01em;
+}
+</style>

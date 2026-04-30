@@ -13,7 +13,7 @@ const items = computed(() => {
   return list.map(l => ({
     label: l.name ?? l.code.toUpperCase(),
     onSelect: () => setLocale(l.code as 'it' | 'en'),
-    icon: l.code === locale.value ? 'i-lucide-check' : undefined
+    icon: l.code === locale.value ? 'i-ph-check' : undefined
   }))
 })
 </script>
@@ -23,11 +23,15 @@ const items = computed(() => {
     <UTooltip :text="t('locale.label')" :disabled="!collapsed">
       <button
         type="button"
-        class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted hover:bg-elevated hover:text-default transition-colors"
+        class="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm text-muted hover:text-default hover:bg-elevated/60 transition-colors"
         :aria-label="t('locale.label')"
       >
-        <UIcon name="i-lucide-languages" class="size-4 shrink-0" />
-        <span v-if="!collapsed" class="truncate uppercase">{{ current }}</span>
+        <UIcon name="i-ph-translate" class="size-4 shrink-0" />
+        <span
+          v-if="!collapsed"
+          class="truncate uppercase"
+          style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;"
+        >{{ current }}</span>
       </button>
     </UTooltip>
   </UDropdownMenu>

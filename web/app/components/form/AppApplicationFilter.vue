@@ -36,7 +36,7 @@ const placeholder = computed(() => props.placeholder ?? t('filter.applicationSel
     :items="items"
     :disabled="disabled"
     :placeholder="placeholder"
-    icon="i-lucide-server"
+    icon="i-ph-stack"
     size="sm"
     class="min-w-48"
   />

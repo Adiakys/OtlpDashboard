@@ -98,7 +98,7 @@ const orderedSeries = computed<MetricSeriesDto[]>(() => {
       v-if="page.error.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-alert-triangle"
+      icon="i-ph-warning"
       :title="page.error.value"
       class="mb-4"
     />

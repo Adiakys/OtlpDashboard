@@ -95,7 +95,7 @@ function severityLabel(l: LogRecordDto): string {
   if (l.severityNumber >= 9) return 'INFO'
   if (l.severityNumber >= 5) return 'DEBUG'
   if (l.severityNumber >= 1) return 'TRACE'
-  return '—'
+  return '·'
 }
 
 function formatTime(iso: string): string {
@@ -129,28 +129,44 @@ function openTrace(traceId: string | null) {
   >
     <div
       v-if="filtered.length === 0"
-      class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted px-3 text-center"
+      class="flex-1 min-h-0 flex items-center justify-center text-mono-sm text-muted px-3 text-center"
     >
       {{ t('dashboard.widgets.noData') }}
     </div>
-    <div v-else class="flex-1 min-h-0 overflow-auto">
+    <div v-else class="flex-1 min-h-0 overflow-auto vellum-logs-stream">
       <div
         v-for="(l, i) in filtered"
         :key="i"
-        class="flex items-start gap-2 px-2 py-1 text-xs border-b border-default/30 hover:bg-elevated/30"
+        class="vellum-log-row flex items-start gap-2.5 px-3 py-1.5"
         :class="{ 'cursor-pointer': l.traceId }"
         @click="openTrace(l.traceId)"
       >
-        <span class="tabular-nums text-muted shrink-0 mt-0.5">{{ formatTime(l.time) }}</span>
+        <span class="text-mono-sm text-muted shrink-0 mt-0.5" style="font-variant-numeric: tabular-nums;">{{ formatTime(l.time) }}</span>
         <UBadge
           :color="severityBadgeColor(l.severityNumber)"
           variant="subtle"
           size="xs"
-          class="shrink-0 uppercase tabular-nums"
+          class="shrink-0"
+          :class="'vellum-badge-mono'"
         >{{ severityLabel(l) }}</UBadge>
-        <span v-if="l.serviceName" class="text-muted shrink-0 truncate max-w-[100px]">{{ l.serviceName }}</span>
-        <span class="font-mono text-default break-all leading-tight">{{ bodyText(l) }}</span>
+        <span v-if="l.serviceName" class="text-mono-sm text-muted shrink-0 truncate max-w-[100px]">{{ l.serviceName }}</span>
+        <span class="text-mono-sm text-default break-all leading-snug">{{ bodyText(l) }}</span>
       </div>
     </div>
   </BaseWidget>
 </template>
+
+<style scoped>
+.vellum-logs-stream > .vellum-log-row + .vellum-log-row {
+  border-top: 1px solid color-mix(in oklab, var(--color-graphite-500) 10%, transparent);
+}
+.vellum-log-row:hover {
+  background: color-mix(in oklab, var(--color-graphite-500) 6%, transparent);
+}
+:deep(.vellum-badge-mono) {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+</style>

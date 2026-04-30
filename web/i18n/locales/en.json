@@ -366,6 +366,9 @@
     "subtitle": "Enter the password to sign in.",
     "passwordLabel": "Password",
     "submit": "Sign in",
-    "wrongPassword": "Wrong password."
+    "wrongPassword": "Wrong password.",
+    "overline": "Observability",
+    "tagline": "Real-time traces, logs and metrics from your services.",
+    "signInLabel": "Sign in"
   }
 }

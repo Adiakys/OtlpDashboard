@@ -17,50 +17,59 @@ async function logout() {
 
 <template>
   <aside
-    class="shrink-0 border-r border-default bg-default flex flex-col overflow-hidden transition-[width] duration-200 ease-out"
-    :class="collapsed ? 'w-16' : 'w-60'"
+    class="shrink-0 flex flex-col overflow-hidden bg-default transition-[width] duration-200 ease-out"
+    :class="collapsed ? 'w-14' : 'w-56'"
+    :style="{
+      borderRight: '1px solid color-mix(in oklab, var(--color-graphite-500) 22%, transparent)'
+    }"
   >
-    <div class="px-3 py-4 flex items-center" :class="collapsed ? 'justify-center' : ''">
+    <div
+      class="px-3 py-5 flex items-center"
+      :class="collapsed ? 'justify-center px-0' : ''"
+    >
       <AppBrand :compact="collapsed" />
     </div>
 
-    <nav class="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
-      <AppSidebarItem
-        v-for="item in items"
-        :key="item.to"
-        :item="item"
-        :collapsed="collapsed"
-      />
+    <nav class="flex-1 px-2 py-2 overflow-y-auto">
+      <ul class="flex flex-col">
+        <li v-for="item in items" :key="item.to">
+          <AppSidebarItem :item="item" :collapsed="collapsed" />
+        </li>
+      </ul>
     </nav>
 
-    <div class="border-t border-default px-2 py-3 space-y-0.5">
-      <AppLocaleSwitcher :collapsed="collapsed" />
-      <AppThemeToggle :collapsed="collapsed" />
-      <UTooltip :text="t('nav.logout')" :disabled="!collapsed">
-        <button
-          type="button"
-          class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted hover:bg-elevated hover:text-default transition-colors"
-          :aria-label="t('nav.logout')"
-          @click="logout"
-        >
-          <UIcon name="i-lucide-log-out" class="size-4 shrink-0" />
-          <span v-if="!collapsed" class="truncate">{{ t('nav.logout') }}</span>
-        </button>
-      </UTooltip>
-      <UTooltip :text="collapsed ? t('nav.expand') : t('nav.collapse')" :disabled="!collapsed">
-        <button
-          type="button"
-          class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted hover:bg-elevated hover:text-default transition-colors"
-          :aria-label="collapsed ? t('nav.expand') : t('nav.collapse')"
-          @click="toggle"
-        >
-          <UIcon
-            :name="collapsed ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close'"
-            class="size-4 shrink-0 transition-transform"
-          />
-          <span v-if="!collapsed" class="truncate">{{ t('nav.collapse') }}</span>
-        </button>
-      </UTooltip>
+    <div class="px-2 py-3 divide-y divide-default/60">
+      <div class="pb-1.5">
+        <AppLocaleSwitcher :collapsed="collapsed" />
+        <AppThemeToggle :collapsed="collapsed" />
+      </div>
+      <div class="pt-1.5">
+        <UTooltip :text="t('nav.logout')" :disabled="!collapsed">
+          <button
+            type="button"
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm text-muted hover:text-default hover:bg-elevated/60 transition-colors"
+            :aria-label="t('nav.logout')"
+            @click="logout"
+          >
+            <UIcon name="i-ph-sign-out" class="size-4 shrink-0" />
+            <span v-if="!collapsed" class="truncate text-body">{{ t('nav.logout') }}</span>
+          </button>
+        </UTooltip>
+        <UTooltip :text="collapsed ? t('nav.expand') : t('nav.collapse')" :disabled="!collapsed">
+          <button
+            type="button"
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-sm text-muted hover:text-default hover:bg-elevated/60 transition-colors"
+            :aria-label="collapsed ? t('nav.expand') : t('nav.collapse')"
+            @click="toggle"
+          >
+            <UIcon
+              :name="collapsed ? 'i-ph-arrow-line-right' : 'i-ph-arrow-line-left'"
+              class="size-4 shrink-0"
+            />
+            <span v-if="!collapsed" class="truncate text-body">{{ t('nav.collapse') }}</span>
+          </button>
+        </UTooltip>
+      </div>
     </div>
   </aside>
 </template>

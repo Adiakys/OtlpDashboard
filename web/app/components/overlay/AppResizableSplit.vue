@@ -66,10 +66,10 @@ const secondSize = computed(() => `${(1 - ratio.value) * 100}%`)
     <button
       type="button"
       aria-label="Resize"
-      class="shrink-0 group transition-colors"
+      class="vellum-split-handle"
       :class="[
-        orientation === 'horizontal' ? 'w-1 cursor-col-resize hover:bg-primary/40' : 'h-1 cursor-row-resize hover:bg-primary/40',
-        isDragging ? 'bg-primary/60' : 'bg-default'
+        orientation === 'horizontal' ? 'vellum-split-handle--h' : 'vellum-split-handle--v',
+        isDragging ? 'vellum-split-handle--active' : ''
       ]"
       @mousedown="startDrag"
     />
@@ -81,3 +81,42 @@ const secondSize = computed(() => `${(1 - ratio.value) * 100}%`)
     </div>
   </div>
 </template>
+
+<style scoped>
+.vellum-split-handle {
+  flex-shrink: 0;
+  background: color-mix(in oklab, var(--color-graphite-500) 14%, transparent);
+  border: none;
+  transition: background-color var(--t-instant) var(--ease-out);
+}
+.vellum-split-handle--h {
+  width: 1px;
+  cursor: col-resize;
+}
+.vellum-split-handle--v {
+  height: 1px;
+  cursor: row-resize;
+}
+.vellum-split-handle:hover {
+  background: color-mix(in oklab, var(--color-ember-500) 35%, transparent);
+}
+.vellum-split-handle--h:hover {
+  width: 4px;
+  margin: 0 -1.5px;
+}
+.vellum-split-handle--v:hover {
+  height: 4px;
+  margin: -1.5px 0;
+}
+.vellum-split-handle--active {
+  background: var(--color-ember-500) !important;
+}
+.vellum-split-handle--h.vellum-split-handle--active {
+  width: 4px;
+  margin: 0 -1.5px;
+}
+.vellum-split-handle--v.vellum-split-handle--active {
+  height: 4px;
+  margin: -1.5px 0;
+}
+</style>

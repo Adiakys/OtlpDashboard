@@ -103,7 +103,7 @@ const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
     headerName: t('logs.col.service'),
     width: 160,
     cellClass: 'font-mono text-xs',
-    valueFormatter: p => (p.value as string) ?? '—'
+    valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'severityNumber',
@@ -124,7 +124,7 @@ const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
     headerName: t('logs.col.scope'),
     width: 160,
     cellClass: 'text-xs text-muted',
-    valueFormatter: p => (p.value as string) ?? '—'
+    valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'traceId',
@@ -163,9 +163,9 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
               :title="t('logs.removeTraceFilter')"
               @click="clearTraceFilter"
             >
-              <UIcon name="i-lucide-waypoints" class="size-3.5" />
+              <UIcon name="i-ph-tree-structure" class="size-3.5" />
               <span class="font-mono">{{ page.traceId.value!.slice(0, 8) }}…</span>
-              <UIcon name="i-lucide-x" class="size-3.5" />
+              <UIcon name="i-ph-x" class="size-3.5" />
             </button>
           </Transition>
         </template>

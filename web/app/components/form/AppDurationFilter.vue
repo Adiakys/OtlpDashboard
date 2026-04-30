@@ -55,9 +55,9 @@ const isActive = computed(() => props.modelValue.minMs != null || props.modelVal
       :class="isActive ? 'border-primary/50 text-primary' : ''"
       :disabled="disabled"
     >
-      <UIcon name="i-lucide-timer" class="size-4 text-muted" />
-      <span class="truncate">{{ summary }}</span>
-      <UIcon name="i-lucide-chevron-down" class="size-3.5 text-muted" />
+      <UIcon name="i-ph-timer" class="size-4 text-muted" />
+      <span class="truncate" :style="isActive ? 'font-family: var(--font-mono); font-size: 12px;' : ''">{{ summary }}</span>
+      <UIcon name="i-ph-caret-down" class="size-3.5 text-muted" />
     </button>
 
     <template #content>

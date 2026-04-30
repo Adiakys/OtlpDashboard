@@ -24,36 +24,87 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-    <div class="flex flex-col min-w-0">
-      <nav v-if="breadcrumb && breadcrumb.length" class="flex items-center gap-1 text-xs text-muted mb-1">
-        <template v-for="(item, idx) in breadcrumb" :key="idx">
-          <NuxtLink
-            v-if="item.to"
-            :to="item.to"
-            class="inline-flex items-center gap-1 hover:text-default transition-colors"
+  <div class="flex flex-col gap-3">
+    <!-- Title row: editorial display + actions far right. Asymmetric. -->
+    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+      <div class="flex flex-col min-w-0">
+        <nav
+          v-if="breadcrumb && breadcrumb.length"
+          class="flex items-center gap-1.5 text-overline mb-1.5"
+          style="color: var(--color-graphite-500);"
+        >
+          <template v-for="(item, idx) in breadcrumb" :key="idx">
+            <NuxtLink
+              v-if="item.to"
+              :to="item.to"
+              class="inline-flex items-center gap-1 hover:text-default transition-colors"
+            >
+              <UIcon v-if="item.icon" :name="item.icon" class="size-3" />
+              {{ item.labelKey ? t(item.labelKey) : item.label }}
+            </NuxtLink>
+            <span v-else class="inline-flex items-center gap-1 text-default">
+              <UIcon v-if="item.icon" :name="item.icon" class="size-3" />
+              {{ item.labelKey ? t(item.labelKey) : item.label }}
+            </span>
+            <UIcon
+              v-if="idx < breadcrumb.length - 1"
+              name="i-ph-caret-right"
+              class="size-3"
+            />
+          </template>
+        </nav>
+        <slot name="title">
+          <h1 v-if="title" class="text-headline truncate text-default">{{ title }}</h1>
+        </slot>
+        <p v-if="subtitle" class="text-caption truncate mt-0.5">{{ subtitle }}</p>
+      </div>
+
+      <div v-if="actions.length || $slots['actions-extra']" class="flex items-center gap-1.5">
+        <template v-for="(a, idx) in actions" :key="`a-${idx}`">
+          <UButton
+            v-if="a.kind === 'refresh'"
+            size="sm"
+            color="neutral"
+            variant="subtle"
+            icon="i-ph-arrow-clockwise"
+            :loading="a.loading.value"
+            :disabled="a.disabled?.value"
+            class="transition-colors"
+            @click="a.onClick"
           >
-            <UIcon v-if="item.icon" :name="item.icon" class="size-3" />
-            {{ item.labelKey ? t(item.labelKey) : item.label }}
-          </NuxtLink>
-          <span v-else class="inline-flex items-center gap-1 text-default">
-            <UIcon v-if="item.icon" :name="item.icon" class="size-3" />
-            {{ item.labelKey ? t(item.labelKey) : item.label }}
-          </span>
-          <UIcon
-            v-if="idx < breadcrumb.length - 1"
-            name="i-lucide-chevron-right"
-            class="size-3"
+            {{ t('common.refresh') }}
+          </UButton>
+          <AppLiveToggle
+            v-else-if="a.kind === 'live'"
+            :is-live="a.isLive.value"
+            @toggle="a.onToggle"
           />
+          <UButton
+            v-else
+            size="sm"
+            :color="a.color ?? 'neutral'"
+            :variant="a.variant ?? 'subtle'"
+            :icon="a.icon"
+            :loading="a.loading?.value"
+            :disabled="a.disabled?.value"
+            class="transition-colors"
+            @click="a.onClick"
+          >
+            {{ t(a.labelKey) }}
+          </UButton>
         </template>
-      </nav>
-      <slot name="title">
-        <h1 v-if="title" class="text-title truncate">{{ title }}</h1>
-      </slot>
-      <p v-if="subtitle" class="text-caption truncate mt-0.5">{{ subtitle }}</p>
+
+        <slot name="actions-extra" />
+      </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <!-- Filters row: hairline border-top above, divide-x between groups.
+         Sits in negative space, no card chrome. -->
+    <div
+      v-if="filters.length || $slots['filters-extra']"
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 pt-3"
+      style="border-top: 1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent);"
+    >
       <template v-for="(f, idx) in filters" :key="idx">
         <AppApplicationFilter
           v-if="f.kind === 'application'"
@@ -104,44 +155,6 @@ const { t } = useI18n()
       </template>
 
       <slot name="filters-extra" />
-
-      <div v-if="actions.length || $slots['actions-extra']" class="flex items-center gap-2 pl-1 ml-1 border-l border-default">
-        <template v-for="(a, idx) in actions" :key="`a-${idx}`">
-          <UButton
-            v-if="a.kind === 'refresh'"
-            size="sm"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-refresh-cw"
-            :loading="a.loading.value"
-            :disabled="a.disabled?.value"
-            class="transition-colors"
-            @click="a.onClick"
-          >
-            {{ t('common.refresh') }}
-          </UButton>
-          <AppLiveToggle
-            v-else-if="a.kind === 'live'"
-            :is-live="a.isLive.value"
-            @toggle="a.onToggle"
-          />
-          <UButton
-            v-else
-            size="sm"
-            :color="a.color ?? 'neutral'"
-            :variant="a.variant ?? 'subtle'"
-            :icon="a.icon"
-            :loading="a.loading?.value"
-            :disabled="a.disabled?.value"
-            class="transition-colors"
-            @click="a.onClick"
-          >
-            {{ t(a.labelKey) }}
-          </UButton>
-        </template>
-
-        <slot name="actions-extra" />
-      </div>
     </div>
   </div>
 </template>

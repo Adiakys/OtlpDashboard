@@ -1,47 +1,76 @@
-/* Allinea AG Grid Quartz ai token NuxtUI/Tailwind del progetto.
-   Le custom property di Quartz documentate sono override-friendly. */
+/* AG Grid Quartz overrides — Vellum theme alignment.
+   Header rendered as overline (uppercase mono), no zebra, no card chrome,
+   row hover graphite, selection ember 8%. */
 
 .ag-theme-quartz,
 .ag-theme-quartz-dark {
-  --ag-font-family: 'Public Sans', sans-serif;
+  --ag-font-family: 'Geist Variable', sans-serif;
   --ag-font-size: 13px;
   --ag-grid-size: 6px;
-  --ag-row-height: 36px;
-  --ag-header-height: 38px;
+  --ag-row-height: 34px;
+  --ag-header-height: 36px;
   --ag-list-item-height: 30px;
-  --ag-border-radius: 6px;
-  --ag-wrapper-border-radius: 8px;
+  --ag-border-radius: 4px;
+  --ag-wrapper-border-radius: 0;
   --ag-cell-horizontal-padding: 12px;
-  --ag-row-hover-color: var(--ui-bg-elevated);
-  --ag-selected-row-background-color: color-mix(in oklab, var(--ui-primary) 12%, transparent);
-  --ag-range-selection-background-color: color-mix(in oklab, var(--ui-primary) 16%, transparent);
-  --ag-active-color: var(--ui-primary);
-  --ag-input-focus-border-color: var(--ui-primary);
-  --ag-input-focus-box-shadow: 0 0 0 3px color-mix(in oklab, var(--ui-primary) 22%, transparent);
+
+  --ag-borders: none;
+  --ag-row-border-color: color-mix(in oklab, var(--color-graphite-500) 14%, transparent);
+  --ag-header-column-separator-color: transparent;
+  --ag-header-column-resize-handle-color: color-mix(in oklab, var(--color-graphite-500) 22%, transparent);
+
+  --ag-row-hover-color: color-mix(in oklab, var(--color-graphite-500) 7%, transparent);
+  --ag-selected-row-background-color: color-mix(in oklab, var(--color-ember-500) 8%, transparent);
+  --ag-range-selection-background-color: color-mix(in oklab, var(--color-ember-500) 12%, transparent);
+  --ag-active-color: var(--color-ember-500);
+
+  --ag-input-focus-border-color: var(--color-ember-500);
+  --ag-input-focus-box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-ember-500) 28%, transparent);
 }
 
 .ag-theme-quartz {
   --ag-background-color: var(--ui-bg);
   --ag-foreground-color: var(--ui-text);
-  --ag-header-background-color: var(--ui-bg-muted);
-  --ag-header-foreground-color: var(--ui-text);
+  --ag-header-background-color: transparent;
+  --ag-header-foreground-color: var(--color-graphite-500);
   --ag-odd-row-background-color: var(--ui-bg);
-  --ag-border-color: var(--ui-border);
-  --ag-row-border-color: var(--ui-border);
-  --ag-header-column-separator-color: var(--ui-border);
+  --ag-border-color: var(--ag-row-border-color);
   --ag-secondary-foreground-color: var(--ui-text-muted);
-  --ag-disabled-foreground-color: var(--ui-text-muted);
+  --ag-disabled-foreground-color: var(--color-graphite-400);
 }
 
 .ag-theme-quartz-dark {
   --ag-background-color: var(--ui-bg);
   --ag-foreground-color: var(--ui-text);
-  --ag-header-background-color: var(--ui-bg-muted);
-  --ag-header-foreground-color: var(--ui-text);
+  --ag-header-background-color: transparent;
+  --ag-header-foreground-color: var(--color-graphite-400);
   --ag-odd-row-background-color: var(--ui-bg);
-  --ag-border-color: var(--ui-border);
-  --ag-row-border-color: var(--ui-border);
-  --ag-header-column-separator-color: var(--ui-border);
+  --ag-border-color: var(--ag-row-border-color);
   --ag-secondary-foreground-color: var(--ui-text-muted);
-  --ag-disabled-foreground-color: var(--ui-text-muted);
+  --ag-disabled-foreground-color: var(--color-graphite-500);
+}
+
+/* Editorial header: overline-style uppercase mono. */
+.ag-theme-quartz .ag-header-cell-text,
+.ag-theme-quartz-dark .ag-header-cell-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Soft hairline under header, no card chrome around grid. */
+.ag-theme-quartz .ag-header,
+.ag-theme-quartz-dark .ag-header {
+  border-bottom: 1px solid var(--ag-row-border-color);
+  background: transparent;
+}
+
+/* Tabular numbers + mono for cells that opt-in via .vellum-cell-mono. */
+.vellum-cell-mono {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  letter-spacing: -0.005em;
 }

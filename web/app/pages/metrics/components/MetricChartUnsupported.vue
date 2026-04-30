@@ -68,7 +68,7 @@ const columnDefs = computed<ColDef<Row>[]>(() => [
     cellClass: 'font-mono text-xs text-muted items-center flex',
     valueFormatter: p => {
       const a = p.value as Record<string, unknown>
-      return Object.keys(a).length === 0 ? '—' : JSON.stringify(a)
+      return Object.keys(a).length === 0 ? '·' : JSON.stringify(a)
     }
   }
 ])
@@ -77,7 +77,7 @@ const columnDefs = computed<ColDef<Row>[]>(() => [
 <template>
   <div class="flex-1 min-h-0 flex flex-col gap-3 p-4">
     <div class="flex items-center gap-3 px-3 py-2 rounded-md border border-warning/40 bg-warning/10 text-warning">
-      <UIcon name="i-lucide-flask-conical" class="size-4 shrink-0" />
+      <UIcon name="i-ph-flask" class="size-4 shrink-0" />
       <p class="text-sm">{{ t('metrics.chart.unsupported') }}</p>
     </div>
     <div class="flex-1 min-h-0 flex flex-col">

@@ -29,11 +29,11 @@ const expanded = computed(() => props.node.kind === 'branch' && props.isExpanded
       @click="emit('toggle-expand', node.path)"
     >
       <UIcon
-        :name="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+        :name="expanded ? 'i-ph-caret-down' : 'i-ph-caret-right'"
         class="size-3.5 text-muted shrink-0 transition-transform"
       />
       <UIcon
-        :name="expanded ? 'i-lucide-folder-open' : 'i-lucide-folder'"
+        :name="expanded ? 'i-ph-folder-open' : 'i-ph-folder'"
         class="size-3.5 text-muted shrink-0"
       />
       <span class="text-sm truncate">{{ node.label }}</span>

@@ -83,7 +83,7 @@ const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
     headerName: t('traces.col.service'),
     width: 160,
     cellClass: 'font-mono text-xs',
-    valueFormatter: p => (p.value as string) ?? '—'
+    valueFormatter: p => (p.value as string) ?? '·'
   },
   {
     field: 'rootSpanName',

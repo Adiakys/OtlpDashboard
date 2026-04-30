@@ -42,3 +42,61 @@
 .list-move {
   transition: transform var(--t-base) var(--ease-out);
 }
+
+/* ---------- Vellum motion primitives ---------- */
+
+/* Skeleton shimmer: warm graphite gradient sliding left → right.
+   Animates only transform (taste-skill perf rule). */
+@keyframes vellum-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.vellum-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-graphite-300) 35%, transparent) 50%,
+    transparent 100%
+  );
+  animation: vellum-shimmer 1.4s linear infinite;
+}
+:global(html.dark) .vellum-shimmer::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-graphite-700) 50%, transparent) 50%,
+    transparent 100%
+  );
+}
+
+/* Live pulse: ember dot heartbeat, scale + opacity, easing exponential.
+   Used by AppLiveToggle and live-state widgets. */
+@keyframes vellum-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%      { transform: scale(1.18); opacity: 0.55; }
+}
+.vellum-pulse {
+  animation: vellum-pulse 1.6s var(--ease-out-quart) infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* Page-enter: opacity + translateY 4px, exponential ease-out. */
+@keyframes vellum-page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.vellum-page-enter {
+  animation: vellum-page-enter var(--t-base) var(--ease-out-expo) both;
+}
+
+/* Staggered list reveal — set --i on each child (0..n).
+   Caps at 8 staggered items so long lists don't drag. */
+.vellum-stagger > * {
+  animation: vellum-page-enter var(--t-base) var(--ease-out-expo) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 40ms);
+}

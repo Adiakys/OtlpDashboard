@@ -144,7 +144,13 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
 </script>
 
 <template>
-  <div class="relative flex-1 min-h-0 flex flex-col border border-default rounded-lg overflow-hidden bg-default">
+  <div
+    class="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-default"
+    :style="{
+      borderTop: '1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent)',
+      borderBottom: '1px solid color-mix(in oklab, var(--color-graphite-500) 18%, transparent)'
+    }"
+  >
     <AppErrorState
       v-if="showFatalError"
       :title="errorTitle"
@@ -156,9 +162,14 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
       <Transition name="fade">
         <div
           v-if="showTransientError"
-          class="shrink-0 border-b border-default bg-error/10 text-error text-xs px-3 py-1.5 flex items-center gap-2"
+          class="shrink-0 text-mono-sm px-4 py-2 flex items-center gap-2"
+          :style="{
+            color: 'var(--color-rust-700)',
+            background: 'color-mix(in oklab, var(--color-rust-500) 8%, transparent)',
+            borderBottom: '1px solid color-mix(in oklab, var(--color-rust-500) 18%, transparent)'
+          }"
         >
-          <UIcon name="i-lucide-alert-triangle" class="size-3.5" />
+          <UIcon name="i-ph-warning" class="size-3.5" />
           <span class="truncate">{{ error }}</span>
         </div>
       </Transition>
@@ -196,7 +207,7 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
               <AppEmptyState
                 :title="emptyTitle ?? ''"
                 :description="emptyDescription"
-                icon="i-lucide-inbox"
+                icon="i-ph-tray"
               />
             </div>
           </Transition>
@@ -205,10 +216,13 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
         <Transition name="fade">
           <footer
             v-if="loadingMore || (!hasMore && rowData.length > 0)"
-            class="shrink-0 px-3 py-1.5 text-xs text-muted text-center border-t border-default bg-elevated/30"
+            class="shrink-0 px-4 py-2 text-overline text-muted text-center"
+            :style="{
+              borderTop: '1px solid color-mix(in oklab, var(--color-graphite-500) 12%, transparent)'
+            }"
           >
             <span v-if="loadingMore" class="inline-flex items-center gap-2">
-              <UIcon name="i-lucide-loader-2" class="size-3.5 animate-spin" />
+              <UIcon name="i-ph-circle-notch" class="size-3.5 animate-spin" />
               {{ t('common.loading') }}
             </span>
             <span v-else>{{ t('common.endOfResults') }}</span>

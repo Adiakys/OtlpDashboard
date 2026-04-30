@@ -111,7 +111,7 @@ watch(tree, treeNodes => {
     <UInput
       v-model="search"
       :placeholder="t('metrics.tree.search')"
-      icon="i-lucide-search"
+      icon="i-ph-magnifying-glass"
       size="sm"
     />
 

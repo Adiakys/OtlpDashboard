@@ -49,9 +49,9 @@ const colors: Record<SeverityBucket, string> = {
       class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-default bg-default hover:bg-elevated text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       :disabled="disabled"
     >
-      <UIcon name="i-lucide-bar-chart-3" class="size-4 text-muted" />
-      <span class="truncate max-w-[12rem]">{{ buttonLabel }}</span>
-      <UIcon name="i-lucide-chevron-down" class="size-3.5 text-muted" />
+      <UIcon name="i-ph-funnel" class="size-4 text-muted" />
+      <span class="truncate max-w-[12rem]" style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;">{{ buttonLabel }}</span>
+      <UIcon name="i-ph-caret-down" class="size-3.5 text-muted" />
     </button>
 
     <template #content>
@@ -64,7 +64,7 @@ const colors: Record<SeverityBucket, string> = {
           @click="toggle(b)"
         >
           <UIcon
-            :name="isSelected(b) ? 'i-lucide-check-square' : 'i-lucide-square'"
+            :name="isSelected(b) ? 'i-ph-check-square' : 'i-ph-square'"
             class="size-4"
             :class="isSelected(b) ? 'text-primary' : 'text-muted'"
           />

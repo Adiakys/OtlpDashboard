@@ -22,7 +22,7 @@ const items = computed(() => [
     :model-value="modelValue"
     :items="items"
     :disabled="disabled"
-    icon="i-lucide-circle-check"
+    icon="i-ph-shield-check"
     size="sm"
     class="w-32"
     @update:model-value="(v: TraceStatusFilter) => emit('update:modelValue', v)"

@@ -22,7 +22,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const unitsLabel = computed(() => {
-  const labels = props.units.map(u => u ?? '—')
+  const labels = props.units.map(u => u ?? '·')
   return labels.join(', ')
 })
 
@@ -58,7 +58,7 @@ const hasMultipleUnits = computed(() => props.units.length > 1)
             :aria-label="t('common.clear')"
             @click="emit('remove', instrumentKey(i))"
           >
-            <UIcon name="i-lucide-x" class="size-3.5" />
+            <UIcon name="i-ph-x" class="size-3.5" />
           </button>
         </span>
       </TransitionGroup>
@@ -75,7 +75,7 @@ const hasMultipleUnits = computed(() => props.units.length > 1)
     <div v-if="selected.length > 0" class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3 text-xs text-muted">
         <span v-if="units.length > 0" class="inline-flex items-center gap-1">
-          <UIcon name="i-lucide-ruler" class="size-3.5" />
+          <UIcon name="i-ph-ruler" class="size-3.5" />
           <span>{{ hasMultipleUnits ? t('metrics.chart.units') : t('metrics.chart.unit') }}:</span>
           <span class="font-mono text-default">{{ unitsLabel }}</span>
         </span>

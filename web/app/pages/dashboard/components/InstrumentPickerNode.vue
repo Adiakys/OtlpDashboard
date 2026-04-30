@@ -37,7 +37,7 @@ const indentStyle = computed(() => ({ paddingLeft: `${props.depth * 12 + 8}px` }
         ? 'bg-primary border-primary text-white'
         : 'border-default'"
     >
-      <UIcon v-if="isSelected(node.instrument)" name="i-lucide-check" class="size-3" />
+      <UIcon v-if="isSelected(node.instrument)" name="i-ph-check" class="size-3" />
     </span>
     <span class="font-mono truncate">{{ node.instrument.name }}</span>
     <span class="ml-auto text-[10px] text-muted shrink-0">{{ node.instrument.kind }}</span>
@@ -49,7 +49,7 @@ const indentStyle = computed(() => ({ paddingLeft: `${props.depth * 12 + 8}px` }
       @click="emit('toggle-branch', node.path)"
     >
       <UIcon
-        :name="isExpanded(node.path) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+        :name="isExpanded(node.path) ? 'i-ph-caret-down' : 'i-ph-caret-right'"
         class="size-3 text-muted shrink-0"
       />
       <span class="font-medium truncate">{{ node.label }}</span>

@@ -54,13 +54,15 @@ const matchedThreshold = computed(() => {
 
 const valueColor = computed<string>(() => {
   if (matchedThreshold.value) return matchedThreshold.value.color
-  return colorMode.value === 'dark' ? '#5eead4' : '#0d9488'
+  // Vellum ember accent.
+  return colorMode.value === 'dark' ? '#E8895C' : '#C9602F'
 })
 
-const trackColor = computed<string>(() => colorMode.value === 'dark' ? '#27272a' : '#e4e4e7')
+// Track tone aligns with warm graphite neutral (was cool zinc).
+const trackColor = computed<string>(() => colorMode.value === 'dark' ? '#2a2823' : '#e8e5dd')
 
 const formattedValue = computed(() => {
-  if (aggregated.value === null) return '—'
+  if (aggregated.value === null) return '·'
   return formatValue(aggregated.value, unitKind.value, { decimals: decimals.value, locale: locale.value })
 })
 

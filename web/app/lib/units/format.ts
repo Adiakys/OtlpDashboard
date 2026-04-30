@@ -47,7 +47,7 @@ const SHORT_UNITS = ['', 'K', 'M', 'G', 'T', 'P']
 
 /** Format `value` according to `unit`. Returns just the value+suffix string. */
 export function formatValue(value: number, unit: UnitKind, options: FormatOptions = {}): string {
-  if (!Number.isFinite(value)) return '—'
+  if (!Number.isFinite(value)) return '·'
   const decimals = options.decimals ?? 2
   const locale = options.locale ?? undefined
 

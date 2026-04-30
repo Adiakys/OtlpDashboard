@@ -33,37 +33,40 @@ const { width, height } = useElementSize(() => bodyEl.value)
 
 <template>
   <div
-    class="flex flex-col h-full min-h-0 border rounded-lg bg-default overflow-hidden transition-[box-shadow,border-color]"
-    :class="isEditing
-      ? 'border-primary/40 ring-1 ring-primary/20'
-      : 'border-default'"
+    class="vellum-widget flex flex-col h-full min-h-0 overflow-hidden"
+    :class="isEditing ? 'vellum-widget--editing' : ''"
   >
     <header
-      class="widget-handle flex items-center gap-2 px-3 py-1.5 border-b bg-elevated/40 select-none flex-none"
-      :class="[
-        isEditing ? 'cursor-grab active:cursor-grabbing border-primary/30' : 'border-default'
-      ]"
+      class="widget-handle flex items-center gap-2 px-3 py-2 select-none flex-none"
+      :class="isEditing ? 'cursor-grab active:cursor-grabbing' : ''"
+      :style="{
+        borderBottom: '1px solid color-mix(in oklab, var(--color-graphite-500) 12%, transparent)'
+      }"
     >
-      <UIcon v-if="icon" :name="icon" class="size-4 shrink-0 text-muted" />
-      <span class="flex-1 text-[11px] font-medium uppercase tracking-wide text-muted truncate">
+      <UIcon v-if="icon" :name="icon" class="size-3.5 shrink-0" style="color: var(--color-graphite-500);" />
+      <span class="flex-1 text-overline truncate" style="color: var(--color-graphite-500);">
         {{ title }}
       </span>
 
       <template v-if="isEditing">
         <UButton
-          icon="i-lucide-settings-2"
+          icon="i-ph-gear-six"
           size="xs"
           color="neutral"
-          variant="soft"
+          variant="ghost"
+          square
+          class="vellum-widget__btn"
           :aria-label="t('dashboard.actions.configure')"
           @click.stop="$emit('edit')"
           @mousedown.stop
         />
         <UButton
-          icon="i-lucide-trash-2"
+          icon="i-ph-trash"
           size="xs"
           color="error"
-          variant="soft"
+          variant="ghost"
+          square
+          class="vellum-widget__btn"
           :aria-label="t('dashboard.actions.remove')"
           @click.stop="$emit('remove')"
           @mousedown.stop
@@ -72,9 +75,11 @@ const { width, height } = useElementSize(() => bodyEl.value)
     </header>
 
     <div ref="bodyEl" class="widget-body flex-1 min-h-0 min-w-0 relative overflow-hidden">
-      <div v-if="showSkeleton" class="absolute inset-0 flex flex-col gap-2 p-3">
-        <div class="h-3 w-1/3 rounded bg-elevated animate-pulse" />
-        <div class="flex-1 min-h-0 rounded bg-elevated/60 animate-pulse" />
+      <div v-if="showSkeleton" class="absolute inset-0 flex flex-col gap-2 p-4">
+        <div class="vellum-shimmer relative overflow-hidden h-3 w-1/3 rounded"
+          style="background: color-mix(in oklab, var(--color-graphite-500) 10%, transparent);" />
+        <div class="vellum-shimmer relative overflow-hidden flex-1 min-h-0 rounded"
+          style="background: color-mix(in oklab, var(--color-graphite-500) 8%, transparent);" />
       </div>
 
       <div v-else class="absolute inset-0 flex flex-col min-h-0 min-w-0">
@@ -89,16 +94,27 @@ const { width, height } = useElementSize(() => bodyEl.value)
       >
         <div
           v-if="loading && !showSkeleton"
-          class="absolute top-2 right-2 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-elevated/80 text-xs text-muted pointer-events-none"
+          class="absolute top-2 right-2 inline-flex items-center gap-1.5 px-2 py-1 text-overline pointer-events-none"
+          :style="{
+            background: 'color-mix(in oklab, var(--ui-bg-elevated) 90%, transparent)',
+            color: 'var(--color-graphite-500)',
+            borderRadius: 'var(--radius-pill)'
+          }"
         >
-          <UIcon name="i-lucide-loader-2" class="size-3.5 animate-spin" />
+          <UIcon name="i-ph-circle-notch" class="size-3 animate-spin" />
           <span>{{ t('common.loading') }}</span>
         </div>
       </Transition>
 
       <div
         v-if="error"
-        class="absolute inset-x-2 bottom-2 px-2 py-1 rounded bg-error/10 text-xs text-error truncate"
+        class="absolute inset-x-3 bottom-2 px-2 py-1.5 text-mono-sm truncate"
+        :style="{
+          background: 'color-mix(in oklab, var(--color-rust-500) 10%, transparent)',
+          color: 'var(--color-rust-700)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid color-mix(in oklab, var(--color-rust-500) 18%, transparent)'
+        }"
         :title="error"
       >
         {{ error }}
@@ -106,3 +122,27 @@ const { width, height } = useElementSize(() => bodyEl.value)
     </div>
   </div>
 </template>
+
+<style scoped>
+.vellum-widget {
+  background: var(--ui-bg-elevated);
+  border: 1px solid color-mix(in oklab, var(--color-graphite-500) 16%, transparent);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-1), var(--shadow-inset-edge);
+  transition:
+    border-color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
+}
+.vellum-widget--editing {
+  border-color: color-mix(in oklab, var(--color-ember-500) 35%, transparent);
+  box-shadow: var(--shadow-2), var(--shadow-inset-edge),
+              inset 0 0 0 1px color-mix(in oklab, var(--color-ember-500) 18%, transparent);
+}
+
+.vellum-widget__btn {
+  transition: transform var(--t-instant) var(--ease-out);
+}
+.vellum-widget__btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+</style>

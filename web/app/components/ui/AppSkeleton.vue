@@ -2,9 +2,9 @@
 withDefaults(defineProps<{
   /** Number of skeleton rows to render. */
   rows?: number
-  /** Each row height in pixels (Tailwind h-X must accommodate, defaults to h-4). */
+  /** Row height class (Tailwind h-X). */
   rowClass?: string
-  /** When true, render a single block instead of multiple lines. */
+  /** When true, render a single block. */
   block?: boolean
 }>(), {
   rows: 4,
@@ -16,16 +16,24 @@ withDefaults(defineProps<{
 <template>
   <div
     v-if="block"
-    class="rounded-md bg-elevated animate-pulse"
+    class="vellum-shimmer relative overflow-hidden"
     :class="rowClass"
+    :style="{
+      backgroundColor: 'color-mix(in oklab, var(--color-graphite-500) 10%, transparent)',
+      borderRadius: 'var(--radius-sm)'
+    }"
   />
-  <div v-else class="space-y-2">
+  <div v-else class="flex flex-col gap-2">
     <div
       v-for="i in rows"
       :key="i"
-      class="rounded-md bg-elevated animate-pulse"
+      class="vellum-shimmer relative overflow-hidden"
       :class="rowClass"
-      :style="{ width: `${60 + ((i * 13) % 40)}%` }"
+      :style="{
+        width: `${60 + ((i * 13) % 40)}%`,
+        backgroundColor: 'color-mix(in oklab, var(--color-graphite-500) 10%, transparent)',
+        borderRadius: 'var(--radius-sm)'
+      }"
     />
   </div>
 </template>

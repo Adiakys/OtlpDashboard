@@ -4,7 +4,7 @@ import AppBadge from '~/components/ui/AppBadge.vue'
 
 const props = defineProps<{ params: ICellRendererParams<unknown, string> }>()
 
-const status = computed<string>(() => (props.params.value as string) ?? '—')
+const status = computed<string>(() => (props.params.value as string) ?? '·')
 </script>
 
 <template>

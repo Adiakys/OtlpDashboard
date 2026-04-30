@@ -40,7 +40,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-stat': {
     titleKey: 'dashboard.widgets.metricStat.title',
     descKey: 'dashboard.widgets.metricStat.desc',
-    icon: 'i-lucide-gauge',
+    icon: 'i-ph-gauge',
     defaultSize: { w: 3, h: 3 },
     component: defineAsyncComponent(() => import('./widgets/MetricStatWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/StatConfigForm.vue')),
@@ -54,7 +54,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-line': {
     titleKey: 'dashboard.widgets.metricLine.title',
     descKey: 'dashboard.widgets.metricLine.desc',
-    icon: 'i-lucide-line-chart',
+    icon: 'i-ph-chart-line',
     defaultSize: { w: 6, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/MetricLineWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/LineConfigForm.vue')),
@@ -67,7 +67,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-sparkline': {
     titleKey: 'dashboard.widgets.metricSparkline.title',
     descKey: 'dashboard.widgets.metricSparkline.desc',
-    icon: 'i-lucide-activity',
+    icon: 'i-ph-pulse',
     defaultSize: { w: 3, h: 2 },
     component: defineAsyncComponent(() => import('./widgets/MetricSparklineWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/SparklineConfigForm.vue')),
@@ -79,7 +79,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-gauge': {
     titleKey: 'dashboard.widgets.metricGauge.title',
     descKey: 'dashboard.widgets.metricGauge.desc',
-    icon: 'i-lucide-gauge-circle',
+    icon: 'i-ph-speedometer',
     defaultSize: { w: 3, h: 3 },
     component: defineAsyncComponent(() => import('./widgets/MetricGaugeWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/GaugeConfigForm.vue')),
@@ -97,7 +97,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-bar-gauge': {
     titleKey: 'dashboard.widgets.metricBarGauge.title',
     descKey: 'dashboard.widgets.metricBarGauge.desc',
-    icon: 'i-lucide-bar-chart-horizontal',
+    icon: 'i-ph-chart-bar',
     defaultSize: { w: 4, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/MetricBarGaugeWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/BarGaugeConfigForm.vue')),
@@ -117,7 +117,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-pie': {
     titleKey: 'dashboard.widgets.metricPie.title',
     descKey: 'dashboard.widgets.metricPie.desc',
-    icon: 'i-lucide-pie-chart',
+    icon: 'i-ph-chart-pie',
     defaultSize: { w: 4, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/MetricPieWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/PieConfigForm.vue')),
@@ -135,7 +135,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'metric-heatmap': {
     titleKey: 'dashboard.widgets.metricHeatmap.title',
     descKey: 'dashboard.widgets.metricHeatmap.desc',
-    icon: 'i-lucide-grid-3x3',
+    icon: 'i-ph-grid-four',
     defaultSize: { w: 6, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/MetricHeatmapWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/HeatmapConfigForm.vue')),
@@ -153,7 +153,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'recent-traces': {
     titleKey: 'dashboard.widgets.recentTraces.title',
     descKey: 'dashboard.widgets.recentTraces.desc',
-    icon: 'i-lucide-list',
+    icon: 'i-ph-list',
     defaultSize: { w: 6, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/RecentTracesWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/RecentTracesConfigForm.vue')),
@@ -167,7 +167,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   'logs-stream': {
     titleKey: 'dashboard.widgets.logsStream.title',
     descKey: 'dashboard.widgets.logsStream.desc',
-    icon: 'i-lucide-scroll-text',
+    icon: 'i-ph-scroll',
     defaultSize: { w: 6, h: 4 },
     component: defineAsyncComponent(() => import('./widgets/LogsStreamWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/LogsStreamConfigForm.vue')),
@@ -181,7 +181,7 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
   text: {
     titleKey: 'dashboard.widgets.text.title',
     descKey: 'dashboard.widgets.text.desc',
-    icon: 'i-lucide-type',
+    icon: 'i-ph-text-aa',
     defaultSize: { w: 4, h: 2 },
     component: defineAsyncComponent(() => import('./widgets/TextWidget.vue')),
     configForm: defineAsyncComponent(() => import('./configs/TextConfigForm.vue')),

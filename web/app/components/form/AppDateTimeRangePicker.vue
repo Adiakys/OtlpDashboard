@@ -94,9 +94,9 @@ const summary = computed(() => {
       class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-default bg-default hover:bg-elevated text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       :disabled="disabled"
     >
-      <UIcon name="i-lucide-calendar-clock" class="size-4 text-muted" />
+      <UIcon name="i-ph-clock-countdown" class="size-4 text-muted" />
       <span class="truncate max-w-[18rem]">{{ summary }}</span>
-      <UIcon name="i-lucide-chevron-down" class="size-3.5 text-muted" />
+      <UIcon name="i-ph-caret-down" class="size-3.5 text-muted" />
     </button>
 
     <template #content>
@@ -106,8 +106,8 @@ const summary = computed(() => {
             v-for="p in presets"
             :key="p.key"
             type="button"
-            class="w-full text-left text-sm px-2 py-1.5 rounded-md hover:bg-elevated transition-colors"
-            :class="matchedPreset?.key === p.key ? 'bg-elevated text-primary font-medium' : ''"
+            class="vellum-preset"
+            :class="matchedPreset?.key === p.key ? 'vellum-preset--active' : ''"
             @click="applyPreset(p)"
           >
             {{ t(p.labelKey) }}
@@ -143,3 +143,29 @@ const summary = computed(() => {
     </template>
   </UPopover>
 </template>
+
+<style scoped>
+.vellum-preset {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--ui-text-muted);
+  transition:
+    background-color var(--t-instant) var(--ease-out),
+    color var(--t-instant) var(--ease-out);
+}
+.vellum-preset:hover {
+  color: var(--ui-text);
+  background: color-mix(in oklab, var(--color-graphite-500) 8%, transparent);
+}
+.vellum-preset--active {
+  color: var(--color-ember-700);
+  background: color-mix(in oklab, var(--color-ember-500) 10%, transparent);
+}
+:global(html.dark) .vellum-preset--active {
+  color: var(--color-ember-300);
+}
+</style>

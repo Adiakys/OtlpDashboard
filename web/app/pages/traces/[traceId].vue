@@ -42,7 +42,7 @@ const summary = computed(() => {
 })
 
 const breadcrumb = computed<BreadcrumbItem[]>(() => [
-  { labelKey: 'nav.traces', icon: 'i-lucide-waypoints', to: '/traces' },
+  { labelKey: 'nav.traces', icon: 'i-ph-tree-structure', to: '/traces' },
   { label: summary.value?.rootName ?? traceId.value.slice(0, 12) + '…' }
 ])
 
@@ -62,7 +62,7 @@ const actions = computed<ActionDescriptor[]>(() => {
   return [{
     kind: 'custom',
     labelKey: 'traces.detail.viewLogs',
-    icon: 'i-lucide-file-text',
+    icon: 'i-ph-file-text',
     onClick: () => navigateTo({
       path: '/logs',
       query: {
@@ -92,7 +92,7 @@ const actions = computed<ActionDescriptor[]>(() => {
 
     <AppErrorState
       v-else-if="page.notFound.value"
-      icon="i-lucide-search-x"
+      icon="i-ph-magnifying-glass-minus"
       :title="`Trace ${traceId.slice(0, 12)}…`"
       :description="t('traces.emptyDescription')"
       :retryable="false"
@@ -108,7 +108,7 @@ const actions = computed<ActionDescriptor[]>(() => {
     <template v-else-if="page.trace.value">
       <AppEmptyState
         v-if="page.trace.value.spans.length === 0"
-        icon="i-lucide-circle-slash"
+        icon="i-ph-prohibit"
         :title="t('traces.detail.noSpans')"
       />
       <AppResizableSplit

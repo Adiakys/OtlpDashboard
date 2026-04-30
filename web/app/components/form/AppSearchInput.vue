@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
     :model-value="local"
     :placeholder="placeholder ?? t('common.search')"
     :disabled="disabled"
-    icon="i-lucide-search"
+    icon="i-ph-magnifying-glass"
     size="sm"
     class="w-56"
     :ui="{ trailing: 'pr-1' }"
@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
         :aria-label="t('common.clear')"
         @click="clear"
       >
-        <UIcon name="i-lucide-x" class="size-3.5" />
+        <UIcon name="i-ph-x" class="size-3.5" />
       </button>
     </template>
   </UInput>

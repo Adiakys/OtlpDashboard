@@ -44,7 +44,7 @@ const items = computed(() => {
       v-model="selectedString"
       :items="items"
       :disabled="disabled || available.length === 0"
-      icon="i-lucide-split-square-vertical"
+      icon="i-ph-columns"
       size="sm"
       class="min-w-44"
     />

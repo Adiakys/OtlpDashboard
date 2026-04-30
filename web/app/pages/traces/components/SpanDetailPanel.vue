@@ -121,7 +121,7 @@ const hasAttributes = computed(() => props.span && Object.keys(props.span.attrib
       <AppEmptyState
         v-else
         key="empty"
-        icon="i-lucide-mouse-pointer-click"
+        icon="i-ph-cursor-click"
         :title="t('traces.detail.spanDetail')"
         :description="t('traces.detail.spans')"
       />

@@ -53,7 +53,7 @@ const ariaLabel = computed(() =>
         ? 'bg-primary border-primary text-white'
         : 'border-default bg-default'"
     >
-      <UIcon v-if="selected" name="i-lucide-check" class="size-2.5" />
+      <UIcon v-if="selected" name="i-ph-check" class="size-2.5" />
     </span>
     <span class="truncate font-mono text-xs flex-1 min-w-0">{{ instrument.name }}</span>
     <AppBadge
