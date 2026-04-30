@@ -34,13 +34,18 @@ const props = withDefaults(defineProps<{
   loadingMore?: boolean
   /** How many rows from the end trigger the next fetch. */
   loadMoreThreshold?: number
+  /** When true the grid is in a streaming/live tail mode: no pagination
+   *  controls and no "end of results" banner — the feed is conceptually
+   *  open-ended, not finite. */
+  live?: boolean
 }>(), {
   loading: false,
   error: null,
   selectedId: null,
   hasMore: false,
   loadingMore: false,
-  loadMoreThreshold: 8
+  loadMoreThreshold: 8,
+  live: false
 })
 
 const emit = defineEmits<{
@@ -230,7 +235,7 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
 
         <Transition name="fade">
           <footer
-            v-if="loadingMore || (!hasMore && rowData.length > 0)"
+            v-if="!live && (loadingMore || (!hasMore && rowData.length > 0))"
             class="shrink-0 px-4 py-2 text-overline text-muted text-center"
             :style="{
               borderTop: '1px solid color-mix(in oklab, var(--color-graphite-500) 12%, transparent)'

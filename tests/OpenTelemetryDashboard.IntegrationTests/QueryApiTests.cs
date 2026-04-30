@@ -235,6 +235,50 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetTraces_Pagination_Yields_Cursor_And_Completes()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 4, 11, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var service = $"paging-svc-{suffix}";
+        var ids = Enumerable.Range(0, 3).Select(_ => RandomBytes(16)).ToArray();
+        var traceIds = ids.Select(b => TraceId.FromBytes(b)).ToArray();
+
+        for (var i = 0; i < ids.Length; i++)
+        {
+            await SeedSpansAsync(client, service, anchor.AddSeconds(i * 10), ids[i], $"r.{suffix}.{i}", spanCount: 1);
+        }
+
+        await WaitForAsync(async ctx =>
+            traceIds.All(id => ctx.Spans.Any(s => s.TraceId == id)));
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var first = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&service={service}", UriKind.Relative),
+            JsonOptions);
+        first.ShouldNotBeNull();
+        first!.Items.Count.ShouldBe(2);
+        first.NextCursor.ShouldNotBeNullOrEmpty();
+
+        var second = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri(
+                $"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&service={service}&cursor={Uri.EscapeDataString(first.NextCursor!)}",
+                UriKind.Relative),
+            JsonOptions);
+        second.ShouldNotBeNull();
+
+        var collected = first.Items.Concat(second!.Items).Select(t => t.TraceId).ToHashSet();
+        collected.Count.ShouldBe(3);
+        foreach (var id in traceIds)
+        {
+            collected.ShouldContain(id.ToString());
+        }
+    }
+
+    [Fact]
     public async Task GetTrace_Returns_All_Spans_For_Trace()
     {
         using var client = _fixture.CreateClient();

@@ -162,6 +162,7 @@ function onRowClick(row: TraceSummaryDto) {
       :empty-description="t('traces.emptyDescription')"
       :error-title="t('traces.errorTitle')"
       :row-height="40"
+      :live="page.isLive.value"
       :has-more="!page.isLive.value && page.hasMore.value"
       :loading-more="page.isLoading.value && page.items.value.length > 0"
       @row-click="onRowClick"

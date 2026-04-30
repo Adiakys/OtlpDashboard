@@ -17,5 +17,5 @@ public sealed class QueryApiOptions
     public int MaxLimit { get; set; } = 1_000;
 
     [Range(1, 24 * 30)]
-    public int MaxWindowHours { get; set; } = 24;
+    public int MaxWindowHours { get; set; } = 24 * 7;
 }

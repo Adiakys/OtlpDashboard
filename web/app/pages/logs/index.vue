@@ -191,6 +191,7 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
       :empty-title="t('logs.emptyTitle')"
       :empty-description="t('logs.emptyDescription')"
       :error-title="t('logs.errorTitle')"
+      :live="page.isLive.value"
       :has-more="!page.isLive.value && page.hasMore.value"
       :loading-more="page.isLoading.value && page.items.value.length > 0"
       :row-height="30"
