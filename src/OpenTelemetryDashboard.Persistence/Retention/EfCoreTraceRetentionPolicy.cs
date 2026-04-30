@@ -20,6 +20,9 @@ public sealed class EfCoreTraceRetentionPolicy : ITraceRetentionPolicy
         _timeProvider = timeProvider;
     }
 
+    /// <summary>See <c>EfCoreLogRetentionPolicy.BatchSize</c> for rationale.</summary>
+    private const int BatchSize = 50_000;
+
     public async ValueTask<int> EnforceAsync(TimeSpan maxAge, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAge, TimeSpan.Zero);
@@ -33,9 +36,29 @@ public sealed class EfCoreTraceRetentionPolicy : ITraceRetentionPolicy
         // Owned SpanEvents/SpanLinks cascade with the span row. Resource rows
         // referenced by the deleted spans are left intact on purpose — they may
         // still be referenced by log records.
-        return await context.Spans
-            .Where(s => s.StartUnixNano < cutoffNano)
-            .ExecuteDeleteAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var totalRemoved = 0;
+        while (true)
+        {
+            // Two-step (see EfCoreLogRetentionPolicy) — works on every provider
+            // and keeps the DELETE statement bounded.
+            var ids = await context.Spans
+                .Where(s => s.StartUnixNano < cutoffNano)
+                .OrderBy(s => s.StartUnixNano)
+                .Select(s => EF.Property<long>(s, "Id"))
+                .Take(BatchSize)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (ids.Count == 0) break;
+
+            var removed = await context.Spans
+                .Where(s => ids.Contains(EF.Property<long>(s, "Id")))
+                .ExecuteDeleteAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            totalRemoved += removed;
+            if (ids.Count < BatchSize) break;
+        }
+        return totalRemoved;
     }
 }

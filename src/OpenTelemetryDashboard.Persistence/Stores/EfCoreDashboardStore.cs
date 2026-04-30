@@ -19,7 +19,7 @@ public sealed class EfCoreDashboardStore : IDashboardStore
         _contextFactory = contextFactory;
     }
 
-    public async Task<IEnumerable<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         return await context.Dashboards

@@ -25,6 +25,9 @@ public sealed class EfCoreMetricRetentionPolicy : IMetricRetentionPolicy
         _timeProvider = timeProvider;
     }
 
+    /// <summary>See <c>EfCoreLogRetentionPolicy.BatchSize</c> for rationale.</summary>
+    private const int BatchSize = 50_000;
+
     public async ValueTask<int> EnforceAsync(TimeSpan maxAge, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAge, TimeSpan.Zero);
@@ -35,15 +38,35 @@ public sealed class EfCoreMetricRetentionPolicy : IMetricRetentionPolicy
             .CreateDbContextAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        var dropped = await context.MetricPoints
-            .Where(p => p.TimeUnixNano < cutoffNano)
-            .ExecuteDeleteAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var dropped = 0;
+        while (true)
+        {
+            // Two-step (see EfCoreLogRetentionPolicy).
+            var ids = await context.MetricPoints
+                .Where(p => p.TimeUnixNano < cutoffNano)
+                .OrderBy(p => p.TimeUnixNano)
+                .Select(p => p.Id)
+                .Take(BatchSize)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (ids.Count == 0) break;
+
+            var removed = await context.MetricPoints
+                .Where(p => ids.Contains(p.Id))
+                .ExecuteDeleteAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            dropped += removed;
+            if (ids.Count < BatchSize) break;
+        }
 
         // Orphan instrument cleanup: drop dimension rows that lost all their
         // points so the listing endpoint doesn't surface dead instruments.
         // Cheap to evaluate — the FK index on (instrument_id, time) is the
-        // covering index for the NOT EXISTS sub-query.
+        // covering index for the NOT EXISTS sub-query, and the orphan set is
+        // bounded by the number of distinct instruments (≪ point count), so
+        // a single round-trip stays small without batching.
         await context.Instruments
             .Where(i => !context.MetricPoints.Any(p => p.InstrumentId == i.Id))
             .ExecuteDeleteAsync(cancellationToken)

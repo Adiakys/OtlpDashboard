@@ -17,26 +17,6 @@ public sealed class EfCoreLogReader : ILogReader
         _contextFactory = contextFactory;
     }
 
-    public async IAsyncEnumerable<LogRecord> QueryRecentAsync(
-        int take,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
-
-        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-
-        var query = context.Logs
-            .AsNoTracking()
-            .OrderByDescending(l => l.TimeUnixNano)
-            .Take(take)
-            .AsAsyncEnumerable();
-
-        await foreach (var record in query.WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
-            yield return record;
-        }
-    }
-
     public async IAsyncEnumerable<(LogRecord Record, long SecondaryKey, string? ServiceName)> QueryAsync(
         LogQuery query,
         [EnumeratorCancellation] CancellationToken cancellationToken)

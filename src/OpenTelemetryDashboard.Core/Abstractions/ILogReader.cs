@@ -9,8 +9,6 @@ namespace OpenTelemetryDashboard.Core.Abstractions;
 /// </summary>
 public interface ILogReader
 {
-    IAsyncEnumerable<LogRecord> QueryRecentAsync(int take, CancellationToken cancellationToken);
-
     /// <summary>
     /// Returns up to <c>query.Limit + 1</c> records within the time window,
     /// ordered by <c>(TimeUnixNano, SecondaryKey)</c> descending. The extra

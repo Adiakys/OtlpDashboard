@@ -66,22 +66,33 @@ public sealed class TelemetryRetentionHost : BackgroundService
     {
         var current = _options.CurrentValue;
 
+        // Each policy owns its own DbContext and writes to a disjoint table
+        // set (Logs vs. Spans+SpanEvents+SpanLinks vs. MetricPoints+Instruments),
+        // so the three sweeps can run concurrently. Failures are handled per
+        // task inside RunAsync — Task.WhenAll therefore never throws.
+        var tasks = new List<Task>(3);
+
         if (current.MaxLogDays > 0)
         {
-            await RunAsync("logs", TimeSpan.FromDays(current.MaxLogDays),
-                age => _logs.EnforceAsync(age, cancellationToken)).ConfigureAwait(false);
+            tasks.Add(RunAsync("logs", TimeSpan.FromDays(current.MaxLogDays),
+                age => _logs.EnforceAsync(age, cancellationToken)));
         }
 
         if (current.MaxTraceDays > 0)
         {
-            await RunAsync("traces", TimeSpan.FromDays(current.MaxTraceDays),
-                age => _traces.EnforceAsync(age, cancellationToken)).ConfigureAwait(false);
+            tasks.Add(RunAsync("traces", TimeSpan.FromDays(current.MaxTraceDays),
+                age => _traces.EnforceAsync(age, cancellationToken)));
         }
 
         if (current.MaxMetricDays > 0)
         {
-            await RunAsync("metrics", TimeSpan.FromDays(current.MaxMetricDays),
-                age => _metrics.EnforceAsync(age, cancellationToken)).ConfigureAwait(false);
+            tasks.Add(RunAsync("metrics", TimeSpan.FromDays(current.MaxMetricDays),
+                age => _metrics.EnforceAsync(age, cancellationToken)));
+        }
+
+        if (tasks.Count > 0)
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
     }
 

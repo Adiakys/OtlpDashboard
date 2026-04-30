@@ -14,11 +14,16 @@ namespace OpenTelemetryDashboard.Dashboards.Endpoints;
 /// </summary>
 internal static class DashboardEndpoints
 {
-    public static async Task<Ok<IEnumerable<DashboardDto>>>
+    public static async Task<Ok<IReadOnlyList<DashboardDto>>>
         GetAllDashboardAsync(IDashboardStore store, CancellationToken cancellationToken)
     {
         var result = await store.GetAllAsync(cancellationToken);
-        return TypedResults.Ok(result.Select(ToDto));
+        var items = new List<DashboardDto>(result.Count);
+        foreach (var dashboard in result)
+        {
+            items.Add(ToDto(dashboard));
+        }
+        return TypedResults.Ok<IReadOnlyList<DashboardDto>>(items);
     }
 
     public static async Task<Results<Ok<DashboardDto>, NotFound>>

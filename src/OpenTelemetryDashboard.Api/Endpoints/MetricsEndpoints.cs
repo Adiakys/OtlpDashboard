@@ -77,7 +77,7 @@ internal static class MetricsEndpoints
             points.Add(point.ToDto());
         }
 
-        var instrumentDto = series.Instrument.ToDto(series.Key, series.TotalPointCount, series.ServiceName);
+        var instrumentDto = series.Instrument.ToDto(series.Key, series.LifetimePointCount, series.ServiceName);
         return TypedResults.Ok(new MetricSeriesDto(instrumentDto, points));
     }
 }

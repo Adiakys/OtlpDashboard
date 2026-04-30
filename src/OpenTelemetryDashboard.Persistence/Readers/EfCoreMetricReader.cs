@@ -125,7 +125,10 @@ public sealed class EfCoreMetricReader : IMetricReader
             return null;
         }
 
-        var totalCount = await context.MetricPoints
+        // Lifetime count — does NOT honour the requested window. Surfaced via
+        // MetricSeriesSnapshot.LifetimePointCount so the listing UI can flag
+        // instruments that have data outside the current view.
+        var lifetimeCount = await context.MetricPoints
             .AsNoTracking()
             .Where(p => p.InstrumentId == instrumentRow.Id)
             .CountAsync(cancellationToken)
@@ -210,7 +213,7 @@ public sealed class EfCoreMetricReader : IMetricReader
             Temporality = instrumentRow.Temporality,
         };
 
-        return new MetricSeriesSnapshot(key, instrument, instrumentRow.ServiceName, totalCount, points);
+        return new MetricSeriesSnapshot(key, instrument, instrumentRow.ServiceName, lifetimeCount, points);
     }
 
     public async Task<IReadOnlyCollection<string>> GetDistinctServiceNamesAsync(CancellationToken cancellationToken)

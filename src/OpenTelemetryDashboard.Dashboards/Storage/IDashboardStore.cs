@@ -9,7 +9,7 @@ namespace OpenTelemetryDashboard.Dashboards.Storage;
 /// </summary>
 public interface IDashboardStore
 {
-    Task<IEnumerable<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Dashboard>> GetAllAsync(CancellationToken cancellationToken = default);
     
     Task<Dashboard?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     

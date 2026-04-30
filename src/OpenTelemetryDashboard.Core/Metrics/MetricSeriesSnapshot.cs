@@ -4,15 +4,17 @@ namespace OpenTelemetryDashboard.Core.Metrics;
 
 /// <summary>
 /// Read-side projection used by <c>GetSeriesAsync</c>: instrument metadata,
-/// the resolved service name, the total point count for the instrument
-/// (regardless of the requested window), and the points that fall inside
-/// the optional time window, ordered by ascending time.
+/// the resolved service name, the lifetime point count for the instrument
+/// (counted across the whole retention horizon, NOT the requested window —
+/// callers that need the windowed count read <see cref="Points"/>.Count
+/// instead), and the points that fall inside the optional time window,
+/// ordered by ascending time.
 /// </summary>
 public sealed record MetricSeriesSnapshot(
     InstrumentKey Key,
     Instrument Instrument,
     string? ServiceName,
-    int TotalPointCount,
+    int LifetimePointCount,
     IReadOnlyList<DataPoint> Points);
 
 /// <summary>
