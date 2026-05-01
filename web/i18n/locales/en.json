@@ -128,8 +128,9 @@
       "notConfigured": "Open the configuration to choose a metric.",
       "noData": "No data in the selected range.",
       "notAvailable": "Widget '{kind}' not available",
-      "engineSpecUnavailable": "Vega-Lite engine not yet available",
+      "engineSpecUnavailable": "Template engine not yet available",
       "engineCompositeUnavailable": "Composite engine not yet available",
+      "htmlSpecMissing": "This widget has no template attached.",
       "metricStat": {
         "title": "Stat",
         "desc": "Single metric value with optional delta and sparkline."
@@ -179,6 +180,8 @@
       "range": "Range",
       "splitBy": "Split by",
       "splitByHint": "Attribute key (e.g. http.method). Empty = all attributes.",
+      "htmlNoMetricBindings": "This widget has no metric bindings — nothing to configure.",
+      "htmlTemplatePreview": "View template (read-only)",
       "showSparkline": "Show sparkline",
       "decimals": "Decimals",
       "unit": "Unit (label)",

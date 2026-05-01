@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, provide, toRef } from 'vue'
 import { resolveConfigForm, useWidgetCatalog } from '../catalog'
+import { WIDGET_KIND_INJECTION_KEY } from '../injectionKeys'
 import type { FQKind, WidgetConfig } from '../types'
 
 /**
@@ -23,6 +24,10 @@ const emit = defineEmits<{
 const catalog = useWidgetCatalog()
 const definition = computed(() => catalog.byKind(props.kind))
 const component = computed(() => resolveConfigForm(definition.value))
+
+// Engine-specific forms (e.g. HTML template) inject this to look up
+// the source definition's spec. Forms that don't care just don't inject.
+provide(WIDGET_KIND_INJECTION_KEY, toRef(props, 'kind'))
 </script>
 
 <template>

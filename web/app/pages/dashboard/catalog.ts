@@ -1,4 +1,4 @@
-import { computed, ref, type Component, type ComputedRef, type Ref } from 'vue'
+import { computed, defineAsyncComponent, ref, type Component, type ComputedRef, type Ref } from 'vue'
 import { WIDGET_REGISTRY } from './registry'
 import {
   formatKind,
@@ -49,11 +49,17 @@ export const STD_DEFINITIONS: Record<BuiltinKind, WidgetDefinition> = (() => {
   return out
 })()
 
+// Lazy host + form for `engine: 'spec'` widgets. The `spec` engine slot
+// is repurposed to host the HTML template engine — DOMPurify (~50 KB
+// gzip) is loaded only when at least one html-engine widget is mounted.
+const HtmlWidget = defineAsyncComponent(() => import('./widgets/HtmlWidget.vue'))
+const HtmlConfigForm = defineAsyncComponent(() => import('./configs/HtmlConfigForm.vue'))
+
 /**
  * Turn a `WidgetDefinition` into the Vue component to mount in the grid.
  * Engine dispatch:
  *   - `preset`    → render the wrapped builtin's component.
- *   - `spec`      → render the Vega-Lite host (iter 2 — placeholder).
+ *   - `spec`      → render the HTML template engine host.
  *   - `composite` → render the composite host (iter 5 — placeholder).
  */
 export function resolveComponent(def: WidgetDefinition | null): Component | null {
@@ -61,20 +67,26 @@ export function resolveComponent(def: WidgetDefinition | null): Component | null
   if (def.engine === 'preset' && def.baseKind) {
     return WIDGET_REGISTRY[def.baseKind].component
   }
-  // Engines wired in later iterations — fall back to null so the slot
-  // renders the "widget not available" placeholder.
+  if (def.engine === 'spec') {
+    return HtmlWidget
+  }
+  // Composite engine wired in iter 5.
   return null
 }
 
 /**
  * Turn a `WidgetDefinition` into the Vue component to mount in the config
  * drawer. For `preset`, the builtin's own form drives the per-instance
- * config; for `spec` / `composite` we'll need bespoke forms (iter 2/5).
+ * config; for `spec`, the HTML form edits per-instance bindings (custom
+ * widgets gain a template editor in iter 2b).
  */
 export function resolveConfigForm(def: WidgetDefinition | null): Component | null {
   if (def === null) return null
   if (def.engine === 'preset' && def.baseKind) {
     return WIDGET_REGISTRY[def.baseKind].configForm
+  }
+  if (def.engine === 'spec') {
+    return HtmlConfigForm
   }
   return null
 }
@@ -91,8 +103,15 @@ export function defaultConfigForDefinition(def: WidgetDefinition): WidgetConfig 
     // (no Date / Map / undefined-as-significant).
     return JSON.parse(JSON.stringify(def.defaultConfig))
   }
-  // Spec / composite engines fall back to an empty object — the form will
-  // populate it at first mount.
+  if (def.engine === 'spec') {
+    // HTML engine: the per-instance config carries the binding map
+    // (initialized empty — the user fills it via the config form) plus
+    // an optional range. The template/styles live on the definition.
+    if (def.defaultConfig) return JSON.parse(JSON.stringify(def.defaultConfig))
+    return { bindings: {}, range: 'last-1h' } as WidgetConfig
+  }
+  // Composite engine falls back to an empty object — its form (iter 5)
+  // will populate at first mount.
   return {} as WidgetConfig
 }
 

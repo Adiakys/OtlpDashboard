@@ -1,4 +1,5 @@
 import type { ChartType } from '~/lib/agcharts/chartStrategy'
+import type { HtmlInstanceConfig } from '~/lib/htmlEngine/types'
 import type { CalcMode } from '~/lib/units/calc'
 import type { ThresholdStop } from '~/lib/units/thresholds'
 import type { UnitKind } from '~/lib/units/format'
@@ -255,6 +256,7 @@ export type WidgetConfig =
   | RecentTracesConfig
   | LogsStreamConfig
   | TextWidgetConfig
+  | HtmlInstanceConfig
 
 /**
  * A single widget instance: identity + grid coords + kind-specific config.

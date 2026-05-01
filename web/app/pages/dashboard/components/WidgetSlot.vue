@@ -31,6 +31,24 @@ const definition = computed(() => catalog.byKind(props.item.kind))
 const component = computed(() => resolveWidgetComponent(definition.value))
 
 /**
+ * Extra props handed to the component when its engine reads metadata
+ * off the definition (currently `spec` for the HTML engine: template,
+ * styles, dataBindings live on the def, not on the per-instance config).
+ */
+const engineProps = computed<Record<string, unknown>>(() => {
+  const def = definition.value
+  if (!def) return {}
+  if (def.engine === 'spec') {
+    return {
+      spec: def.spec ?? null,
+      title: def.name,
+      icon: def.icon
+    }
+  }
+  return {}
+})
+
+/**
  * Placeholder copy when there's no component to mount. Distinguishes
  * "kind not in the catalog" (deleted / unknown) from "kind present but
  * needs an engine the SPA hasn't shipped yet" so the user knows whether
@@ -40,9 +58,6 @@ const placeholderMessage = computed(() => {
   const def = definition.value
   if (def === null) {
     return t('dashboard.widgets.notAvailable', { kind: props.item.kind })
-  }
-  if (def.engine === 'spec') {
-    return t('dashboard.widgets.engineSpecUnavailable')
   }
   if (def.engine === 'composite') {
     return t('dashboard.widgets.engineCompositeUnavailable')
@@ -58,6 +73,7 @@ const placeholderMessage = computed(() => {
     :config="item.config"
     :is-editing="isEditing"
     :live-tick="liveTick"
+    v-bind="engineProps"
     @edit="emit('edit')"
     @remove="emit('remove')"
   />

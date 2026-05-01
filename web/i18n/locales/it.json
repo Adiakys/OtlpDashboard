@@ -128,8 +128,9 @@
       "notConfigured": "Apri la configurazione per scegliere una metrica.",
       "noData": "Nessun dato nell'intervallo selezionato.",
       "notAvailable": "Widget '{kind}' non disponibile",
-      "engineSpecUnavailable": "Engine Vega-Lite non ancora disponibile",
+      "engineSpecUnavailable": "Engine template non ancora disponibile",
       "engineCompositeUnavailable": "Engine composite non ancora disponibile",
+      "htmlSpecMissing": "Questo widget non ha un template collegato.",
       "metricStat": {
         "title": "Stat",
         "desc": "Singolo valore di una metrica con delta opzionale e mini-sparkline."
@@ -179,6 +180,8 @@
       "range": "Intervallo",
       "splitBy": "Disaggrega per",
       "splitByHint": "Chiave attributo (es. http.method). Vuoto = tutti gli attributi.",
+      "htmlNoMetricBindings": "Questo widget non ha binding metrici — niente da configurare.",
+      "htmlTemplatePreview": "Visualizza template (sola lettura)",
       "showSparkline": "Mostra sparkline",
       "decimals": "Decimali",
       "unit": "Unità (etichetta)",
