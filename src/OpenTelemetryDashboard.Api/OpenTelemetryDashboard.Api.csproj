@@ -18,4 +18,8 @@
     <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup Label="MCP server (mapped only when Dashboard:Mcp:Enabled is true)">
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
 </Project>

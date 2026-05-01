@@ -114,6 +114,13 @@ builder.Services.AddDashboards(builder.Configuration);
 
 builder.Services.AddDashboardAuth(builder.Configuration);
 
+// MCP services are registered unconditionally; the SDK only becomes reachable
+// when MapDashboardMcp() is called below (gated by Dashboard:Mcp:Enabled). The
+// flag is read off app.Configuration (post-Build) so integration-test overrides
+// from ConfigureAppConfiguration are visible — inline reads of builder.Configuration
+// here would silently bypass them.
+builder.Services.AddDashboardMcp();
+
 builder.Services.AddHealthChecks();
 
 builder.Host.ConfigureHostOptions(o =>
@@ -180,6 +187,13 @@ app.MapQueryApi().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPo
 app.MapDashboards().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapWidgets().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboardInfo();
+
+var mcpEnabled = app.Configuration.GetValue<bool>(
+    $"{DashboardMcpOptions.SectionName}:{nameof(DashboardMcpOptions.Enabled)}");
+if (mcpEnabled)
+{
+    app.MapDashboardMcp().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
+}
 
 app.MapHealthChecks("/healthz").AllowAnonymous();
 

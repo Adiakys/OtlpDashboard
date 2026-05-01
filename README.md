@@ -50,10 +50,10 @@ double underscores (e.g. `Dashboard__BrowserToken`).
 
 Both endpoints are **public by default**. Set either token to require auth:
 
-| Variable                       | Protects                              |
-|--------------------------------|---------------------------------------|
-| `DASHBOARD__BROWSERTOKEN`      | The SPA + read API (`/api/v1/...`)    |
-| `DASHBOARD__OTLP__APIKEY`      | OTLP ingestion (gRPC + HTTP)          |
+| Variable                       | Protects                                          |
+|--------------------------------|---------------------------------------------------|
+| `DASHBOARD__BROWSERTOKEN`      | The SPA + read API (`/api/v1/...`) + MCP (`/mcp`) |
+| `DASHBOARD__OTLP__APIKEY`      | OTLP ingestion (gRPC + HTTP)                      |
 
 The SPA prompts for the browser token on `/login` and stores it in memory
 (30 min idle TTL). OTLP clients send the API key as
@@ -99,6 +99,51 @@ ConnectionStrings__PostgreSql="Host=...;Database=telemetry;Username=...;Password
 Dashboard__Storage__Provider=SqlServer
 ConnectionStrings__SqlServer="Server=...;Database=telemetry;User Id=...;Password=...;TrustServerCertificate=True"
 ```
+
+---
+
+## MCP server (read-only)
+
+An optional [Model Context Protocol](https://modelcontextprotocol.io) server
+exposes the same data as the read API (logs, traces, metrics) so an LLM
+client — Claude Code, Claude Desktop, MCP Inspector, etc. — can query the
+dashboard directly. **Disabled by default**; set the flag to mount it:
+
+```bash
+Dashboard__Mcp__Enabled=true
+```
+
+Mounted at `/mcp` on the same port as the SPA (`:4318`) over Streamable HTTP,
+gated by the same browser bearer token (`DASHBOARD__BROWSERTOKEN`) that
+protects `/api/v1/*`. Tools exposed:
+
+| Tool                  | Mirrors                                |
+|-----------------------|----------------------------------------|
+| `query_logs`          | `GET /api/v1/logs`                     |
+| `list_log_services`   | `GET /api/v1/logs/services`            |
+| `query_traces`        | `GET /api/v1/traces`                   |
+| `get_trace`           | `GET /api/v1/traces/{traceId}`         |
+| `list_trace_services` | `GET /api/v1/traces/services`          |
+| `list_metrics`        | `GET /api/v1/metrics`                  |
+| `query_metric_points` | `GET /api/v1/metrics/points`           |
+| `list_metric_services`| `GET /api/v1/metrics/services`         |
+
+Wire it into Claude Code by dropping a `.mcp.json` at your project root:
+
+```json
+{
+  "mcpServers": {
+    "otel-dashboard": {
+      "type": "http",
+      "url": "http://localhost:4318/mcp",
+      "headers": { "Authorization": "Bearer ${DASHBOARD_BROWSER_TOKEN}" }
+    }
+  }
+}
+```
+
+Built on the official `ModelContextProtocol.AspNetCore` SDK
+(jointly maintained by Anthropic and Microsoft).
 
 ---
 
@@ -399,6 +444,7 @@ into the runtime path.
 | GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
 | GET    | `/api/v1/widgets/libraries`           | Discovered widget libraries   |
 | POST   | `/api/v1/widgets/libraries/reload`    | Re-scan the libraries path    |
+| POST/GET/DELETE | `/mcp`                       | MCP server (when `Dashboard:Mcp:Enabled`) |
 | (boot) | seed dashboards from JSON             | Built-in dashboards loaded after migrations, idempotent |
 | POST   | `/api/v1/widgets/libraries/install`   | Clone from git (`{url,ref}`)  |
 | POST   | `/api/v1/widgets/libraries/{id}/update` | Re-pull a git-installed lib |

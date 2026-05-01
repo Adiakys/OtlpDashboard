@@ -59,6 +59,10 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.15.1-beta.1" />
   </ItemGroup>
 
+  <ItemGroup Label="Model Context Protocol (opt-in MCP server, behind Dashboard:Mcp:Enabled)">
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Git client (LibGit2Sharp for widget library installs)">
     <!-- LibGit2Sharp ships native libgit2 binaries for linux-x64 (musl & glibc),
          linux-arm64, win-x64, and osx-x64/arm64 via the NativeBinaries package
