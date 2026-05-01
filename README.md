@@ -247,28 +247,81 @@ Each `widgets/<kindId>/widget.json` declares one widget. Two engines:
 matches the corresponding form in the SPA — copy from a working instance
 (`Save as widget` produces a valid one).
 
-**`spec`** — Vega-Lite chart (planned, iter 2):
+**`spec`** — sandboxed HTML/SVG/CSS template with named metric bindings.
+Use this for card-style UIs that the standard chart widgets can't
+express: a database illustration whose fill level tracks a load
+metric, a grid of service tiles whose colour follows a per-service
+status metric, gauges with custom artwork, etc.
 
 ```json
 {
-  "name": "Trace heatmap",
-  "icon": "i-ph-grid-four",
-  "defaultSize": { "w": 6, "h": 4 },
+  "name": "Database card",
+  "icon": "i-ph-database",
+  "defaultSize": { "w": 4, "h": 4 },
   "engine": "spec",
-  "spec": { "mark": "rect", "encoding": { "x": { ... } } }
+  "spec": {
+    "template": "<div class='db'>\n  <svg>...</svg>\n  <div class='stats'>\n    <strong class='{{ thresholdClass load.value load.thresholds }}'>{{ format load.value 'percent' 0 }}</strong>\n    <span>QPS {{ format qps.value 'ops' 1 }}</span>\n  </div>\n</div>",
+    "styles": ".db { display: flex; gap: 1rem; ... } .db .vellum-th-bad { color: var(--color-rust-600); }",
+    "dataBindings": [
+      { "name": "load", "type": "metric", "calc": "last", "unitKind": "percent",
+        "thresholds": [{ "value": 0, "color": "#7AAA7A" }, { "value": 70, "color": "#D9B566" }, { "value": 90, "color": "#E27A3F" }] },
+      { "name": "qps",  "type": "metric", "calc": "mean", "unitKind": "ops" }
+    ]
+  }
 }
 ```
 
-Field rules enforced by the loader:
+The user installing the library picks one instrument per binding
+(`load`, `qps`, …) via the config drawer; the template/styles are
+immutable and ship with the library.
+
+**Template syntax** (Mustache-light, no JS evaluation):
+
+| Construct | Meaning |
+|---|---|
+| `{{ name }}` / `{{ name.path }}` | Interpolate a value (HTML-escaped). |
+| `{{ helper arg1 arg2 }}` | Call a whitelisted helper. |
+| `{{#if expr}}…{{/if}}` | Render block when truthy. |
+| `{{#each list as item}}…{{/each}}` | Loop, exposes `item` and `_index`. |
+
+**Helpers available**: `format(value, unitKind, decimals?)`,
+`percent(value, min, max)`, `thresholdColor(value, thresholds)`,
+`thresholdClass(value, thresholds)` (returns `vellum-th-ok` / `-warn`
+/ `-bad`), `dateAgo(timestamp)`, `pluralize(n, singular, plural)`,
+`default(...values)`, comparators `eq`/`neq`/`lt`/`lte`/`gt`/`gte`
+(usable inside `{{#if}}`).
+
+**Binding shapes** the template scope sees:
+
+- `metric` (default — `splitBy` not set): `{ value, unit, unitKind, thresholds }`.
+- `metric` with `splitBy: "service.name"`: array of `{ key, value, attrs, thresholds }` — iterable with `{{#each}}`.
+- `metric-series`: array of raw `{ time, value, attributes }` rows.
+
+**Sandboxing**:
+
+- The Mustache renderer never `eval`s — only whitelisted helpers run.
+- DOMPurify (lazy-loaded ~50 KB gzip) sanitises the rendered HTML:
+  no `<script>`, no `on*=`, no `javascript:` URLs, no `<iframe>`.
+- CSS is auto-prefixed with the widget's instance scope so styles
+  can't leak; `@import`, `@font-face`, `expression()`, and IE-era
+  binding tricks are stripped before scoping.
+
+Field rules enforced by the loader (`engine: spec`):
 
 - `name` ≤ 64 chars.
 - `description` ≤ 280 chars.
 - `icon` matches `^i-(ph|lucide)-[a-z0-9-]+$`.
 - `defaultSize.w` ∈ [1, 12], `defaultSize.h` ∈ [1, 24].
-- `defaultConfig` ≤ 64 KiB; `spec` ≤ 256 KiB.
+- `defaultConfig` ≤ 64 KiB; `spec` (the whole template+styles+bindings
+  envelope) ≤ 256 KiB.
 
 Invalid widgets are skipped (logged) and don't break the rest of the
 library.
+
+The demo pack at `widget-libraries-demo/demo-pack/` ships two
+template-engine widgets — `db-card` (the database illustration above)
+and `service-tile-grid` (one tile per service via `splitBy`) — that
+double as live examples for authors.
 
 ---
 
