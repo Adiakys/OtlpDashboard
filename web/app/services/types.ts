@@ -98,6 +98,10 @@ export interface DashboardInfoDto {
 export interface InstrumentDto {
   resourceHash: string
   serviceName: string | null
+  /** `service.instance.id` carried so two instruments with the same
+   *  name+scope+service.name but coming from different resources (e.g.
+   *  two databases under `service.name=postgresql`) display distinctly. */
+  serviceInstanceId: string | null
   scopeName: string
   name: string
   /** Mirrors the server-side InstrumentKind enum (e.g. 'Gauge', 'Sum'). */

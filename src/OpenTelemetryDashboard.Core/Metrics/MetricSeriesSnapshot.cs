@@ -14,6 +14,11 @@ public sealed record MetricSeriesSnapshot(
     InstrumentKey Key,
     Instrument Instrument,
     string? ServiceName,
+    /// <summary>`service.instance.id` carried so the SPA can show two
+    /// same-named instruments coming from different resources (e.g. two
+    /// databases scraped under the same `service.name=postgresql`)
+    /// distinctly in the metric detail header.</summary>
+    string? ServiceInstanceId,
     int LifetimePointCount,
     IReadOnlyList<DataPoint> Points);
 

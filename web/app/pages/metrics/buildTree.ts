@@ -28,17 +28,23 @@ export function instrumentKey(i: InstrumentDto): string {
 }
 
 /**
- * Group instruments first by `serviceName` (the application that emitted them)
- * and then by their `scopeName` split on dots. Instruments without a service
- * land under a synthetic `(unknown)` root; those without a scope land under
- * `(root)` inside their service. Branches sort before leaves within a parent.
+ * Group instruments first by `serviceName` (the application that emitted
+ * them) — and, when present, by `serviceName / serviceInstanceId`, so two
+ * instruments coming from different resources under the same logical
+ * service (e.g. one collector scraping multiple databases under
+ * `service.name=postgresql`) split into distinct branches. Within a
+ * branch the layout follows `scopeName` dot segments. Instruments
+ * without a service land under `(unknown)`; those without a scope land
+ * under `(root)`. Branches sort before leaves within a parent.
  */
 export function buildTree(instruments: InstrumentDto[]): MetricTreeNode[] {
   const root: MetricTreeBranch = { kind: 'branch', label: '', path: '', children: [] }
 
   for (const instrument of instruments) {
     const service = instrument.serviceName?.trim() || UNKNOWN_SERVICE
-    const segments = [service, ...splitScope(instrument.scopeName)]
+    const instance = instrument.serviceInstanceId?.trim()
+    const serviceLabel = instance ? `${service} / ${instance}` : service
+    const segments = [serviceLabel, ...splitScope(instrument.scopeName)]
     const parent = ensureBranch(root, segments)
     parent.children.push({
       kind: 'leaf',

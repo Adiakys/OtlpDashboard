@@ -49,6 +49,7 @@ public sealed class EfCoreMetricReader : IMetricReader
                 i.IsMonotonic,
                 i.Temporality,
                 ServiceName = r != null ? r.ServiceName : null,
+                ServiceInstanceId = r != null ? r.ServiceInstanceId : null,
             })
             .OrderBy(x => x.ScopeName)
             .ThenBy(x => x.Name)
@@ -76,7 +77,7 @@ public sealed class EfCoreMetricReader : IMetricReader
             };
 
             counts.TryGetValue(row.Id, out var pointCount);
-            items.Add(new InstrumentSummary(key, instrument, pointCount, row.ServiceName));
+            items.Add(new InstrumentSummary(key, instrument, pointCount, row.ServiceName, row.ServiceInstanceId));
         }
 
         return items;
@@ -116,6 +117,7 @@ public sealed class EfCoreMetricReader : IMetricReader
                 i.IsMonotonic,
                 i.Temporality,
                 ServiceName = r != null ? r.ServiceName : null,
+                ServiceInstanceId = r != null ? r.ServiceInstanceId : null,
             })
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -213,7 +215,7 @@ public sealed class EfCoreMetricReader : IMetricReader
             Temporality = instrumentRow.Temporality,
         };
 
-        return new MetricSeriesSnapshot(key, instrument, instrumentRow.ServiceName, lifetimeCount, points);
+        return new MetricSeriesSnapshot(key, instrument, instrumentRow.ServiceName, instrumentRow.ServiceInstanceId, lifetimeCount, points);
     }
 
     public async Task<IReadOnlyCollection<string>> GetDistinctServiceNamesAsync(CancellationToken cancellationToken)

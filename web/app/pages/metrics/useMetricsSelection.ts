@@ -169,6 +169,7 @@ function rehydrate(keys: Set<string>, snaps: Map<string, InstrumentDto>) {
         name: e.name,
         kind: e.kind,
         serviceName: null,
+        serviceInstanceId: null,
         description: null,
         unit: null,
         isMonotonic: false,

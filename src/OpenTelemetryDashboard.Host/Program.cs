@@ -116,8 +116,6 @@ builder.Services.AddDashboardAuth(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 
-builder.AddSelfInstrumentation();
-
 builder.Host.ConfigureHostOptions(o =>
 {
     var ingestion = builder.Configuration

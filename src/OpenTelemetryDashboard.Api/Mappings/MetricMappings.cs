@@ -17,13 +17,15 @@ internal static class MetricMappings
         this Instrument instrument,
         InstrumentKey key,
         int pointCount,
-        string? serviceName)
+        string? serviceName,
+        string? serviceInstanceId)
     {
         ArgumentNullException.ThrowIfNull(instrument);
 
         return new InstrumentDto(
             ResourceHash: key.ResourceHashHex,
             ServiceName: serviceName,
+            ServiceInstanceId: serviceInstanceId,
             ScopeName: key.ScopeName,
             Name: instrument.Name,
             Kind: instrument.Kind.ToString(),

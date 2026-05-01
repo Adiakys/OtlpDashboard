@@ -44,7 +44,7 @@ internal static class MetricsEndpoints
         var items = new List<InstrumentDto>(summaries.Count);
         foreach (var summary in summaries)
         {
-            items.Add(summary.Instrument.ToDto(summary.Key, summary.PointCount, summary.ServiceName));
+            items.Add(summary.Instrument.ToDto(summary.Key, summary.PointCount, summary.ServiceName, summary.ServiceInstanceId));
         }
         return TypedResults.Ok<IReadOnlyList<InstrumentDto>>(items);
     }
@@ -77,7 +77,7 @@ internal static class MetricsEndpoints
             points.Add(point.ToDto());
         }
 
-        var instrumentDto = series.Instrument.ToDto(series.Key, series.LifetimePointCount, series.ServiceName);
+        var instrumentDto = series.Instrument.ToDto(series.Key, series.LifetimePointCount, series.ServiceName, series.ServiceInstanceId);
         return TypedResults.Ok(new MetricSeriesDto(instrumentDto, points));
     }
 }
