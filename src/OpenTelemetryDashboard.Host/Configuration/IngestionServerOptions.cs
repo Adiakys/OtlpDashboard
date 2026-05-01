@@ -7,7 +7,7 @@ namespace OpenTelemetryDashboard.Host.Configuration;
 
 public sealed class IngestionServerOptions
 {
-    public const string SectionName = "OpenTelemetryDashboard:Ingestion";
+    public const string SectionName = "Dashboard:Ingestion";
 
     public GrpcServerOptions Grpc { get; set; } = new();
     public HttpServerOptions Http { get; set; } = new();

@@ -30,7 +30,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       DASHBOARD__BROWSERTOKEN: changeme
-      OpenTelemetryDashboard__Ingestion__Channel__Capacity: "20000"
+      Dashboard__Ingestion__Channel__Capacity: "20000"
       Logging__LogLevel__OpenTelemetryDashboard: "Debug"
       Dashboard__Storage__Provider: ${STORAGE_PROVIDER:-Sqlite}
       ConnectionStrings__Sqlite: "${CONN_SQLITE:-Data Source=/app/data/telemetry.db}"

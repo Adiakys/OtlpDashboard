@@ -114,9 +114,9 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
                 {
                     ["Dashboard:Storage:Provider"] = "Sqlite",
                     ["ConnectionStrings:Sqlite"] = ConnectionString,
-                    ["OpenTelemetryDashboard:Ingestion:Channel:Capacity"] = "1000",
-                    ["OpenTelemetryDashboard:Ingestion:Channel:MaxBatchSize"] = "64",
-                    ["OpenTelemetryDashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
+                    ["Dashboard:Ingestion:Channel:Capacity"] = "1000",
+                    ["Dashboard:Ingestion:Channel:MaxBatchSize"] = "64",
+                    ["Dashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
                     ["Dashboard:Dashboards:BuiltinPaths:0"] = SeedDir,
                 });
             });

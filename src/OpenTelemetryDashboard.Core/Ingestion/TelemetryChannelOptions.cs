@@ -4,7 +4,7 @@ namespace OpenTelemetryDashboard.Core.Ingestion;
 
 public sealed class TelemetryChannelOptions
 {
-    public const string SectionName = "OpenTelemetryDashboard:Ingestion:Channel";
+    public const string SectionName = "Dashboard:Ingestion:Channel";
 
     [Range(1, int.MaxValue)]
     public int Capacity { get; set; } = 10_000;
@@ -18,7 +18,7 @@ public sealed class TelemetryChannelOptions
 
 public sealed class IngestionShutdownOptions
 {
-    public const string SectionName = "OpenTelemetryDashboard:Ingestion:Shutdown";
+    public const string SectionName = "Dashboard:Ingestion:Shutdown";
 
     [Range(1, 600)]
     public int DrainTimeoutSeconds { get; set; } = 30;

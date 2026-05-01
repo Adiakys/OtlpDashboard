@@ -8,7 +8,7 @@ namespace OpenTelemetryDashboard.Api;
 /// </summary>
 public sealed class QueryApiOptions
 {
-    public const string SectionName = "OpenTelemetryDashboard:QueryApi";
+    public const string SectionName = "Dashboard:QueryApi";
 
     [Range(1, 10_000)]
     public int DefaultLimit { get; set; } = 100;

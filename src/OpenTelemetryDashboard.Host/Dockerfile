@@ -99,8 +99,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_GCConserveMemory=9 \
     DOTNET_GCRetainVM=0 \
     DOTNET_TieredPGO=1 \
-    OpenTelemetryDashboard__Storage__Provider="Sqlite" \
-    OpenTelemetryDashboard__Storage__Sqlite__ConnectionString="Data Source=/app/data/telemetry.db"
+    Dashboard__Storage__Provider="Sqlite" \
+    ConnectionStrings__Sqlite="Data Source=/app/data/telemetry.db"
 
 USER otel
 

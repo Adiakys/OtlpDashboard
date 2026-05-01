@@ -42,9 +42,9 @@ The backend runs migrations on every boot, so the SQLite file appears at
 
 ## Configuration
 
-All settings live under `Dashboard:*` and `OpenTelemetryDashboard:*` in
-`appsettings.json` and can be overridden by environment variables using
-double underscores (e.g. `Dashboard__BrowserToken`).
+All settings live under `Dashboard:*` in `appsettings.json` and can be
+overridden by environment variables using double underscores
+(e.g. `Dashboard__BrowserToken`).
 
 ### Auth tokens
 
