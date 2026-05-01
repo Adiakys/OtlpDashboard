@@ -410,4 +410,4 @@ The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
 
 ## License
 
-[MIT](LICENSE).
+[GPLv3](LICENSE).
