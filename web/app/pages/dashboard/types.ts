@@ -1,5 +1,5 @@
 import type { ChartType } from '~/lib/agcharts/chartStrategy'
-import type { HtmlInstanceConfig } from '~/lib/htmlEngine/types'
+import type { HtmlInstanceConfig, ParameterDecl } from '~/lib/htmlEngine/types'
 import type { CalcMode } from '~/lib/units/calc'
 import type { ThresholdStop } from '~/lib/units/thresholds'
 import type { UnitKind } from '~/lib/units/format'
@@ -75,6 +75,14 @@ export interface WidgetDefinition {
   /** For `engine === 'spec'` / `'composite'`: the engine-specific spec
    *  (Vega-Lite spec, composite layout DSL). Wired in iter 2/5. */
   spec?: unknown
+  /**
+   * Optional typed parameters surfaced as the *first* section of the
+   * config form. Substituted into `${name}` placeholders inside the
+   * metric binding(s) at runtime. Lets a library widget ship with the
+   * full metric path baked in and ask the user only for the application
+   * name. Applies to both `preset` and `spec` engines.
+   */
+  parameters?: ParameterDecl[]
   /** Optimistic concurrency token. Present only for `custom` widgets
    *  (DB-backed). Required when calling `updateCustom` so the server can
    *  detect stale writes. `std` and library defs don't have one. */
@@ -105,6 +113,14 @@ export const RANGE_PRESETS: RangePreset[] = ['last-5m', 'last-15m', 'last-1h', '
 export interface BaseWidgetConfig {
   /** Optional override for the widget header. Default is taken from the registry. */
   title?: string
+  /**
+   * Per-instance values for the parameters declared by the widget
+   * definition (`WidgetDefinition.parameters`). The runtime substitutes
+   * these into `${name}` placeholders inside the metric binding before
+   * querying. Common to every metric-flavoured widget so a single
+   * substitution pass covers preset and spec engines alike.
+   */
+  parameters?: Record<string, string | number | boolean>
 }
 
 export interface MetricStatConfig extends BaseWidgetConfig {

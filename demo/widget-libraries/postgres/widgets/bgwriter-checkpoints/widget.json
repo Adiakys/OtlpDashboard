@@ -1,12 +1,30 @@
 {
   "name": "BGWriter checkpoints",
-  "description": "Cumulative checkpoints triggered by the background writer. Bind to 'postgresql.bgwriter.checkpoint.count'. Split-by 'type' shows scheduled vs requested.",
+  "description": "Cumulative checkpoints triggered by the background writer. Bound to postgresql.bgwriter.checkpoint.count.",
   "icon": "i-ph-flag-checkered",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.bgwriter.checkpoint.count",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-1h",
     "showSparkline": true,
     "decimals": 0,

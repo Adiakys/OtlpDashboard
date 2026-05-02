@@ -1,21 +1,48 @@
 {
   "name": "WAL age",
-  "description": "Age (seconds) of the oldest WAL segment on the primary. Bind to 'postgresql.wal.age'. High values may signal stuck replication slots or long-running tx.",
+  "description": "Age (seconds) of the oldest WAL segment on the primary. Bound to postgresql.wal.age. High values may signal stuck replication.",
   "icon": "i-ph-clock-countdown",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.wal.age",
+      "kind": "Gauge",
+      "serviceName": "${service}"
+    },
     "range": "last-15m",
     "showSparkline": true,
     "decimals": 0,
     "unitKind": "seconds",
     "calc": "last",
     "thresholds": [
-      { "value": 0, "color": "#7AAA7A" },
-      { "value": 600, "color": "#D9B566" },
-      { "value": 3600, "color": "#E27A3F" }
+      {
+        "value": 0,
+        "color": "#7AAA7A"
+      },
+      {
+        "value": 600,
+        "color": "#D9B566"
+      },
+      {
+        "value": 3600,
+        "color": "#E27A3F"
+      }
     ]
   }
 }

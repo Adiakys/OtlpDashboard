@@ -1,13 +1,32 @@
 {
   "name": "Rollbacks",
-  "description": "Cumulative rolled-back transactions per database. Bind to 'postgresql.rollbacks'. Steep slope vs commits = errors or aborts.",
+  "description": "Cumulative rolled-back transactions per database. Bound to postgresql.rollbacks. Steep slope vs commits = errors or aborted units of work.",
   "icon": "i-ph-arrow-counter-clockwise",
-  "defaultSize": { "w": 6, "h": 4 },
+  "defaultSize": {
+    "w": 6,
+    "h": 4
+  },
   "engine": "preset",
   "baseKind": "metric-line",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
     "metrics": [],
     "range": "last-1h",
-    "splitBy": null
+    "splitBy": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.rollbacks",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    }
   }
 }

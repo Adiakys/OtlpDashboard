@@ -27,7 +27,7 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = useSingleMetric(() => props.config.metric)
+const metrics = useSingleMetric(() => props.config.metric, () => props.config.parameters)
 const range = computed(() => props.config.range)
 const { series, loading, error, hasLoaded } = useWidgetSeries(
   $metricsService, metrics, range, () => props.liveTick,

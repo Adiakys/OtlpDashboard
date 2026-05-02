@@ -1,13 +1,32 @@
 {
   "name": "GC allocation rate",
-  "description": "Cumulative bytes allocated on the managed heap. Bind to 'process.runtime.dotnet.gc.allocations.size' to track allocation pressure over time.",
+  "description": "Cumulative bytes allocated on the managed heap. Bound to dotnet.gc.heap.total_allocated; pick the application to track allocation pressure over time.",
   "icon": "i-ph-trend-up",
-  "defaultSize": { "w": 6, "h": 4 },
+  "defaultSize": {
+    "w": 6,
+    "h": 4
+  },
   "engine": "preset",
   "baseKind": "metric-line",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Application",
+      "required": true,
+      "default": "sample-server"
+    }
+  ],
   "defaultConfig": {
     "metrics": [],
     "range": "last-1h",
-    "splitBy": null
+    "splitBy": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "System.Runtime",
+      "instrumentName": "dotnet.gc.heap.total_allocated",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    }
   }
 }

@@ -36,6 +36,15 @@ public sealed class LibraryWidget
     /// <summary>Opaque JSON spec payload (Vega-Lite for spec, layout DSL for composite).</summary>
     public string? SpecJson { get; init; }
 
+    /// <summary>
+    /// Opaque JSON array describing the typed parameters the widget exposes
+    /// in its config form (e.g. <c>{"name":"service","type":"service_name"}</c>).
+    /// Engines render the matching input controls and substitute the values
+    /// into <c>${param}</c> placeholders inside <c>defaultConfig.metric</c>
+    /// at runtime. Stays opaque server-side — the SPA owns the schema.
+    /// </summary>
+    public string? ParametersJson { get; init; }
+
     public int DefaultW { get; init; } = 3;
 
     public int DefaultH { get; init; } = 3;

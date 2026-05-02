@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
 import InstrumentPicker from '../components/InstrumentPicker.vue'
-import ParameterInput from '../components/ParameterInput.vue'
+import ParametersSection from '../components/ParametersSection.vue'
 import RangePresetSelect from './RangePresetSelect.vue'
 import { useWidgetCatalog } from '../catalog'
 import { WIDGET_KIND_INJECTION_KEY } from '../injectionKeys'
-import { effectiveValue } from '~/lib/htmlEngine/parameterExpansion'
 import type {
   HtmlBindingDecl,
   HtmlInstanceConfig,
-  HtmlSpec,
-  ParameterDecl
+  HtmlSpec
 } from '~/lib/htmlEngine/types'
+import type { ParameterDecl } from '~/lib/htmlEngine/types'
 import type { MetricBinding } from '../types'
 
 /**
@@ -21,17 +20,17 @@ import type { MetricBinding } from '../types'
  * bindings doesn't squash the metric picker into a postage stamp:
  *
  *  1. Title + Range (always shown)
- *  2. Parameters — one input per `spec.parameters[]`. The widget's
- *     binding templates expand `${name}` from these values, so a
- *     library widget with the metric path baked in only needs the
+ *  2. Parameters — one input per definition's `parameters[]`. The
+ *     widget's binding templates expand `${name}` from these values, so
+ *     a library widget with the metric path baked in only needs the
  *     application name from the user.
  *  3. Per-binding overrides — collapsible. For each declared metric
  *     binding the user can pin a specific instrument, bypassing the
  *     parameter-driven template. Only relevant when the parametric
  *     match doesn't fit (different scope, different service, …).
  *
- * Backwards compatibility: a spec without `parameters[]` and without
- * `metric` templates falls back to the previous "one picker per
+ * Backwards compatibility: a definition without `parameters[]` and
+ * without `metric` templates falls back to the previous "one picker per
  * binding" experience — the Overrides section opens by default.
  */
 
@@ -53,7 +52,7 @@ const spec = computed<HtmlSpec | null>(() => {
   return raw as HtmlSpec
 })
 
-const parameters = computed<ParameterDecl[]>(() => spec.value?.parameters ?? [])
+const parameters = computed<ParameterDecl[]>(() => definition.value?.parameters ?? [])
 
 const metricDecls = computed<HtmlBindingDecl[]>(() =>
   (spec.value?.dataBindings ?? []).filter(
@@ -73,22 +72,7 @@ const overridesOpen = computed(() => parameters.value.length === 0 && !hasTempla
 
 const templatePreview = computed(() => spec.value?.template?.trim() ?? '')
 
-const paramValues = computed<Record<string, string | number | boolean | undefined>>(() => {
-  const out: Record<string, string | number | boolean | undefined> = {}
-  for (const decl of parameters.value) {
-    out[decl.name] = effectiveValue(decl, props.modelValue.parameters)
-  }
-  return out
-})
-
-function setParameter(name: string, value: string | number | boolean | undefined) {
-  const next = { ...(props.modelValue.parameters ?? {}) }
-  if (value === undefined || value === '') {
-    delete next[name]
-  }
-  else {
-    next[name] = value
-  }
+function setParameters(next: Record<string, string | number | boolean>) {
   emit('update:modelValue', { ...props.modelValue, parameters: next })
 }
 
@@ -123,21 +107,10 @@ function patch(p: Partial<HtmlInstanceConfig>) {
       />
     </UFormField>
 
-    <section v-if="parameters.length > 0" class="vellum-html-form__section">
-      <header class="text-overline" style="color: var(--color-graphite-500);">
-        {{ t('dashboard.config.htmlParameters') }}
-      </header>
-      <div class="flex flex-col gap-3">
-        <ParameterInput
-          v-for="decl in parameters"
-          :key="decl.name"
-          :decl="decl"
-          :model-value="paramValues[decl.name]"
-          :siblings="paramValues"
-          @update:model-value="(v) => setParameter(decl.name, v)"
-        />
-      </div>
-    </section>
+    <ParametersSection
+      :model-value="modelValue.parameters"
+      @update:model-value="setParameters"
+    />
 
     <div
       v-if="metricDecls.length === 0"

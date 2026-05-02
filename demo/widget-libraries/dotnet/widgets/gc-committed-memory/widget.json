@@ -1,12 +1,30 @@
 {
   "name": "GC committed memory",
-  "description": "Total committed memory of the managed GC heap. Bind to 'process.runtime.dotnet.gc.committed_memory.size'.",
+  "description": "Total committed memory of the managed GC heap. Bound to dotnet.gc.last_collection.memory.committed_size.",
   "icon": "i-ph-memory",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Application",
+      "required": true,
+      "default": "sample-server"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "System.Runtime",
+      "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-15m",
     "showSparkline": true,
     "decimals": 1,

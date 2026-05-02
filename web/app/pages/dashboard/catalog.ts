@@ -10,6 +10,7 @@ import {
   type WidgetEngine,
   type WidgetSource
 } from './types'
+import type { ParameterDecl } from '~/lib/htmlEngine/types'
 import type {
   WidgetDefinitionDto,
   WidgetEngine as WidgetEngineWire,
@@ -95,24 +96,40 @@ export function resolveConfigForm(def: WidgetDefinition | null): Component | nul
  * The default config the picker copies into a fresh widget instance of the
  * given definition. For `preset`, this is the definition's `defaultConfig`
  * (a clone, so each instance starts with its own object).
+ *
+ * When the definition declares `parameters[]`, the seed also gets a
+ * `parameters` map populated from each declaration's `default`. The
+ * widget's metric binding(s) keep the `${param}` placeholders from the
+ * definition; they're substituted by the runtime expansion path in the
+ * widget at query time. Parameter changes therefore propagate to every
+ * binding without the form having to rewrite the metric on every keystroke.
  */
 export function defaultConfigForDefinition(def: WidgetDefinition): WidgetConfig {
-  if (def.engine === 'preset' && def.defaultConfig) {
-    // Structured clone so two instances added back-to-back don't share the
-    // same reference. JSON round-trip is safe for our config shapes
-    // (no Date / Map / undefined-as-significant).
-    return JSON.parse(JSON.stringify(def.defaultConfig))
+  // JSON round-trip is safe for our config shapes (no Date / Map /
+  // undefined-as-significant). Two instances added back-to-back must not
+  // share the same nested object reference.
+  const seedRaw = def.engine === 'spec' && !def.defaultConfig
+    ? { bindings: {}, range: 'last-1h' }
+    : (def.defaultConfig ?? {})
+  const seed = JSON.parse(JSON.stringify(seedRaw)) as Record<string, unknown>
+
+  if (def.parameters?.length) {
+    seed.parameters = parameterSeed(def.parameters)
   }
-  if (def.engine === 'spec') {
-    // HTML engine: the per-instance config carries the binding map
-    // (initialized empty — the user fills it via the config form) plus
-    // an optional range. The template/styles live on the definition.
-    if (def.defaultConfig) return JSON.parse(JSON.stringify(def.defaultConfig))
-    return { bindings: {}, range: 'last-1h' } as WidgetConfig
+
+  return seed as WidgetConfig
+}
+
+function parameterSeed(decls: ParameterDecl[]): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {}
+  for (const d of decls) {
+    // `default` is optional; when missing the widget renders without a
+    // value and the form's required-flag blocks Apply.
+    if (d.type === 'number' && typeof d.default === 'number') out[d.name] = d.default
+    else if (d.type === 'boolean' && typeof d.default === 'boolean') out[d.name] = d.default
+    else if (typeof d.default === 'string' && d.default !== '') out[d.name] = d.default
   }
-  // Composite engine falls back to an empty object — its form (iter 5)
-  // will populate at first mount.
-  return {} as WidgetConfig
+  return out
 }
 
 /**
@@ -220,6 +237,11 @@ export { engineFromWire, engineToWire }
 export function libraryDtoToDefinitions(lib: WidgetLibraryDto): WidgetDefinition[] {
   const out: WidgetDefinition[] = []
   for (const w of lib.widgets) {
+    // Server stays opaque on the parameter schema; the SPA owns it.
+    // Cast through `unknown` so typescript doesn't try to validate the
+    // ParameterDecl union shape from the wire — invalid declarations
+    // simply get silently ignored by the parameter UI.
+    const parameters = (w.parameters ?? undefined) as ParameterDecl[] | undefined
     out.push({
       kind: `library:${lib.id}/${w.kindId}`,
       source: { library: lib.id },
@@ -230,7 +252,8 @@ export function libraryDtoToDefinitions(lib: WidgetLibraryDto): WidgetDefinition
       defaultSize: { w: w.defaultW, h: w.defaultH },
       baseKind: (w.baseKind ?? undefined) as BuiltinKind | undefined,
       defaultConfig: (w.config ?? {}) as unknown as WidgetConfig,
-      spec: w.spec ?? undefined
+      spec: w.spec ?? undefined,
+      parameters
     })
   }
   return out

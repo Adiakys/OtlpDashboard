@@ -80,3 +80,56 @@ export function effectiveValue(
   if (decl.type === 'boolean') return decl.default
   return decl.default
 }
+
+/**
+ * Expand `${param}` placeholders inside the four logical-key fields of a
+ * full `MetricBinding`. Mirrors `expandMetricTemplate` but operates on
+ * the runtime binding shape, so it covers preset widgets that store the
+ * template directly inside `WidgetConfig.metric` (alongside the catalog's
+ * resourceHash late-binding).
+ *
+ * Returns `null` only when one of the required logical-key fields
+ * collapses to empty — that case maps to "user hasn't filled the
+ * required parameter yet" and the caller renders the widget's
+ * unconfigured state instead of issuing a doomed request. A binding with
+ * no placeholders at all comes back unchanged.
+ */
+export function expandMetricBinding(
+  binding: import('~/pages/dashboard/types').MetricBinding | null | undefined,
+  parameters: Record<string, unknown> | undefined
+): import('~/pages/dashboard/types').MetricBinding | null {
+  if (!binding) return null
+
+  const scopeName = substitute(binding.scopeName, parameters)
+  const instrumentName = substitute(binding.instrumentName, parameters)
+  const kind = substitute(binding.kind, parameters)
+  const serviceNameRaw = substitute(binding.serviceName ?? '', parameters)
+
+  if (!scopeName || !instrumentName || !kind) return null
+
+  return {
+    ...binding,
+    scopeName,
+    instrumentName,
+    kind,
+    serviceName: serviceNameRaw === '' ? null : serviceNameRaw
+  }
+}
+
+/**
+ * Apply {@link expandMetricBinding} across an array. Bindings that fail
+ * to expand are dropped — they show up as gaps in the rendered series
+ * rather than silently breaking neighbouring bindings.
+ */
+export function expandMetricBindings(
+  bindings: ReadonlyArray<import('~/pages/dashboard/types').MetricBinding> | undefined,
+  parameters: Record<string, unknown> | undefined
+): import('~/pages/dashboard/types').MetricBinding[] {
+  if (!bindings || bindings.length === 0) return []
+  const out: import('~/pages/dashboard/types').MetricBinding[] = []
+  for (const b of bindings) {
+    const expanded = expandMetricBinding(b, parameters)
+    if (expanded) out.push(expanded)
+  }
+  return out
+}

@@ -1,12 +1,30 @@
 {
   "name": "Database size",
-  "description": "On-disk size of a Postgres database. Bind to 'postgresql.db_size' (one instrument per DB once the collector splits by 'postgresql.database.name').",
+  "description": "On-disk size of the Postgres database(s). Bound to postgresql.db_size (split by postgresql.database.name when the collector emits per-DB).",
   "icon": "i-ph-hard-drives",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.db_size",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-15m",
     "showSparkline": true,
     "decimals": 1,

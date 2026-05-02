@@ -22,15 +22,6 @@ export interface HtmlSpec {
   template: string
   styles?: string
   dataBindings: HtmlBindingDecl[]
-  /**
-   * Optional typed parameters surfaced as the *first* section of the per-
-   * instance config form. The user fills these in and the resolver
-   * substitutes `${name}` placeholders inside any binding's
-   * {@link HtmlMetricBinding.metric} template. Lets a library widget ship
-   * with the full metric path baked in and ask the user only for the
-   * application name.
-   */
-  parameters?: ParameterDecl[]
 }
 
 /**

@@ -247,6 +247,11 @@ export interface LibraryWidgetDto {
   baseKind: string | null
   config: Record<string, unknown> | null
   spec: Record<string, unknown> | null
+  /** Optional typed parameter declarations rendered at the top of the
+   *  config form. Substituted into `${param}` placeholders inside the
+   *  metric binding at runtime. Shape: ParameterDecl[] (see
+   *  `~/lib/htmlEngine/types.ts`). Server stays opaque on the schema. */
+  parameters: unknown[] | null
   defaultW: number
   defaultH: number
 }

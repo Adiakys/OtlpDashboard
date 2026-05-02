@@ -5,6 +5,7 @@ import BaseWidget from '../components/BaseWidget.vue'
 import { buildChartOptions, pickChartType, type ChartType } from '~/lib/agcharts/chartStrategy'
 import { useWidgetSeries } from '../useWidgetSeries'
 import { normalizeSplitBy } from '../composables/normalizeSplitBy'
+import { expandMetricBindings } from '~/lib/htmlEngine/parameterExpansion'
 import type { MetricLineConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
@@ -25,7 +26,11 @@ const { t, locale } = useI18n()
 const { $metricsService } = useNuxtApp()
 const colorMode = useColorMode()
 
-const metrics = computed(() => props.config.metrics ?? [])
+// Expand `${param}` placeholders in each binding's logical-key fields
+// against the per-instance parameters map. Bindings whose required
+// fields collapse to empty are dropped — the resulting array still
+// drives the chart cleanly without firing 404-bound requests.
+const metrics = computed(() => expandMetricBindings(props.config.metrics, props.config.parameters))
 const range = computed(() => props.config.range)
 const { series, loading, error, hasLoaded } = useWidgetSeries(
   $metricsService, metrics, range, () => props.liveTick,

@@ -1,13 +1,32 @@
 {
   "name": "Exceptions thrown",
-  "description": "Cumulative number of managed exceptions thrown. Bind to 'process.runtime.dotnet.exceptions.count' — the line variant lets you spot bursts.",
+  "description": "Cumulative number of managed exceptions thrown. The widget binds to dotnet.exceptions automatically \u2014 pick the application. The line variant lets you spot bursts.",
   "icon": "i-ph-warning-circle",
-  "defaultSize": { "w": 6, "h": 4 },
+  "defaultSize": {
+    "w": 6,
+    "h": 4
+  },
   "engine": "preset",
   "baseKind": "metric-line",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Application",
+      "required": true,
+      "default": "sample-server"
+    }
+  ],
   "defaultConfig": {
     "metrics": [],
     "range": "last-1h",
-    "splitBy": null
+    "splitBy": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "System.Runtime",
+      "instrumentName": "dotnet.exceptions",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    }
   }
 }

@@ -1,12 +1,30 @@
 {
   "name": "Operations mix",
-  "description": "Bar gauge of insert/update/delete/HOT operations split by 'operation'. Bind to 'postgresql.operations' — quick view of the write profile.",
+  "description": "Bar gauge of insert/update/delete/HOT operations split by `operation`. Bound to postgresql.operations \u2014 quick view of the write profile.",
   "icon": "i-ph-arrows-split",
-  "defaultSize": { "w": 5, "h": 4 },
+  "defaultSize": {
+    "w": 5,
+    "h": 4
+  },
   "engine": "preset",
   "baseKind": "metric-bar-gauge",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.operations",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-1h",
     "splitBy": "operation",
     "calc": "last",

@@ -1,12 +1,30 @@
 {
   "name": "Active connections",
-  "description": "Number of active backend processes (connections) per database. Bind to 'postgresql.backends' — split-by 'postgresql.database.name' on the bar variant for per-DB breakdown.",
+  "description": "Number of active backend processes (connections). Pick the service; bound to postgresql.backends. Use the bar variant with split-by postgresql.database.name for a per-DB breakdown.",
   "icon": "i-ph-plugs-connected",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.backends",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-15m",
     "showSparkline": true,
     "decimals": 0,

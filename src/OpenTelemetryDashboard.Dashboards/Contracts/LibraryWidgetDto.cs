@@ -17,5 +17,6 @@ public sealed record LibraryWidgetDto(
     string? BaseKind,
     JsonElement? Config,
     JsonElement? Spec,
+    JsonElement? Parameters,
     int DefaultW,
     int DefaultH);

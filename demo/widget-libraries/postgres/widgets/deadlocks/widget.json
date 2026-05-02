@@ -1,21 +1,48 @@
 {
   "name": "Deadlocks",
-  "description": "Cumulative deadlocks detected. Bind to 'postgresql.deadlocks'. Anything above zero is worth investigating.",
+  "description": "Cumulative deadlocks detected. Bound to postgresql.deadlocks. Anything above zero is worth investigating.",
   "icon": "i-ph-warning-octagon",
-  "defaultSize": { "w": 3, "h": 3 },
+  "defaultSize": {
+    "w": 3,
+    "h": 3
+  },
   "engine": "preset",
   "baseKind": "metric-stat",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
   "defaultConfig": {
-    "metric": null,
+    "metric": {
+      "resourceHash": "",
+      "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+      "instrumentName": "postgresql.deadlocks",
+      "kind": "Sum",
+      "serviceName": "${service}"
+    },
     "range": "last-1h",
     "showSparkline": true,
     "decimals": 0,
     "unitKind": "none",
     "calc": "last",
     "thresholds": [
-      { "value": 0, "color": "#7AAA7A" },
-      { "value": 1, "color": "#D9B566" },
-      { "value": 10, "color": "#E27A3F" }
+      {
+        "value": 0,
+        "color": "#7AAA7A"
+      },
+      {
+        "value": 1,
+        "color": "#D9B566"
+      },
+      {
+        "value": 10,
+        "color": "#E27A3F"
+      }
     ]
   }
 }

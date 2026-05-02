@@ -175,6 +175,7 @@ internal static class LibraryEndpoints
                 w.BaseKind,
                 w.ConfigJson is null ? null : JsonSerializer.Deserialize<JsonElement>(w.ConfigJson),
                 w.SpecJson is null ? null : JsonSerializer.Deserialize<JsonElement>(w.SpecJson),
+                w.ParametersJson is null ? null : JsonSerializer.Deserialize<JsonElement>(w.ParametersJson),
                 w.DefaultW,
                 w.DefaultH));
         }

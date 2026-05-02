@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
+import ParametersSection from '../components/ParametersSection.vue'
 import type { MetricBinding, MetricSparklineConfig } from '../types'
 import type { UnitKind } from '~/lib/units/format'
 import RangePresetSelect from './RangePresetSelect.vue'
@@ -22,6 +23,11 @@ function patch(p: Partial<MetricSparklineConfig>) {
 
 <template>
   <div class="flex flex-col gap-3 h-full min-h-0">
+    <ParametersSection
+      :model-value="modelValue.parameters"
+      @update:model-value="(v) => patch({ parameters: v })"
+    />
+
     <UFormField :label="t('dashboard.config.title')">
       <UInput
         :model-value="modelValue.title ?? ''"

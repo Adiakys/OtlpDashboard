@@ -227,6 +227,16 @@ public static class LibraryManifestParser
                     break;
             }
 
+            // Optional `parameters` array shared by both engines: lets a widget
+            // declare typed inputs (service_name, string, …) that the SPA renders
+            // at the top of the config form and substitutes into `${param}`
+            // placeholders inside the default metric binding. Server stays
+            // opaque on the schema — the SPA owns validation.
+            if (!TryParseOpaqueArray(root, "parameters", MaxConfigBytes, required: false, out var parametersJson, out error))
+            {
+                return false;
+            }
+
             widget = new LibraryWidget
             {
                 KindId = kindId,
@@ -237,6 +247,7 @@ public static class LibraryManifestParser
                 BaseKind = baseKind,
                 ConfigJson = configJson,
                 SpecJson = specJson,
+                ParametersJson = parametersJson,
                 DefaultW = defaultW,
                 DefaultH = defaultH
             };
@@ -389,6 +400,42 @@ public static class LibraryManifestParser
         if (element.ValueKind != JsonValueKind.Object)
         {
             error = $"'{field}' must be a JSON object.";
+            return false;
+        }
+        var raw = element.GetRawText();
+        var bytes = Encoding.UTF8.GetByteCount(raw);
+        if (bytes > maxBytes)
+        {
+            error = $"'{field}' is too large ({bytes} bytes); maximum is {maxBytes} bytes.";
+            return false;
+        }
+        rawJson = raw;
+        error = null;
+        return true;
+    }
+
+    private static bool TryParseOpaqueArray(
+        JsonElement root,
+        string field,
+        int maxBytes,
+        bool required,
+        out string? rawJson,
+        [NotNullWhen(false)] out string? error)
+    {
+        rawJson = null;
+        if (!root.TryGetProperty(field, out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            if (required)
+            {
+                error = $"'{field}' is required and must be a JSON array.";
+                return false;
+            }
+            error = null;
+            return true;
+        }
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            error = $"'{field}' must be a JSON array.";
             return false;
         }
         var raw = element.GetRawText();

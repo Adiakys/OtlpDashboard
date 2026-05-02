@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InstrumentPicker from '../components/InstrumentPicker.vue'
+import ParametersSection from '../components/ParametersSection.vue'
 import type { MetricBinding, MetricLineConfig } from '../types'
 import type { UnitKind } from '~/lib/units/format'
 import type { ChartType } from '~/lib/agcharts/chartStrategy'
@@ -49,6 +50,11 @@ function setChartType(v: ChartTypeOption) {
 
 <template>
   <div class="flex flex-col gap-3 h-full min-h-0">
+    <ParametersSection
+      :model-value="modelValue.parameters"
+      @update:model-value="(v) => patch({ parameters: v })"
+    />
+
     <UFormField :label="t('dashboard.config.title')">
       <UInput
         :model-value="modelValue.title ?? ''"
