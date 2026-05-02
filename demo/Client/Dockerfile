@@ -1,11 +1,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
-COPY Client.csproj ./
-RUN dotnet restore Client.csproj
+# Build context is the repository root so Directory.Build.props +
+# Directory.Packages.props + demo/Directory.Build.props are in scope.
+# The demo csproj files use central package management — without these
+# files restore fails NU1015 (PackageReference items have no Version).
+COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY demo/Directory.Build.props demo/
 
-COPY . ./
-RUN dotnet publish Client.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+COPY demo/Client/Client.csproj demo/Client/
+RUN dotnet restore demo/Client/Client.csproj
+
+COPY demo/Client/ demo/Client/
+RUN dotnet publish demo/Client/Client.csproj -c Release -o /out --no-restore /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine
 WORKDIR /app

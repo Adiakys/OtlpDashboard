@@ -44,7 +44,8 @@ services:
 
   sample-server:
     build:
-      context: ./demo/Server
+      context: .
+      dockerfile: demo/Server/Dockerfile
     image: oteldemo-sample-server:dev
     container_name: oteldemo-sample-server
     restart: unless-stopped
@@ -65,7 +66,8 @@ services:
 
   sample-client:
     build:
-      context: ./demo/Client
+      context: .
+      dockerfile: demo/Client/Dockerfile
     image: oteldemo-sample-client:dev
     container_name: oteldemo-sample-client
     restart: unless-stopped

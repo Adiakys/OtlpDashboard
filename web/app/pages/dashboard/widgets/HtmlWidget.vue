@@ -5,6 +5,7 @@ import { useWidgetSeries } from '../useWidgetSeries'
 import { TEMPLATE_HELPERS } from '~/lib/htmlEngine/helpers'
 import { renderTemplate } from '~/lib/htmlEngine/templateRenderer'
 import { scopeCss } from '~/lib/htmlEngine/scopeCss'
+import { expandMetricTemplate } from '~/lib/htmlEngine/parameterExpansion'
 import { reduce } from '~/lib/units/calc'
 import { groupPoints } from '~/lib/agcharts/seriesGrouping'
 import type {
@@ -61,10 +62,21 @@ const metricPairs = computed<MetricBindingPair[]>(() => {
   const decls = (props.spec?.dataBindings ?? []).filter(
     (b): b is HtmlMetricBinding => b.type === 'metric' || b.type === 'metric-series'
   ) as HtmlMetricBinding[]
+  const params = props.config.parameters
   const out: MetricBindingPair[] = []
   for (const decl of decls) {
-    const metric = props.config.bindings?.[decl.name] ?? null
-    if (metric) out.push({ decl, metric })
+    // Manual override always wins so users can pin a single instrument
+    // when the parameter-driven template doesn't fit (different scope,
+    // different kind, etc).
+    const manual = props.config.bindings?.[decl.name] ?? null
+    if (manual) {
+      out.push({ decl, metric: manual })
+      continue
+    }
+    if (decl.metric) {
+      const expanded = expandMetricTemplate(decl.metric, params)
+      if (expanded) out.push({ decl, metric: expanded })
+    }
   }
   return out
 })
@@ -189,10 +201,14 @@ onBeforeUnmount(() => { purifyPromise = null })
 
 const isConfigured = computed(() => {
   const decls = (props.spec?.dataBindings ?? []).filter(
-    b => b.type === 'metric' || b.type === 'metric-series'
+    (b): b is HtmlMetricBinding => b.type === 'metric' || b.type === 'metric-series'
   )
   if (decls.length === 0) return true // template without metric bindings
-  return decls.every(d => props.config.bindings?.[d.name])
+  const params = props.config.parameters
+  return decls.every((d) => {
+    if (props.config.bindings?.[d.name]) return true
+    return d.metric ? expandMetricTemplate(d.metric, params) !== null : false
+  })
 })
 
 const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && loading.value)

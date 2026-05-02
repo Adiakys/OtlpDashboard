@@ -27,11 +27,12 @@ README.md
 # Tests are never part of the runtime image — strip ~250 MB of build context.
 tests/
 
-# Demo workload (sample-server, sample-client, widget libraries, dashboards,
-# Collector config) is built by its own compose services with
-# `context: ./demo/...`. The dashboard image doesn't reference any of it,
-# so excluding it keeps the BuildKit context small.
-demo/
+# `demo/` is intentionally NOT excluded: the sample-server / sample-client
+# Dockerfiles build with `context: .` (repo root) so they can see the
+# Directory.Build.props + Directory.Packages.props chain that makes
+# central package management work. The dashboard image's Dockerfile only
+# COPYs `src/` and `web/`, so demo/ source travels in the build context
+# but doesn't end up in the final image (~1-2 MB transient cost).
 
 # Local-only artifacts that have no business in any image.
 dashboard-data/

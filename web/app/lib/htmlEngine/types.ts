@@ -22,6 +22,100 @@ export interface HtmlSpec {
   template: string
   styles?: string
   dataBindings: HtmlBindingDecl[]
+  /**
+   * Optional typed parameters surfaced as the *first* section of the per-
+   * instance config form. The user fills these in and the resolver
+   * substitutes `${name}` placeholders inside any binding's
+   * {@link HtmlMetricBinding.metric} template. Lets a library widget ship
+   * with the full metric path baked in and ask the user only for the
+   * application name.
+   */
+  parameters?: ParameterDecl[]
+}
+
+/**
+ * Single typed parameter declared by a library widget. The `type` drives
+ * the input control rendered in the config form and (for typed kinds)
+ * lets the form populate options from live state — e.g. `service_name`
+ * uses the dashboard's metric-services endpoint.
+ *
+ * Unknown future types should fall back to a plain string input on
+ * older clients; the discriminator is open.
+ */
+export type ParameterDecl =
+  | StringParameter
+  | ServiceNameParameter
+  | ServiceInstanceIdParameter
+  | SelectParameter
+  | NumberParameter
+  | BooleanParameter
+
+export interface ParameterBase {
+  name: string
+  /** Label shown above the input. Falls back to `name` when omitted. */
+  label?: string
+  /** Optional one-line help text rendered under the input. */
+  description?: string
+  /** When true the form blocks Apply until the user picks a value. */
+  required?: boolean
+}
+
+export interface StringParameter extends ParameterBase {
+  type: 'string'
+  default?: string
+  /** Soft cap on input length (UI hint). */
+  maxLength?: number
+  /** Placeholder text in the empty input. */
+  placeholder?: string
+}
+
+export interface ServiceNameParameter extends ParameterBase {
+  type: 'service_name'
+  default?: string
+}
+
+export interface ServiceInstanceIdParameter extends ParameterBase {
+  type: 'service_instance_id'
+  default?: string
+  /** Filter the dropdown by another `service_name`-typed parameter. */
+  dependsOn?: string
+}
+
+export interface SelectParameter extends ParameterBase {
+  type: 'select'
+  default?: string
+  options: Array<{ value: string; label?: string }>
+}
+
+export interface NumberParameter extends ParameterBase {
+  type: 'number'
+  default?: number
+  min?: number
+  max?: number
+  step?: number
+}
+
+export interface BooleanParameter extends ParameterBase {
+  type: 'boolean'
+  default?: boolean
+}
+
+/**
+ * Concrete metric identity baked into the widget definition with optional
+ * `${param}` placeholders. The resolver substitutes the placeholders from
+ * {@link HtmlInstanceConfig.parameters} and produces a runtime
+ * {@link MetricBinding}; the existing instrument-catalog late-binding
+ * fills in `resourceHash` from the (scope, name, kind, serviceName) key.
+ *
+ * When a binding declares this template, the per-instance form may skip
+ * the manual InstrumentPicker entirely — the user only fills the
+ * top-level parameters.
+ */
+export interface MetricTemplate {
+  scopeName: string
+  instrumentName: string
+  kind: string
+  serviceName?: string | null
 }
 
 /**
@@ -61,6 +155,14 @@ export interface HtmlMetricBinding extends HtmlBindingBase {
   unitKind?: UnitKind
   /** Threshold list reachable from helpers (`thresholdClass <name>.value <name>.thresholds`). */
   thresholds?: ThresholdStop[]
+  /**
+   * Pre-bound metric path with `${param}` placeholders. When present the
+   * per-instance config form needs only the parameter inputs — the widget
+   * resolves the binding automatically. A manual override in
+   * {@link HtmlInstanceConfig.bindings} still wins, so users can pin a
+   * specific instrument when the template doesn't fit.
+   */
+  metric?: MetricTemplate
 }
 
 /**
@@ -98,8 +200,19 @@ export interface HtmlRecentLogsBinding extends HtmlBindingBase {
  * for library widgets (and is editable in iter 2b for `custom` widgets).
  */
 export interface HtmlInstanceConfig {
-  /** Map `bindingName -> resolved instrument`. `null` until configured. */
+  /** Map `bindingName -> resolved instrument`. Acts as the manual
+   *  override path: a non-null entry here pins that binding regardless
+   *  of whether the spec declares a {@link MetricTemplate}. Bindings
+   *  without an entry fall through to the parameter-driven template. */
   bindings: Record<string, MetricBinding | null>
+  /**
+   * User-supplied values for the parameters declared by
+   * {@link HtmlSpec.parameters}. Each entry is the raw input (string for
+   * `string` / `service_name` / `service_instance_id` / `select`,
+   * number for `number`, boolean for `boolean`). Substituted into
+   * {@link MetricTemplate} placeholders when the binding resolves.
+   */
+  parameters?: Record<string, string | number | boolean>
   /** Override the per-binding defaults. Falls back to the binding decl
    *  values when missing. */
   range?: RangePreset
