@@ -1,0 +1,79 @@
+{
+  "name": "Database load",
+  "description": "Hero panel: stylised database cylinder whose liquid level tracks connection saturation (backends ÷ max), color-shifting sage → amber → rust. Side rail surfaces three at-a-glance KPIs (connections, total size, deadlocks).",
+  "icon": "i-ph-database",
+  "defaultSize": { "w": 6, "h": 5 },
+  "engine": "spec",
+  "parameters": [
+    {
+      "name": "service",
+      "type": "service_name",
+      "label": "Service",
+      "required": true,
+      "default": "postgresql"
+    }
+  ],
+  "spec": {
+    "template": "<div class='dbl'>\n  <div class='dbl-art'>\n    <svg viewBox='0 0 120 240' preserveAspectRatio='xMidYMid meet' aria-hidden='true' class='dbl-svg'>\n      <defs>\n        <clipPath id='dbl-cyl-clip'>\n          <path d='M 12 24 a 48 14 0 0 0 96 0 v 196 a 48 14 0 0 1 -96 0 z'/>\n        </clipPath>\n        <linearGradient id='dbl-shell-grad' x1='0' y1='0' x2='1' y2='0'>\n          <stop offset='0' stop-color='var(--color-graphite-500)' stop-opacity='0.10'/>\n          <stop offset='0.5' stop-color='var(--color-graphite-500)' stop-opacity='0.04'/>\n          <stop offset='1' stop-color='var(--color-graphite-500)' stop-opacity='0.16'/>\n        </linearGradient>\n        <linearGradient id='dbl-liq-grad' x1='0' y1='0' x2='0' y2='1'>\n          <stop offset='0' stop-color='currentColor' stop-opacity='0.95'/>\n          <stop offset='1' stop-color='currentColor' stop-opacity='0.60'/>\n        </linearGradient>\n        <linearGradient id='dbl-gloss' x1='0' y1='0' x2='1' y2='0'>\n          <stop offset='0' stop-color='white' stop-opacity='0'/>\n          <stop offset='0.42' stop-color='white' stop-opacity='0.28'/>\n          <stop offset='0.5' stop-color='white' stop-opacity='0.12'/>\n          <stop offset='1' stop-color='white' stop-opacity='0'/>\n        </linearGradient>\n      </defs>\n\n      <ellipse cx='60' cy='234' rx='44' ry='4' class='dbl-shadow'/>\n\n      <path d='M 12 24 v 196 a 48 14 0 0 0 96 0 v -196' class='dbl-shell' fill='url(#dbl-shell-grad)'/>\n\n      <g clip-path='url(#dbl-cyl-clip)' class='dbl-fill {{ loadClass backends.value max.value 50 80 }}'>\n        <rect\n          x='0'\n          width='120'\n          class='dbl-liquid'\n          fill='url(#dbl-liq-grad)'\n          style='y: calc(220px - 1.96px * {{ percent backends.value 0 max.value }}); height: calc(20px + 1.96px * {{ percent backends.value 0 max.value }});'\n        />\n        <ellipse\n          cx='60'\n          rx='48' ry='4'\n          class='dbl-meniscus'\n          style='cy: calc(220px - 1.96px * {{ percent backends.value 0 max.value }});'\n        />\n      </g>\n\n      <ellipse cx='60' cy='24' rx='48' ry='14' class='dbl-rim-top'/>\n      <ellipse cx='60' cy='24' rx='48' ry='14' class='dbl-rim-top-line'/>\n      <ellipse cx='60' cy='80' rx='48' ry='14' class='dbl-platter'/>\n      <ellipse cx='60' cy='150' rx='48' ry='14' class='dbl-platter'/>\n      <path d='M 12 24 v 196 a 48 14 0 0 0 96 0 v -196' class='dbl-shell-line' fill='none'/>\n\n      <rect x='12' y='24' width='96' height='196' class='dbl-gloss' fill='url(#dbl-gloss)' clip-path='url(#dbl-cyl-clip)'/>\n\n      <g class='dbl-led-grp'>\n        <circle cx='60' cy='14' r='4.4' class='dbl-led-halo {{ loadClass backends.value max.value 50 80 }}'/>\n        <circle cx='60' cy='14' r='2.2' class='dbl-led {{ loadClass backends.value max.value 50 80 }}'/>\n      </g>\n\n      <text x='60' y='118' text-anchor='middle' class='dbl-pct {{ loadClass backends.value max.value 50 80 }}'>{{ percent backends.value 0 max.value }}<tspan class='dbl-pct-sym'>%</tspan></text>\n      <text x='60' y='134' text-anchor='middle' class='dbl-pct-sub'>load</text>\n    </svg>\n  </div>\n\n  <div class='dbl-side'>\n    <div class='dbl-head'>\n      <span class='dbl-tag {{ loadClass backends.value max.value 50 80 }}'>\n        <span class='dbl-tag-dot'></span>\n        <span class='dbl-tag-lbl'>LIVE</span>\n      </span>\n      <span class='dbl-cluster'>postgresql cluster</span>\n    </div>\n\n    <div class='dbl-kpi'>\n      <div class='dbl-kpi-ico' aria-hidden='true'>\n        <svg viewBox='0 0 24 24'><path d='M4 6h16M4 12h16M4 18h10' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'/><circle cx='19' cy='18' r='1.6' fill='currentColor'/></svg>\n      </div>\n      <div class='dbl-kpi-body'>\n        <div class='dbl-kpi-lbl'>Connections</div>\n        <div class='dbl-kpi-val'>\n          <strong class='{{ loadClass backends.value max.value 50 80 }}'>{{ format backends.value 'none' 0 }}</strong>\n          <span class='dbl-kpi-sep'>/</span>\n          <span class='dbl-kpi-cap'>{{ format max.value 'none' 0 }}</span>\n        </div>\n      </div>\n    </div>\n\n    <div class='dbl-kpi'>\n      <div class='dbl-kpi-ico' aria-hidden='true'>\n        <svg viewBox='0 0 24 24'><ellipse cx='12' cy='6' rx='8' ry='2.4' fill='none' stroke='currentColor' stroke-width='1.6'/><path d='M4 6v12c0 1.3 3.6 2.4 8 2.4s8-1.1 8-2.4V6' fill='none' stroke='currentColor' stroke-width='1.6'/><path d='M4 12c0 1.3 3.6 2.4 8 2.4s8-1.1 8-2.4' fill='none' stroke='currentColor' stroke-width='1.6'/></svg>\n      </div>\n      <div class='dbl-kpi-body'>\n        <div class='dbl-kpi-lbl'>Total size</div>\n        <div class='dbl-kpi-val'>\n          <strong>{{ format size.value 'bytes' 1 }}</strong>\n        </div>\n      </div>\n    </div>\n\n    <div class='dbl-kpi'>\n      <div class='dbl-kpi-ico' aria-hidden='true'>\n        <svg viewBox='0 0 24 24'><path d='M12 3l9.5 16.5h-19z' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linejoin='round'/><line x1='12' y1='10' x2='12' y2='14.5' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><circle cx='12' cy='17.5' r='1' fill='currentColor'/></svg>\n      </div>\n      <div class='dbl-kpi-body'>\n        <div class='dbl-kpi-lbl'>Deadlocks</div>\n        <div class='dbl-kpi-val'>\n          <strong class='{{ thresholdClass deadlocks.value deadlocks.thresholds }}'>{{ format deadlocks.value 'none' 0 }}</strong>\n          <span class='dbl-kpi-cap'>{{ pluralize deadlocks.value 'event' 'events' }}</span>\n        </div>\n      </div>\n    </div>\n  </div>\n</div>",
+    "styles": ".dbl { display: grid; grid-template-columns: minmax(140px, 38%) 1fr; gap: 1.1rem; padding: 0.85rem 1rem; height: 100%; align-items: stretch; min-width: 0; } .dbl-art { display: flex; align-items: stretch; justify-content: center; min-width: 0; } .dbl-svg { width: 100%; height: 100%; max-height: 18rem; color: var(--color-graphite-500); } .dbl-shadow { fill: color-mix(in oklab, var(--color-graphite-500) 18%, transparent); filter: blur(2.5px); } .dbl-shell { stroke: color-mix(in oklab, var(--color-graphite-500) 22%, transparent); stroke-width: 1.2; } .dbl-shell-line { stroke: color-mix(in oklab, var(--color-graphite-500) 26%, transparent); stroke-width: 1.2; } .dbl-rim-top { fill: color-mix(in oklab, var(--color-graphite-500) 14%, transparent); stroke: color-mix(in oklab, var(--color-graphite-500) 30%, transparent); stroke-width: 1.2; } .dbl-rim-top-line { fill: none; stroke: color-mix(in oklab, var(--color-graphite-500) 20%, transparent); stroke-width: 0.7; transform: translateY(2.5px); } .dbl-platter { fill: none; stroke: color-mix(in oklab, var(--color-graphite-500) 22%, transparent); stroke-width: 0.9; } .dbl-fill { transition: color 600ms ease-out; } .dbl-fill.vellum-th-ok   { color: var(--color-sage-500); } .dbl-fill.vellum-th-warn { color: var(--color-amber-500); } .dbl-fill.vellum-th-bad  { color: var(--color-rust-500); } .dbl-liquid { transition: y 700ms cubic-bezier(.22,.61,.36,1), height 700ms cubic-bezier(.22,.61,.36,1); } .dbl-meniscus { fill: currentColor; opacity: 0.55; transition: cy 700ms cubic-bezier(.22,.61,.36,1); } .dbl-gloss { pointer-events: none; opacity: 0.55; mix-blend-mode: screen; } :global(html.dark) .dbl-gloss { mix-blend-mode: overlay; opacity: 0.35; } .dbl-led { transition: fill 600ms ease-out; } .dbl-led.vellum-th-ok   { fill: var(--color-sage-500); } .dbl-led.vellum-th-warn { fill: var(--color-amber-500); } .dbl-led.vellum-th-bad  { fill: var(--color-rust-500); } .dbl-led-halo { fill: currentColor; opacity: 0.18; animation: dbl-pulse 2.6s ease-in-out infinite; } .dbl-led-halo.vellum-th-ok   { fill: var(--color-sage-500); } .dbl-led-halo.vellum-th-warn { fill: var(--color-amber-500); } .dbl-led-halo.vellum-th-bad  { fill: var(--color-rust-500); } @keyframes dbl-pulse { 0%, 100% { opacity: 0.18; transform: scale(1); transform-origin: 60px 14px; } 50% { opacity: 0.05; transform: scale(2.1); transform-origin: 60px 14px; } } .dbl-pct { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; fill: var(--color-graphite-700); letter-spacing: -0.02em; } :global(html.dark) .dbl-pct { fill: var(--color-graphite-200); } .dbl-pct.vellum-th-warn { fill: var(--color-amber-700); } .dbl-pct.vellum-th-bad  { fill: var(--color-rust-700); } :global(html.dark) .dbl-pct.vellum-th-warn { fill: var(--color-amber-400); } :global(html.dark) .dbl-pct.vellum-th-bad  { fill: var(--color-rust-400); } .dbl-pct-sym { font-size: 14px; font-weight: 500; fill: var(--color-graphite-500); } .dbl-pct-sub { font-size: 8px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; fill: var(--color-graphite-500); } .dbl-side { display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; padding: 0.15rem 0; justify-content: center; } .dbl-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; } .dbl-tag { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.18rem 0.55rem; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-graphite-500) 8%, transparent); border: 1px solid color-mix(in oklab, var(--color-graphite-500) 14%, transparent); } .dbl-tag-dot { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--color-graphite-400); animation: dbl-blink 2.6s ease-in-out infinite; } .dbl-tag.vellum-th-ok   .dbl-tag-dot { background: var(--color-sage-500);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-sage-500) 22%, transparent); } .dbl-tag.vellum-th-warn .dbl-tag-dot { background: var(--color-amber-500); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-amber-500) 22%, transparent); } .dbl-tag.vellum-th-bad  .dbl-tag-dot { background: var(--color-rust-500);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust-500) 24%, transparent); } @keyframes dbl-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } } .dbl-tag-lbl { font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; color: var(--color-graphite-500); } .dbl-cluster { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; color: var(--color-graphite-700); letter-spacing: -0.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; } :global(html.dark) .dbl-cluster { color: var(--color-graphite-200); } .dbl-kpi { display: grid; grid-template-columns: 1.7rem 1fr; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; background: color-mix(in oklab, var(--color-graphite-500) 5%, transparent); border: 1px solid color-mix(in oklab, var(--color-graphite-500) 12%, transparent); border-radius: var(--radius-md); transition: border-color 250ms ease-out; min-width: 0; } .dbl-kpi-ico { display: flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; color: var(--color-graphite-500); } .dbl-kpi-ico svg { width: 100%; height: 100%; } .dbl-kpi-body { min-width: 0; } .dbl-kpi-lbl { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-graphite-500); } .dbl-kpi-val { display: flex; align-items: baseline; gap: 0.35rem; margin-top: 0.05rem; min-width: 0; } .dbl-kpi-val strong { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 500; color: var(--color-graphite-700); letter-spacing: -0.01em; } :global(html.dark) .dbl-kpi-val strong { color: var(--color-graphite-100); } .dbl-kpi-val strong.vellum-th-warn { color: var(--color-amber-700); } .dbl-kpi-val strong.vellum-th-bad  { color: var(--color-rust-700); } :global(html.dark) .dbl-kpi-val strong.vellum-th-warn { color: var(--color-amber-400); } :global(html.dark) .dbl-kpi-val strong.vellum-th-bad  { color: var(--color-rust-400); } .dbl-kpi-sep { color: var(--color-graphite-400); font-family: var(--font-mono); } .dbl-kpi-cap { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--color-graphite-500); }",
+    "dataBindings": [
+      {
+        "name": "backends",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "description": "postgresql.backends — active backend processes (drives the fill height + colour).",
+        "metric": {
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+          "instrumentName": "postgresql.backends",
+          "kind": "Sum",
+          "serviceName": "${service}"
+        }
+      },
+      {
+        "name": "max",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "description": "postgresql.connection.max — configured connection ceiling, the denominator for the saturation gauge.",
+        "metric": {
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+          "instrumentName": "postgresql.connection.max",
+          "kind": "Gauge",
+          "serviceName": "${service}"
+        }
+      },
+      {
+        "name": "size",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "bytes",
+        "description": "postgresql.db_size — total on-disk footprint summed across DBs.",
+        "metric": {
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+          "instrumentName": "postgresql.db_size",
+          "kind": "Sum",
+          "serviceName": "${service}"
+        }
+      },
+      {
+        "name": "deadlocks",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "thresholds": [
+          { "value": 0, "color": "#7AAA7A" },
+          { "value": 1, "color": "#D9B566" },
+          { "value": 10, "color": "#E27A3F" }
+        ],
+        "description": "postgresql.deadlocks — cumulative deadlocks. Anything above zero is worth investigating.",
+        "metric": {
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+          "instrumentName": "postgresql.deadlocks",
+          "kind": "Sum",
+          "serviceName": "${service}"
+        }
+      }
+    ]
+  }
+}
