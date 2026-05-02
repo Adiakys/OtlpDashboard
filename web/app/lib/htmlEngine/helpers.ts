@@ -113,6 +113,31 @@ export const TEMPLATE_HELPERS: Record<string, Helper> = {
   gte: (a, b) => Number(a) >= Number(b),
 
   /**
+   * Class name keyed off the saturation of `value` against `max`. Returns
+   * one of `vellum-th-ok` / `-warn` / `-bad` matching the same naming
+   * convention `thresholdClass` produces, so templates can ship a single
+   * stylesheet for both. `warnPct` and `badPct` default to 50 / 80.
+   *
+   *   class='liquid {{ loadClass backends.value max.value 50 80 }}'
+   *
+   * Decoupled from `thresholdClass` because the latter expects absolute
+   * threshold stops; this one is the right tool when the threshold is
+   * "fraction of capacity" (connections vs max_connections, free disk vs
+   * total, etc.) where the numerator alone is meaningless.
+   */
+  loadClass: (value, max, warnPct, badPct) => {
+    const v = Number(value)
+    const m = Number(max)
+    if (!Number.isFinite(v) || !Number.isFinite(m) || m <= 0) return 'vellum-th-ok'
+    const pct = (v / m) * 100
+    const warn = Number(warnPct ?? 50)
+    const bad = Number(badPct ?? 80)
+    if (pct >= bad) return 'vellum-th-bad'
+    if (pct >= warn) return 'vellum-th-warn'
+    return 'vellum-th-ok'
+  },
+
+  /**
    * Defaulting helper — returns the first defined/non-empty argument.
    *
    *   {{ default value '—' }}

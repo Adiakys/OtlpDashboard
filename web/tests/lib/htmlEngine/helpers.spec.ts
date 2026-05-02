@@ -35,6 +35,26 @@ describe('helpers — percent', () => {
   })
 })
 
+describe('helpers — loadClass', () => {
+  const { loadClass } = TEMPLATE_HELPERS
+
+  it('returns ok / warn / bad based on saturation', () => {
+    expect(loadClass(10, 100)).toBe('vellum-th-ok')
+    expect(loadClass(60, 100)).toBe('vellum-th-warn')
+    expect(loadClass(85, 100)).toBe('vellum-th-bad')
+  })
+
+  it('honors custom warn / bad cutoffs', () => {
+    expect(loadClass(10, 100, 5, 20)).toBe('vellum-th-warn')
+    expect(loadClass(10, 100, 5, 8)).toBe('vellum-th-bad')
+  })
+
+  it('degenerates safely on bad inputs (max=0, NaN, …)', () => {
+    expect(loadClass(50, 0)).toBe('vellum-th-ok')
+    expect(loadClass('x', 100)).toBe('vellum-th-ok')
+  })
+})
+
 describe('helpers — comparators', () => {
   const { eq, neq, lt, lte, gt, gte } = TEMPLATE_HELPERS
 

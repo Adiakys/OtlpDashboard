@@ -16,7 +16,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000002",
       "kind": "library:dotnet/runtime-overview",
-      "x": 0, "y": 2, "w": 6, "h": 4,
+      "x": 0, "y": 2, "w": 6, "h": 5,
       "config": {
         "parameters": { "service": "sample-server" },
         "range": "last-15m",
@@ -24,9 +24,20 @@
       }
     },
     {
+      "id": "c4d51234-1234-5678-90ab-00000000000b",
+      "kind": "library:postgres/db-load",
+      "x": 6, "y": 2, "w": 6, "h": 5,
+      "config": {
+        "parameters": { "service": "postgresql" },
+        "range": "last-15m",
+        "title": "PostgreSQL load"
+      }
+    },
+
+    {
       "id": "c4d51234-1234-5678-90ab-000000000003",
       "kind": "library:postgres/postgres-server-card",
-      "x": 6, "y": 2, "w": 6, "h": 4,
+      "x": 0, "y": 7, "w": 12, "h": 4,
       "config": {
         "parameters": { "service": "postgresql" },
         "range": "last-15m",
@@ -37,7 +48,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000004",
       "kind": "library:postgres/connection-saturation-gauge",
-      "x": 0, "y": 6, "w": 4, "h": 4,
+      "x": 0, "y": 11, "w": 4, "h": 4,
       "config": {
         "parameters": { "service": "postgresql" },
         "range": "last-15m"
@@ -46,7 +57,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000005",
       "kind": "library:dotnet/gc-pressure-meter",
-      "x": 4, "y": 6, "w": 4, "h": 4,
+      "x": 4, "y": 11, "w": 4, "h": 4,
       "config": {
         "parameters": { "service": "sample-server" },
         "range": "last-15m"
@@ -55,7 +66,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000006",
       "kind": "library:postgres/transaction-pulse",
-      "x": 8, "y": 6, "w": 4, "h": 4,
+      "x": 8, "y": 11, "w": 4, "h": 4,
       "config": {
         "parameters": { "service": "postgresql" },
         "range": "last-1h"
@@ -65,7 +76,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000007",
       "kind": "library:postgres/db-scoreboard",
-      "x": 0, "y": 10, "w": 6, "h": 4,
+      "x": 0, "y": 15, "w": 6, "h": 4,
       "config": {
         "parameters": { "service": "postgresql" },
         "range": "last-15m"
@@ -74,7 +85,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000008",
       "kind": "std:recent-traces",
-      "x": 6, "y": 10, "w": 6, "h": 4,
+      "x": 6, "y": 15, "w": 6, "h": 4,
       "config": {
         "range": "last-1h",
         "service": null,
@@ -86,7 +97,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-000000000009",
       "kind": "std:metric-pie",
-      "x": 0, "y": 14, "w": 4, "h": 4,
+      "x": 0, "y": 19, "w": 4, "h": 4,
       "config": {
         "metric": {
           "resourceHash": "",
@@ -107,7 +118,7 @@
     {
       "id": "c4d51234-1234-5678-90ab-00000000000a",
       "kind": "std:logs-stream",
-      "x": 4, "y": 14, "w": 8, "h": 4,
+      "x": 4, "y": 19, "w": 8, "h": 4,
       "config": {
         "range": "last-15m",
         "service": null,
