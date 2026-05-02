@@ -27,6 +27,12 @@ README.md
 # Tests are never part of the runtime image — strip ~250 MB of build context.
 tests/
 
+# Demo workload (sample-server, sample-client, widget libraries, dashboards,
+# Collector config) is built by its own compose services with
+# `context: ./demo/...`. The dashboard image doesn't reference any of it,
+# so excluding it keeps the BuildKit context small.
+demo/
+
 # Local-only artifacts that have no business in any image.
 dashboard-data/
 docs/

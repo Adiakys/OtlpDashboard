@@ -9,7 +9,12 @@ HTTP/Protobuf on `:4318` (the same port also serves the SPA).
 
 ## Quick start
 
-### Docker (default: SQLite, persisted to a named volume)
+### Docker — full demo stack
+
+The bundled `docker-compose.yml` starts the dashboard against Postgres plus a
+small demo workload (`sample-server` + `sample-client` + the OpenTelemetry
+Collector) that pushes traces, logs, and metrics so the dashboard isn't empty
+on first boot:
 
 ```bash
 docker compose up --build
@@ -18,12 +23,12 @@ docker compose up --build
 # SPA       : http://localhost:4318
 ```
 
-PostgreSQL or SQL Server instead of SQLite:
-
-```bash
-STORAGE_PROVIDER=PostgreSql docker compose --profile postgres  up --build
-STORAGE_PROVIDER=SqlServer  docker compose --profile sqlserver up --build
-```
+Sources for the demo workload live under [`demo/`](demo/) — sample app
+(Server / Client), built-in dashboards (`demo/dashboards`), widget
+libraries (`demo/widget-libraries/{dotnet,postgres}`), and the Collector
+config. To run only the dashboard against an external Postgres / SQL Server,
+strip the demo services from your override file and point
+`Dashboard__Storage__Provider` + `ConnectionStrings__*` at your DB.
 
 ### Local dev (no Docker)
 
@@ -208,9 +213,10 @@ When two paths expose libraries with the same `manifest.id`, the first
 in scan order wins and the rest are skipped with a warning — so a
 runtime install can override a baked-in default by sharing its id.
 
-A sample library lives at `widget-libraries-demo/demo-pack/` and is
-bind-mounted by `docker-compose.yml` so `docker compose up --build`
-shows a **demo-pack** section in the picker out of the box.
+Two sample libraries live under `demo/widget-libraries/` (`dotnet` for
+.NET runtime metrics, `postgres` for Postgres server metrics) and are
+bind-mounted by `docker-compose.yml`, so `docker compose up --build`
+shows them in the picker out of the box.
 
 Install one of two ways:
 
@@ -363,10 +369,9 @@ Field rules enforced by the loader (`engine: spec`):
 Invalid widgets are skipped (logged) and don't break the rest of the
 library.
 
-The demo pack at `widget-libraries-demo/demo-pack/` ships two
-template-engine widgets — `db-card` (the database illustration above)
-and `service-tile-grid` (one tile per service via `splitBy`) — that
-double as live examples for authors.
+The bundled `demo/widget-libraries/postgres/` pack ships
+`postgres-server-card` and `db-scoreboard` — two `engine: spec` widgets
+that double as live examples for authors of the `spec` engine.
 
 ---
 
@@ -428,8 +433,8 @@ the seeder back off.
 
 To re-apply a built-in file, delete the dashboard via the UI first.
 
-A demo lives at `dashboards-demo/`, mounted by `docker-compose.yml`
-into the runtime path.
+A demo lives at `demo/dashboards/`, mounted by `docker-compose.yml`
+as `/app/builtin-dashboards`.
 
 ---
 

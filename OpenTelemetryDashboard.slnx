@@ -1,6 +1,11 @@
 <Solution>
-  <Folder Name="/files/">
+  <Folder Name="/demo/">
+    <Project Path="demo/Client/Client.csproj" />
+    <Project Path="demo/Server/Server.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
     <File Path=".gitignore" />
+    <File Path="demo\otel-collector-config.yaml" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="docker-compose.yml" />

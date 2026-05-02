@@ -1,0 +1,44 @@
+{
+  "name": "Transaction pulse",
+  "description": "Live transaction profile: commits, rollbacks, deadlocks side-by-side with a proportional flow bar showing commit:rollback ratio. Bind each row to its receiver metric. Pulsing LED on each line glows green/amber/red driven by the deadlock count.",
+  "icon": "i-ph-pulse",
+  "defaultSize": { "w": 5, "h": 4 },
+  "engine": "spec",
+  "spec": {
+    "template": "<div class='txp'>\n  <div class='rows'>\n    <div class='row commit'>\n      <span class='dot dot-ok'></span>\n      <svg viewBox='0 0 24 24' class='ico' aria-hidden='true'><circle cx='12' cy='12' r='9' fill='none' stroke='currentColor' stroke-width='1.6'/><path d='M8 12.5l3 3 5-6' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>\n      <span class='lbl'>Commits</span>\n      <strong class='val'>{{ format commits.value 'none' 0 }}</strong>\n    </div>\n    <div class='row rollback'>\n      <span class='dot {{ thresholdClass rollbacks.value rollbacks.thresholds }}'></span>\n      <svg viewBox='0 0 24 24' class='ico' aria-hidden='true'><path d='M4 12a8 8 0 1 0 2.34-5.66' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'/><polyline points='4 4 4 9 9 9' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linejoin='round' stroke-linecap='round'/></svg>\n      <span class='lbl'>Rollbacks</span>\n      <strong class='val {{ thresholdClass rollbacks.value rollbacks.thresholds }}'>{{ format rollbacks.value 'none' 0 }}</strong>\n    </div>\n    <div class='row deadlock'>\n      <span class='dot {{ thresholdClass deadlocks.value deadlocks.thresholds }}'></span>\n      <svg viewBox='0 0 24 24' class='ico' aria-hidden='true'><path d='M12 3l9 16H3z' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linejoin='round'/><line x1='12' y1='10' x2='12' y2='14' stroke='currentColor' stroke-width='1.8' stroke-linecap='round'/><circle cx='12' cy='17' r='0.9' fill='currentColor'/></svg>\n      <span class='lbl'>Deadlocks</span>\n      <strong class='val {{ thresholdClass deadlocks.value deadlocks.thresholds }}'>{{ format deadlocks.value 'none' 0 }}</strong>\n    </div>\n  </div>\n  <div class='flow'>\n    <div class='cap'>commit:rollback ratio</div>\n    <div class='bar'>\n      <div class='seg ok' style='flex: {{ default commits.value 1 }}'><span>{{ format commits.value 'none' 0 }}</span></div>\n      <div class='seg bad' style='flex: {{ default rollbacks.value 0 }}'><span>{{ format rollbacks.value 'none' 0 }}</span></div>\n    </div>\n  </div>\n</div>",
+    "styles": ".txp { display: flex; flex-direction: column; height: 100%; padding: 0.85rem 1rem; gap: 0.85rem; } .txp .rows { display: flex; flex-direction: column; gap: 0.5rem; flex: 0 0 auto; } .txp .row { display: grid; grid-template-columns: 1.1rem 1.2rem 1fr auto; align-items: center; gap: 0.55rem; padding: 0.4rem 0.55rem; background: color-mix(in oklab, var(--color-graphite-500) 6%, transparent); border: 1px solid color-mix(in oklab, var(--color-graphite-500) 14%, transparent); border-radius: var(--radius-md); } .txp .row.commit   { color: var(--color-sage-600); } .txp .row.rollback { color: var(--color-amber-600); } .txp .row.deadlock { color: var(--color-rust-600); } .txp .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--color-graphite-400); justify-self: center; animation: txp-pulse 2.2s ease-in-out infinite; } .txp .dot.dot-ok, .txp .dot.vellum-th-ok   { background: var(--color-sage-500);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-sage-500)  22%, transparent); } .txp .dot.vellum-th-warn { background: var(--color-amber-500); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-amber-500) 24%, transparent); } .txp .dot.vellum-th-bad  { background: var(--color-rust-500);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-rust-500)  28%, transparent); } @keyframes txp-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.78); opacity: 0.55; } } .txp .ico { width: 1.1rem; height: 1.1rem; opacity: 0.85; } .txp .lbl { font-size: 0.78rem; font-weight: 500; color: var(--color-graphite-700); } .txp .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 500; color: var(--color-graphite-700); } .txp .val.vellum-th-warn { color: var(--color-amber-600); } .txp .val.vellum-th-bad  { color: var(--color-rust-600); } .txp .flow { display: flex; flex-direction: column; gap: 0.3rem; flex: 0 0 auto; margin-top: auto; } .txp .cap { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-graphite-500); } .txp .bar { display: flex; height: 1.5rem; background: color-mix(in oklab, var(--color-graphite-500) 8%, transparent); border-radius: var(--radius-pill); overflow: hidden; } .txp .seg { display: flex; align-items: center; justify-content: center; min-width: 0; transition: flex-grow 600ms ease-out; padding: 0 0.4rem; } .txp .seg span { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.7rem; font-weight: 500; color: white; opacity: 0.95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .txp .seg.ok  { background: var(--color-sage-500);  } .txp .seg.bad { background: var(--color-amber-500); }",
+    "dataBindings": [
+      {
+        "name": "commits",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "description": "postgresql.commits — cumulative committed transactions"
+      },
+      {
+        "name": "rollbacks",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "thresholds": [
+          { "value": 0, "color": "#7AAA7A" },
+          { "value": 100, "color": "#D9B566" },
+          { "value": 1000, "color": "#E27A3F" }
+        ],
+        "description": "postgresql.rollbacks — cumulative rolled-back transactions"
+      },
+      {
+        "name": "deadlocks",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "none",
+        "thresholds": [
+          { "value": 0, "color": "#7AAA7A" },
+          { "value": 1, "color": "#D9B566" },
+          { "value": 10, "color": "#E27A3F" }
+        ],
+        "description": "postgresql.deadlocks — cumulative deadlocks. Drives the row's pulsing dot color."
+      }
+    ]
+  }
+}

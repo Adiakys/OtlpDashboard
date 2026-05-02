@@ -1,0 +1,8 @@
+{
+  "id": "dotnet",
+  "name": ".NET runtime",
+  "version": "1.0.0",
+  "author": "OpenTelemetryDashboard",
+  "license": "MIT",
+  "description": "Widgets for the .NET runtime metrics emitted by OpenTelemetry.Instrumentation.Runtime (process.runtime.dotnet.*). GC, threads, exceptions, JIT."
+}

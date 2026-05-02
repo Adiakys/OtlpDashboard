@@ -1,0 +1,13 @@
+{
+  "name": "Commits",
+  "description": "Cumulative committed transactions per database. Bind to 'postgresql.commits' — the line view lets you spot traffic regimes (steady slope vs spikes).",
+  "icon": "i-ph-check-circle",
+  "defaultSize": { "w": 6, "h": 4 },
+  "engine": "preset",
+  "baseKind": "metric-line",
+  "defaultConfig": {
+    "metrics": [],
+    "range": "last-1h",
+    "splitBy": null
+  }
+}

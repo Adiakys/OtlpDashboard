@@ -1,0 +1,13 @@
+{
+  "name": "Buffer cache hit/read",
+  "description": "Two-line plot of shared-buffer hits vs disk reads. Bind both 'postgresql.blks_hit' and 'postgresql.blks_read' on the same line widget — divergence between the two = cache pressure.",
+  "icon": "i-ph-database",
+  "defaultSize": { "w": 6, "h": 4 },
+  "engine": "preset",
+  "baseKind": "metric-line",
+  "defaultConfig": {
+    "metrics": [],
+    "range": "last-1h",
+    "splitBy": null
+  }
+}

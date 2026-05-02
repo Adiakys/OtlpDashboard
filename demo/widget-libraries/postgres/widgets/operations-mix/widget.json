@@ -1,0 +1,20 @@
+{
+  "name": "Operations mix",
+  "description": "Bar gauge of insert/update/delete/HOT operations split by 'operation'. Bind to 'postgresql.operations' — quick view of the write profile.",
+  "icon": "i-ph-arrows-split",
+  "defaultSize": { "w": 5, "h": 4 },
+  "engine": "preset",
+  "baseKind": "metric-bar-gauge",
+  "defaultConfig": {
+    "metric": null,
+    "range": "last-1h",
+    "splitBy": "operation",
+    "calc": "last",
+    "unitKind": "none",
+    "decimals": 0,
+    "topN": 10,
+    "min": 0,
+    "max": null,
+    "thresholds": []
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Test stack overview",
+  "widgets": [
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000001",
+      "kind": "std:text",
+      "x": 0, "y": 0, "w": 12, "h": 2,
+      "config": {
+        "markdown": "## OpenTelemetry test stack\n\nDashboard pre-impaginata e **pre-bindata** sul compose di test (sample-server + sample-client + postgres + redis). I binding `resourceHash` vuoti vengono risolti a runtime dal catalogo strumenti via logical key (`scope + name + kind + serviceName`), quindi al primo tick di telemetria i widget si popolano da soli.\n\n*Le tue modifiche sono persistenti — questa default non viene riscritta dopo che la modifichi.*",
+        "align": "left"
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000002",
+      "kind": "library:dotnet/runtime-overview",
+      "x": 0, "y": 2, "w": 6, "h": 4,
+      "config": {
+        "bindings": {
+          "heap":       { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.gc.heap.size",            "kind": "Sum", "serviceName": "sample-server" },
+          "committed":  { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.gc.committed_memory.size", "kind": "Sum", "serviceName": "sample-server" },
+          "threads":    { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.thread_pool.threads.count","kind": "Sum", "serviceName": "sample-server" },
+          "exceptions": { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.exceptions.count",         "kind": "Sum", "serviceName": "sample-server" },
+          "gc":         { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.gc.collections.count",     "kind": "Sum", "serviceName": "sample-server" },
+          "contention": { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.monitor.lock_contention.count", "kind": "Sum", "serviceName": "sample-server" }
+        },
+        "range": "last-15m",
+        "title": ".NET runtime — sample-server"
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000003",
+      "kind": "library:postgres/postgres-server-card",
+      "x": 6, "y": 2, "w": 6, "h": 4,
+      "config": {
+        "bindings": {
+          "backends":   { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.backends",               "kind": "Sum",   "serviceName": "postgresql" },
+          "dbCount":    { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.database.count",         "kind": "Sum",   "serviceName": "postgresql" },
+          "tableCount": { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.table.count",            "kind": "Sum",   "serviceName": "postgresql" },
+          "totalSize":  { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.db_size",                "kind": "Sum",   "serviceName": "postgresql" },
+          "walAge":     { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.wal.age",                "kind": "Gauge", "serviceName": "postgresql" },
+          "replLag":    { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.replication.data_delay", "kind": "Gauge", "serviceName": "postgresql" }
+        },
+        "range": "last-15m",
+        "title": "PostgreSQL cluster"
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000004",
+      "kind": "library:postgres/connection-saturation-gauge",
+      "x": 0, "y": 6, "w": 4, "h": 4,
+      "config": {
+        "bindings": {
+          "backends": { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.backends",       "kind": "Sum",   "serviceName": "postgresql" },
+          "max":      { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.connection.max", "kind": "Gauge", "serviceName": "postgresql" }
+        },
+        "range": "last-15m"
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000005",
+      "kind": "library:dotnet/gc-pressure-meter",
+      "x": 4, "y": 6, "w": 4, "h": 4,
+      "config": {
+        "bindings": {
+          "heap":      { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.gc.heap.size",            "kind": "Sum", "serviceName": "sample-server" },
+          "committed": { "resourceHash": "", "scopeName": "OpenTelemetry.Instrumentation.Runtime", "instrumentName": "process.runtime.dotnet.gc.committed_memory.size", "kind": "Sum", "serviceName": "sample-server" }
+        },
+        "range": "last-15m"
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000006",
+      "kind": "library:postgres/transaction-pulse",
+      "x": 8, "y": 6, "w": 4, "h": 4,
+      "config": {
+        "bindings": {
+          "commits":   { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.commits",   "kind": "Sum", "serviceName": "postgresql" },
+          "rollbacks": { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.rollbacks", "kind": "Sum", "serviceName": "postgresql" },
+          "deadlocks": { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.deadlocks", "kind": "Sum", "serviceName": "postgresql" }
+        },
+        "range": "last-1h"
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000007",
+      "kind": "library:postgres/db-scoreboard",
+      "x": 0, "y": 10, "w": 6, "h": 4,
+      "config": {
+        "bindings": {
+          "databases": { "resourceHash": "", "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver", "instrumentName": "postgresql.backends", "kind": "Sum", "serviceName": "postgresql" }
+        },
+        "range": "last-15m"
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000008",
+      "kind": "std:recent-traces",
+      "x": 6, "y": 10, "w": 6, "h": 4,
+      "config": {
+        "range": "last-1h",
+        "service": null,
+        "sort": "errorsFirst",
+        "limit": 25
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000009",
+      "kind": "std:metric-pie",
+      "x": 0, "y": 14, "w": 4, "h": 4,
+      "config": {
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "OpenTelemetry.Instrumentation.Runtime",
+          "instrumentName": "process.runtime.dotnet.gc.collections.count",
+          "kind": "Sum",
+          "serviceName": "sample-server"
+        },
+        "range": "last-1h",
+        "splitBy": "generation",
+        "calc": "last",
+        "unitKind": "none",
+        "decimals": 0,
+        "donut": true,
+        "showLegend": true
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-00000000000a",
+      "kind": "std:logs-stream",
+      "x": 4, "y": 14, "w": 8, "h": 4,
+      "config": {
+        "range": "last-15m",
+        "service": null,
+        "minSeverity": "all",
+        "limit": 50
+      }
+    }
+  ]
+}

@@ -1,8 +1,0 @@
-{
-  "id": "demo-pack",
-  "name": "Demo Pack",
-  "version": "1.0.0",
-  "author": "OpenTelemetryDashboard",
-  "license": "MIT",
-  "description": "Sample widget library bundled with the repo. Drop or mount it under widget-libraries/ to verify the picker shows the 'demo-pack' section."
-}

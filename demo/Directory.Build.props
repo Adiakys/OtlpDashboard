@@ -1,0 +1,14 @@
+<Project>
+  <!-- Inherit company/version metadata, language settings, and TreatWarningsAsErrors
+       from the repo root. Re-importing is required because MSBuild stops the
+       Directory.Build.props discovery walk at the first file it finds. -->
+  <Import Project="..\Directory.Build.props" />
+
+  <PropertyGroup Label="Demo-only relaxations">
+    <!-- The demo Server/Client are deliberately written as compact samples,
+         not production code: they use LoggerExtensions (LogInformation, …)
+         instead of source-generated LoggerMessage delegates. The two CA rules
+         below would otherwise trip TreatWarningsAsErrors. -->
+    <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>
+  </PropertyGroup>
+</Project>

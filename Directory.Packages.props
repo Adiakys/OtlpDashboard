@@ -63,6 +63,13 @@
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Demo stack (demo/Server, demo/Client) — not referenced by the runtime image">
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.12.0-beta.2" />
+  </ItemGroup>
+
   <ItemGroup Label="Git client (LibGit2Sharp for widget library installs)">
     <!-- LibGit2Sharp ships native libgit2 binaries for linux-x64 (musl & glibc),
          linux-arm64, win-x64, and osx-x64/arm64 via the NativeBinaries package

@@ -1,0 +1,159 @@
+receivers:
+  redis:
+    endpoint: redis:6379
+    collection_interval: 10s
+
+  postgresql:
+    endpoint: postgres:5432
+    transport: tcp
+    username: otel
+    password: otel
+    # The Go `lib/pq` driver default-enables SSL; the alpine Postgres
+    # image doesn't have it configured, so without `tls.insecure: true`
+    # most queries error out with "pq: SSL is not enabled on the
+    # server" and only the cheapest cluster-wide scrapes survive
+    # (postgresql.database.count, postgresql.table.count). Disabling
+    # TLS over the docker-compose private network is the right call.
+    tls:
+      insecure: true
+    # Listing every DB enables per-database metrics
+    # (commits/rollbacks/blocks_read/db_size/dead_rows/operations…). With
+    # an empty list the receiver only emits cluster-level counts.
+    databases:
+      - telemetry
+      - sampleapp
+    collection_interval: 10s
+    # Turn on the metrics that ship "disabled by default". The default
+    # set is meant for huge fleets; on a demo cluster the cost is
+    # negligible and the extra signal is what we're here for.
+    metrics:
+      postgresql.database.locks:
+        enabled: true
+      postgresql.deadlocks:
+        enabled: true
+      postgresql.sequential_scans:
+        enabled: true
+      postgresql.temp_files:
+        enabled: true
+      # Bytes written to temp files — pairs with `temp_files` to flag
+      # query plans that spill (large sorts/hashes that exceeded work_mem).
+      postgresql.temp.io:
+        enabled: true
+      postgresql.wal.age:
+        enabled: true
+      postgresql.wal.delay:
+        enabled: true
+      postgresql.wal.lag:
+        enabled: true
+      postgresql.tup_updated:
+        enabled: true
+      postgresql.tup_inserted:
+        enabled: true
+      postgresql.tup_deleted:
+        enabled: true
+      postgresql.tup_returned:
+        enabled: true
+      postgresql.tup_fetched:
+        enabled: true
+      postgresql.blks_hit:
+        enabled: true
+      postgresql.blks_read:
+        enabled: true
+
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+
+  # Promote postgres-specific attributes from the datapoint level to the
+  # resource level. Effect: each (database, table) combination becomes a
+  # distinct resource → the dashboard's instrument listing shows one row
+  # per (metric_name, database, table) instead of mashing every DB into
+  # the same row. Widgets that already split-by attribute keep working
+  # because the attributes are still readable on the timestamped data.
+  groupbyattrs/postgres:
+    keys:
+      - postgresql.database.name
+      - postgresql.table.name
+      - postgresql.index.name
+
+  # The postgresql / redis receivers emit metrics with the collector's
+  # own resource (service.name = "otelcol-contrib"). Stamp a dedicated
+  # service.name per receiver so the dashboard groups them under the
+  # source they describe, not under the collector. service.instance.id
+  # is filled from postgresql.database.name (which `groupbyattrs` just
+  # moved into the resource) so two instruments with the same name but
+  # different databases show up as separate "instances" in the listing.
+  transform/postgres:
+    metric_statements:
+      - context: resource
+        statements:
+          - set(attributes["service.instance.id"], attributes["postgresql.database.name"]) where attributes["postgresql.database.name"] != nil
+  resource/postgres:
+    attributes:
+      - key: service.name
+        value: postgresql
+        action: upsert
+      - key: service.namespace
+        value: infrastructure
+        action: upsert
+      - key: db.system
+        value: postgresql
+        action: upsert
+  resource/redis:
+    attributes:
+      - key: service.name
+        value: redis
+        action: upsert
+      - key: service.namespace
+        value: infrastructure
+        action: upsert
+      - key: db.system
+        value: redis
+        action: upsert
+
+exporters:
+  otlp:
+    endpoint: dashboard:4317
+    tls:
+      insecure: true
+    headers:
+      Authorization: "Bearer api_token"
+
+service:
+  pipelines:
+    # Splitting one pipeline per receiver lets each stream carry its
+    # own resource attributes — they can't share `processors` because
+    # `resource/postgres` would clobber redis traffic and vice versa.
+    metrics/postgres:
+      receivers: [postgresql]
+      # groupbyattrs first → split into one resource per (db, table);
+      # then transform copies the db name into service.instance.id;
+      # then resource stamps service.name=postgresql on every group.
+      processors: [groupbyattrs/postgres, transform/postgres, resource/postgres, batch]
+      exporters: [otlp]
+
+    metrics/redis:
+      receivers: [redis]
+      processors: [resource/redis, batch]
+      exporters: [otlp]
+
+    # OTLP-pushed metrics from the sample apps already carry their own
+    # service.name set by the SDK; just batch and forward.
+    metrics/otlp:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]
+
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]

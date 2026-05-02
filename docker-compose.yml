@@ -1,20 +1,16 @@
-# Docker Compose di sviluppo.
+# Demo stack: dashboard + Postgres + Redis + sample-server / sample-client +
+# OpenTelemetry Collector. The dashboard persists telemetry to the Postgres
+# container by default (no external DB needed).
 #
-# Default (SQLite — niente DB esterno):
 #   docker compose up --build
 #
-# PostgreSQL (i default puntano gia' al container `postgres` su rete Compose):
-#   STORAGE_PROVIDER=PostgreSql docker compose --profile postgres up --build
+# To switch to SQL Server, start with `--profile sqlserver` and override
+# Dashboard__Storage__Provider on the dashboard service (the SqlServer
+# connection string is already wired below for that case).
 #
-# SQL Server (i default puntano gia' al container `sqlserver`):
-#   STORAGE_PROVIDER=SqlServer docker compose --profile sqlserver up --build
-#
-# Per puntare a un DB esterno (non al container interno) sovrascrivere
-# CONN_POSTGRESQL / CONN_SQLSERVER in .env. Vedi .env.example.
-#
-# Ascolto:
-#   - gRPC OTLP : localhost:4317
-#   - HTTP OTLP : localhost:4318 (anche /healthz)
+# Listens on:
+#   - localhost:4317 — OTLP gRPC ingestion
+#   - localhost:4318 — OTLP HTTP ingestion + SPA + /api + /mcp + /healthz
 
 services:
   dashboard:
@@ -29,37 +25,61 @@ services:
       - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      DASHBOARD__BROWSERTOKEN: changeme
+      DASHBOARD__BROWSERTOKEN: "changeme"
+      DASHBOARD__OTLP__APIKEY: "api_token"
+      DASHBOARD__MCP__ENABLED: "true"
       Dashboard__Ingestion__Channel__Capacity: "20000"
       Logging__LogLevel__OpenTelemetryDashboard: "Debug"
-      Dashboard__Storage__Provider: ${STORAGE_PROVIDER:-Sqlite}
-      ConnectionStrings__Sqlite: "${CONN_SQLITE:-Data Source=/app/data/telemetry.db}"
-      ConnectionStrings__SqlServer: "${CONN_SQLSERVER:-Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True}"
-      ConnectionStrings__PostgreSql: "${CONN_POSTGRESQL:-Host=postgres;Database=telemetry;Username=otel;Password=otel}"
+      Dashboard__Storage__Provider: "PostgreSql"
+      ConnectionStrings__PostgreSql: "Host=postgres;Database=telemetry;Username=otel;Password=otel"
+      ConnectionStrings__SqlServer: "Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True"
     volumes:
       - dashboard-data:/app/data
-      # Demo widget library — mounted read-only inside the volume so it
-      # ships out-of-the-box with `docker compose up --build`. Drop your
-      # own libraries via `docker cp ... otel-dashboard:/app/data/widget-libraries/<id>/`
-      # or remove this line if you don't want the sample showing up.
-      - ./widget-libraries-demo/demo-pack:/app/data/widget-libraries/demo-pack:ro
-      # Demo built-in dashboards — JSON files in this folder are loaded by
-      # `BuiltinDashboardSeeder` at boot. Skipped silently if their id is
-      # already in the database, so the user's edits survive restarts.
-      - ./dashboards-demo:/app/builtin-dashboards:ro
-    # Soft caps tuned for the typical self-hosted deployment. Combined with
-    # DOTNET_GCConserveMemory=9 / GCRetainVM=0 in the image, the runtime
-    # actively returns pages to the OS instead of holding them as headroom.
-    # Override (or remove) for high-throughput ingestion.
+      - ./demo/widget-libraries/dotnet:/app/data/widget-libraries/dotnet:ro
+      - ./demo/widget-libraries/postgres:/app/data/widget-libraries/postgres:ro
+      - ./demo/dashboards:/app/builtin-dashboards:ro
     mem_limit: 512m
     mem_reservation: 128m
     cpus: 2.0
-    # The image declares its own HEALTHCHECK using busybox `wget`; Compose
-    # picks it up automatically. No `curl` install required.
+
+  sample-server:
+    build:
+      context: ./demo/Server
+    image: oteldemo-sample-server:dev
+    container_name: oteldemo-sample-server
+    restart: unless-stopped
+    ports:
+      - "5050:8080"
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Database=sampleapp;Username=otel;Password=otel"
+      ConnectionStrings__Redis: "redis:6379"
+      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Headers: "Authorization=Bearer api_token"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      dashboard:
+        condition: service_started
+
+  sample-client:
+    build:
+      context: ./demo/Client
+    image: oteldemo-sample-client:dev
+    container_name: oteldemo-sample-client
+    restart: unless-stopped
+    environment:
+      Server__BaseUrl: "http://sample-server:8080"
+      Loop__IntervalMs: "3000"
+      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Headers: "Authorization=Bearer api_token"
+    depends_on:
+      sample-server:
+        condition: service_started
 
   postgres:
-    profiles: ["postgres"]
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: otel-postgres
     restart: unless-stopped
     environment:
@@ -90,46 +110,28 @@ services:
       timeout: 5s
       retries: 5
 
-  telemetrygen-traces:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
-    profiles: ["otel-test"]
-    depends_on:
-      - dashboard
-    command: >
-      traces
-      --otlp-endpoint dashboard:4317
-      --otlp-insecure
-      --rate 5
-      --duration 300s
+  redis:
+    image: redis:7-alpine
+    container_name: otel-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
 
-  telemetrygen-logs:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
-    profiles: ["otel-test"]
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./demo/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     depends_on:
       - dashboard
-    command: >
-      logs
-      --otlp-endpoint dashboard:4317
-      --otlp-insecure
-      --rate 5
-      --duration 300s
-
-  telemetrygen-metrics:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
-    profiles: ["otel-test"]
-    depends_on:
-      - dashboard
-    # Il translator lato dashboard supporta Gauge e Sum; telemetrygen per
-    # default emette un Sum ("gen") — perfetto per popolare /metrics senza
-    # configurazione extra.
-    command: >
-      metrics
-      --otlp-endpoint dashboard:4317
-      --otlp-insecure
-      --rate 5
-      --duration 300s
+      - redis
+      - postgres
 
 volumes:
   dashboard-data:
   postgres-data:
   sqlserver-data:
+  redis-data:

@@ -1,0 +1,13 @@
+{
+  "name": "Rollbacks",
+  "description": "Cumulative rolled-back transactions per database. Bind to 'postgresql.rollbacks'. Steep slope vs commits = errors or aborts.",
+  "icon": "i-ph-arrow-counter-clockwise",
+  "defaultSize": { "w": 6, "h": 4 },
+  "engine": "preset",
+  "baseKind": "metric-line",
+  "defaultConfig": {
+    "metrics": [],
+    "range": "last-1h",
+    "splitBy": null
+  }
+}

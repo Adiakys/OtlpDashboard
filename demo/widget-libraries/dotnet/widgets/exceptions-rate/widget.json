@@ -1,0 +1,13 @@
+{
+  "name": "Exceptions thrown",
+  "description": "Cumulative number of managed exceptions thrown. Bind to 'process.runtime.dotnet.exceptions.count' — the line variant lets you spot bursts.",
+  "icon": "i-ph-warning-circle",
+  "defaultSize": { "w": 6, "h": 4 },
+  "engine": "preset",
+  "baseKind": "metric-line",
+  "defaultConfig": {
+    "metrics": [],
+    "range": "last-1h",
+    "splitBy": null
+  }
+}

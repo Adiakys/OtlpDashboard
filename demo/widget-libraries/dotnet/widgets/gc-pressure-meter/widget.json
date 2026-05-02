@@ -1,0 +1,32 @@
+{
+  "name": "GC pressure meter",
+  "description": "Vertical gauge showing managed heap fill against committed memory. Bind 'heap' to 'process.runtime.dotnet.gc.heap.size' and 'committed' to 'process.runtime.dotnet.gc.committed_memory.size' — the meter fills proportionally and color-shifts past 70% / 90%.",
+  "icon": "i-ph-thermometer",
+  "defaultSize": { "w": 3, "h": 5 },
+  "engine": "spec",
+  "spec": {
+    "template": "<div class='gcm'>\n  <svg viewBox='0 0 60 200' preserveAspectRatio='xMidYMid meet' aria-hidden='true'>\n    <defs>\n      <clipPath id='gcm-bar'>\n        <rect x='18' y='10' width='24' height='160' rx='6'/>\n      </clipPath>\n    </defs>\n    <rect x='18' y='10' width='24' height='160' rx='6' class='track'/>\n    <g clip-path='url(#gcm-bar)'>\n      <rect x='18' y='10' width='24' height='160' class='zone-warn' opacity='0.18'/>\n      <rect x='18' y='10' width='24' height='48' class='zone-bad' opacity='0.22'/>\n      <rect x='18' class='fill {{ thresholdClass heap.value heap.thresholds }}'\n            width='24'\n            y='{{ default heap.fillY 170 }}'\n            height='200'/>\n    </g>\n    <circle cx='30' cy='185' r='10' class='bulb {{ thresholdClass heap.value heap.thresholds }}'/>\n  </svg>\n  <div class='lbls'>\n    <div class='headline'>\n      <strong class='{{ thresholdClass heap.value heap.thresholds }}'>{{ percent heap.value 0 committed.value }}%</strong>\n      <span class='sub'>of committed</span>\n    </div>\n    <div class='row'><span class='k'>Heap</span><span class='v'>{{ format heap.value 'bytes' 1 }}</span></div>\n    <div class='row'><span class='k'>Committed</span><span class='v'>{{ format committed.value 'bytes' 1 }}</span></div>\n  </div>\n</div>",
+    "styles": ".gcm { display: flex; gap: 0.6rem; padding: 0.75rem 0.85rem; height: 100%; align-items: stretch; } .gcm svg { height: 100%; max-height: 14rem; flex: 0 0 auto; color: var(--color-graphite-500); } .gcm .track { fill: color-mix(in oklab, var(--color-graphite-500) 8%, transparent); stroke: color-mix(in oklab, var(--color-graphite-500) 22%, transparent); stroke-width: 1; } .gcm .zone-warn { fill: var(--color-amber-500); } .gcm .zone-bad { fill: var(--color-rust-500); } .gcm .fill { fill: var(--color-sage-500); transition: y 600ms ease-out; } .gcm .fill.vellum-th-warn { fill: var(--color-amber-500); } .gcm .fill.vellum-th-bad  { fill: var(--color-rust-500); } .gcm .bulb { fill: var(--color-sage-500); stroke: color-mix(in oklab, var(--color-graphite-500) 30%, transparent); stroke-width: 1; } .gcm .bulb.vellum-th-warn { fill: var(--color-amber-500); } .gcm .bulb.vellum-th-bad  { fill: var(--color-rust-500); } .gcm .lbls { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; justify-content: center; } .gcm .headline { display: flex; flex-direction: column; gap: 0.05rem; margin-bottom: 0.3rem; } .gcm .headline strong { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.6rem; font-weight: 500; line-height: 1; } .gcm .headline strong.vellum-th-ok   { color: var(--color-sage-600); } .gcm .headline strong.vellum-th-warn { color: var(--color-amber-600); } .gcm .headline strong.vellum-th-bad  { color: var(--color-rust-600); } .gcm .headline .sub { font-size: 0.7rem; color: var(--color-graphite-500); text-transform: uppercase; letter-spacing: 0.04em; } .gcm .row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; } .gcm .k { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-graphite-500); } .gcm .v { font-weight: 500; }",
+    "dataBindings": [
+      {
+        "name": "heap",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "bytes",
+        "thresholds": [
+          { "value": 0, "color": "#7AAA7A" },
+          { "value": 1, "color": "#D9B566" },
+          { "value": 2, "color": "#E27A3F" }
+        ],
+        "description": "process.runtime.dotnet.gc.heap.size — current managed heap"
+      },
+      {
+        "name": "committed",
+        "type": "metric",
+        "calc": "last",
+        "unitKind": "bytes",
+        "description": "process.runtime.dotnet.gc.committed_memory.size — used as the meter's max"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Table sizes",
+  "description": "Top tables by on-disk size in the selected database. Bind to 'postgresql.table.size' — the bar gauge splits by 'postgresql.table.name' so you see one bar per table.",
+  "icon": "i-ph-table",
+  "defaultSize": { "w": 6, "h": 5 },
+  "engine": "preset",
+  "baseKind": "metric-bar-gauge",
+  "defaultConfig": {
+    "metric": null,
+    "range": "last-15m",
+    "splitBy": "postgresql.table.name",
+    "calc": "last",
+    "unitKind": "bytes",
+    "decimals": 1,
+    "topN": 10,
+    "min": 0,
+    "max": null,
+    "thresholds": []
+  }
+}
