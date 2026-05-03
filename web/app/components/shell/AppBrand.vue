@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { $appName, $appVersion } = useNuxtApp()
+const { $appName, $appVersion, $demoMode } = useNuxtApp()
 
 defineProps<{
   /** When true, only render the logo (sidebar collapsed). */
@@ -32,10 +32,25 @@ defineProps<{
     <Transition name="fade" mode="out-in">
       <div v-if="!compact" class="min-w-0 flex flex-col">
         <span
-          class="font-semibold truncate text-default"
+          class="font-semibold truncate text-default flex items-center gap-1.5"
           :class="hero ? 'text-display' : 'text-[0.95rem] tracking-[-0.01em]'"
           :title="$appName"
-        >{{ $appName }}</span>
+        >
+          <span class="truncate">{{ $appName }}</span>
+          <span
+            v-if="$demoMode"
+            class="shrink-0 px-1.5 py-px font-mono font-medium tracking-wider uppercase"
+            style="
+              font-size: 9px;
+              line-height: 1.6;
+              color: var(--color-ember-500);
+              border: 1px solid color-mix(in oklab, var(--color-ember-500) 55%, transparent);
+              border-radius: 3px;
+              background: color-mix(in oklab, var(--color-ember-500) 8%, transparent);
+            "
+            title="Static demo build with mock telemetry"
+          >Demo</span>
+        </span>
         <span
           v-if="$appVersion && !hero"
           class="truncate"

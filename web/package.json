@@ -10,7 +10,9 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync-demo-fixtures": "node scripts/sync-demo-fixtures.mjs",
+    "generate:demo": "pnpm sync-demo-fixtures && VITE_DEMO_MODE=true nuxt generate"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",

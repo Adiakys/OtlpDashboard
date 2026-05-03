@@ -1,4 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+declare const process: { env: Record<string, string | undefined> }
+
+// Build-time base URL. Defaults to '/' (the ASP.NET host serves the SPA
+// from wwwroot/). The GitHub Pages demo workflow sets NUXT_APP_BASE_URL
+// to '/<repo>/' so the bundle resolves under a subpath.
+const APP_BASE_URL = process.env.NUXT_APP_BASE_URL || '/'
+
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxtjs/i18n'],
 
@@ -10,13 +18,17 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // `app.baseURL` is the root the static bundle is served from. Favicon
+  // hrefs include the base URL so they resolve under any subpath (Nuxt
+  // doesn't auto-prepend the base URL to head.link entries).
   app: {
+    baseURL: APP_BASE_URL,
     head: {
       title: 'OpenTelemetry Dashboard',
       htmlAttrs: { lang: 'it' },
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'alternate icon', type: 'image/x-icon', href: '/favicon.ico' }
+        { rel: 'icon', type: 'image/svg+xml', href: `${APP_BASE_URL}favicon.svg` },
+        { rel: 'alternate icon', type: 'image/x-icon', href: `${APP_BASE_URL}favicon.ico` }
       ]
     }
   },

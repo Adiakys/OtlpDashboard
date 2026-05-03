@@ -2,21 +2,31 @@
 definePageMeta({ layout: 'empty' })
 
 const { t } = useI18n()
-const { $authStore, $logsService, $refreshInfo, $appName, $appVersion } = useNuxtApp()
+const { $authStore, $logsService } = useNuxtApp()
 const route = useRoute()
+const config = useRuntimeConfig()
 
 const nextTarget = computed(() => {
   const next = route.query.next
   return typeof next === 'string' && next.startsWith('/') ? next : '/dashboard'
 })
 
-if ($authStore.isAuthenticated()) {
-  await navigateTo(nextTarget.value, { replace: true })
-}
-
 const password = ref('')
 const error = ref<string | null>(null)
 const isSubmitting = ref(false)
+
+/**
+ * Resolve a logical SPA path (e.g. `/dashboard`) into an absolute URL
+ * that respects the configured `app.baseURL`. Used for the post-login
+ * hard navigation: rebooting the SPA at the destination route avoids
+ * the layout-transition glitches a client-side `navigateTo` from the
+ * empty `/login` layout to the default `/dashboard` layout has under a
+ * baseURL subpath.
+ */
+function resolveAbsolute(target: string): string {
+  const base = (config.app.baseURL ?? '/').replace(/\/+$/, '/')
+  return (base + target.replace(/^\/+/, '')).replace(/\/{2,}/g, '/')
+}
 
 async function submit() {
   if (!password.value || isSubmitting.value) return
@@ -41,8 +51,13 @@ async function submit() {
     return
   }
 
-  await $refreshInfo()
-  await navigateTo(nextTarget.value, { replace: true })
+  // Hard navigation: bypass Vue Router so the destination route mounts
+  // from a clean SPA boot (token already in localStorage). The global
+  // auth middleware will let it through on the next tick; the dashboard
+  // layout renders without the empty-layout-still-mounted glitch.
+  if (import.meta.client) {
+    window.location.assign(resolveAbsolute(nextTarget.value))
+  }
 }
 </script>
 

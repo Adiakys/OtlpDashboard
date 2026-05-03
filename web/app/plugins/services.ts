@@ -29,9 +29,13 @@ import { WidgetService } from '~/services/WidgetService'
  * Exposed to pages/components via `useNuxtApp()`:
  *   const { $authStore, $logsService, $traceService, $appName } = useNuxtApp()
  */
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const authStore = new AuthStore()
+  // Vite replaces this literal at build time. When the env var is unset,
+  // the comparison folds to `false` and the entire demo branch (including
+  // the dynamic `import('~/demo')`) is dropped from the prod bundle.
+  const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
 
   if (import.meta.client) {
     const currentUrl = new URL(window.location.href)
@@ -44,21 +48,35 @@ export default defineNuxtPlugin(() => {
     }
   }
 
-  const fetcher = $fetch.create({
-    onResponseError({ response }) {
-      if (response?.status !== 401) return
-      // Skip the redirect if we're already on /login so the login form can
-      // surface the 401 locally (wrong password) without bouncing forever.
-      if (import.meta.client && window.location.pathname === '/login') return
+  // Shared 401 handler: clears the auth store and bounces the user to
+  // /login. Used by both the real fetcher (via `$fetch.create`) and the
+  // demo fetcher (via its `hooks.onResponseError`) so the login UX is
+  // identical regardless of build mode. Uses the Vue Router's *logical*
+  // path so the loop guard ("don't redirect if already on /login") and
+  // the `next=` query param work under any `app.baseURL` (the demo
+  // build runs at `/<repo>/`, not `/`).
+  const router = useRouter()
+  function handleAuthFailure({ response }: { response: { status: number } }): void {
+    if (response?.status !== 401) return
+    if (!import.meta.client) return
+    const current = router.currentRoute.value
+    if (current.path === '/login') return
+    authStore.clear()
+    navigateTo({ path: '/login', query: { next: current.fullPath } }, { replace: true })
+  }
 
-      authStore.clear()
-
-      if (import.meta.client) {
-        const next = window.location.pathname + window.location.search
-        navigateTo({ path: '/login', query: { next } }, { replace: true })
-      }
-    }
-  })
+  let fetcher: typeof $fetch
+  if (isDemo) {
+    const { createDemoBootstrap } = await import('~/demo')
+    const bootstrap = createDemoBootstrap({
+      onResponseError: handleAuthFailure
+    })
+    fetcher = bootstrap.fetcher
+  } else {
+    fetcher = $fetch.create({
+      onResponseError: handleAuthFailure
+    })
+  }
 
   const http = new HttpClientService(config.public.apiBaseUrl, () => authStore.getToken(), fetcher)
   const infoService = new InfoService(http)
@@ -99,7 +117,8 @@ export default defineNuxtPlugin(() => {
       widgetService: new WidgetService(http),
       appName,
       appVersion,
-      refreshInfo
+      refreshInfo,
+      demoMode: isDemo
     }
   }
 })

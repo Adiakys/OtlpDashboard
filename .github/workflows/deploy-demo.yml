@@ -1,0 +1,73 @@
+# Build the SPA in demo mode and publish to GitHub Pages.
+#
+# The demo build sets VITE_DEMO_MODE=true (the SPA's plugin swaps in a
+# DemoFetcher that serves mock telemetry from `web/app/demo/`) and
+# NUXT_APP_BASE_URL=/<repo>/ so URLs resolve under the project Pages
+# subpath.
+#
+# Pages must be enabled in repo settings → Pages → Source: GitHub Actions.
+
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build static demo bundle
+        env:
+          VITE_DEMO_MODE: 'true'
+          NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
+        run: pnpm generate:demo
+
+      # SPA fallback: GitHub Pages serves 404.html when a path doesn't map
+      # to a file. Pointing it at the SPA's index.html lets deep links
+      # (e.g. /<repo>/dashboard/<id>) survive a hard refresh.
+      - name: Add SPA 404 fallback
+        run: cp .output/public/index.html .output/public/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/.output/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
