@@ -1,5 +1,9 @@
 # OpenTelemetry Dashboard
 
+> "Grafana was overwhelming, while Aspire was lacking."
+>
+> This dashboard is the "just right" middle ground: a lightweight, self-hosted OTLP receiver and viewer designed for those who need professional observability without the setup fatigue.
+
 A self-hosted OTLP receiver and viewer for traces, logs, and metrics.
 .NET 10 + EF Core backend, Vue 3 / Nuxt 4 SPA. Stores telemetry in SQLite,
 PostgreSQL, or SQL Server. Speaks OTLP gRPC on `:4317` and OTLP
