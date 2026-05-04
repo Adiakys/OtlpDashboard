@@ -6,6 +6,7 @@ import { LogsService } from '~/services/LogsService'
 import { MetricsService } from '~/services/MetricsService'
 import { TraceService } from '~/services/TraceService'
 import { WidgetService } from '~/services/WidgetService'
+import type { TelemetryLimitsDto } from '~/services/types'
 
 /**
  * DI container — runs once per client context. HttpClientService is a
@@ -86,14 +87,27 @@ export default defineNuxtPlugin(async () => {
   // on the network.
   const appName = ref('OTel Dashboard')
   const appVersion = ref('')
+  const telemetryLimits = ref<TelemetryLimitsDto | null>(null)
+  const queryMaxWindowHours = ref<number | null>(null)
+
+  // Per-kind retention projections, exposed as their own refs so pages
+  // can pass them straight to the time-range picker without each one
+  // re-deriving the same computed locally. Single source of truth here.
+  const logRetentionDays = computed(() => telemetryLimits.value?.maxLogDays ?? null)
+  const traceRetentionDays = computed(() => telemetryLimits.value?.maxTraceDays ?? null)
+  const metricRetentionDays = computed(() => telemetryLimits.value?.maxMetricDays ?? null)
 
   async function refreshInfo() {
     try {
       const info = await infoService.getInfo()
       if (info.applicationName) appName.value = info.applicationName
-      // Version is null when unauthenticated — clear the ref so the sidebar
-      // v-if hides the version label for logged-out users.
+      // Version, telemetry limits, query window cap, and storage provider
+      // are all server-gated behind auth — clear them on the
+      // unauthenticated leg so the sidebar v-if hides the version label
+      // and time-range pickers don't show stale hints after logout.
       appVersion.value = info.version ?? ''
+      telemetryLimits.value = info.telemetryLimits
+      queryMaxWindowHours.value = info.queryMaxWindowHours
     } catch {
       /* keep the defaults */
     }
@@ -117,6 +131,11 @@ export default defineNuxtPlugin(async () => {
       widgetService: new WidgetService(http),
       appName,
       appVersion,
+      telemetryLimits,
+      logRetentionDays,
+      traceRetentionDays,
+      metricRetentionDays,
+      queryMaxWindowHours,
       refreshInfo,
       demoMode: isDemo
     }

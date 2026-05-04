@@ -34,6 +34,13 @@ services:
       Dashboard__Storage__Provider: "PostgreSql"
       ConnectionStrings__PostgreSql: "Host=postgres;Database=telemetry;Username=otel;Password=otel"
       ConnectionStrings__SqlServer: "Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True"
+      # Retention windows (days). Sized comfortably above the 7d demo seed
+      # so the seeded data isn't wiped by the first retention sweep, and
+      # large enough that the SPA's "last 7d" picker shows a meaningful
+      # info hint about auto-deletion in the demo stack.
+      Dashboard__TelemetryLimits__MaxLogDays: "30"
+      Dashboard__TelemetryLimits__MaxTraceDays: "30"
+      Dashboard__TelemetryLimits__MaxMetricDays: "30"
     volumes:
       - dashboard-data:/app/data
       - ./demo/widget-libraries/dotnet:/app/data/widget-libraries/dotnet:ro

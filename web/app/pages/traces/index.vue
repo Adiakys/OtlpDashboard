@@ -15,7 +15,7 @@ import type { DurationRange, TraceStatusFilter } from '~/types/filters'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
 
 const { t, locale } = useI18n()
-const { $traceService } = useNuxtApp()
+const { $traceService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 const page = useTracesPage($traceService)
 
 const statusFilter = ref<TraceStatusFilter>('any')
@@ -52,7 +52,7 @@ const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useTracesPage) and the next live tick uses the new filter.
   { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
-  { kind: 'time-range', modelValue: page.range, disabled: page.isLive },
+  { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'status', modelValue: statusFilter },
   { kind: 'duration', modelValue: durationFilter },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }

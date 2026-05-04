@@ -73,7 +73,9 @@
     "range1h": "Last 1h",
     "range6h": "Last 6h",
     "range24h": "Last 24h",
-    "range7d": "Last 7d"
+    "range7d": "Last 7d",
+    "retentionInfo": "Data older than {days} days is automatically deleted by the retention policy.",
+    "maxWindowInfo": "Maximum query window: {days} days."
   },
   "dashboard": {
     "title": "Dashboard",

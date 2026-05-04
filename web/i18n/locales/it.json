@@ -73,7 +73,9 @@
     "range1h": "Ultima ora",
     "range6h": "Ultime 6 ore",
     "range24h": "Ultime 24 ore",
-    "range7d": "Ultimi 7 giorni"
+    "range7d": "Ultimi 7 giorni",
+    "retentionInfo": "I dati più vecchi di {days} giorni vengono cancellati automaticamente dalla policy di retention.",
+    "maxWindowInfo": "Finestra massima della query: {days} giorni."
   },
   "dashboard": {
     "title": "Dashboard",

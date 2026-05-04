@@ -115,6 +115,14 @@ builder.Services.AddDashboards(builder.Configuration);
 
 builder.Services.AddDashboardAuth(builder.Configuration);
 
+// Compose the full DashboardInfoDto once at boot. The endpoint resolves
+// it from DI and returns either the full record (authenticated) or a
+// redacted copy (anonymous). Centralising "what /info contains" here
+// keeps Api decoupled from Host/Persistence config types — Api only
+// knows about its own DTO, the Host (which sees everything) does the
+// composition.
+builder.Services.RegisterDashboardInfo();
+
 // MCP services are registered unconditionally; the SDK only becomes reachable
 // when MapDashboardMcp() is called below (gated by Dashboard:Mcp:Enabled). The
 // flag is read off app.Configuration (post-Build) so integration-test overrides

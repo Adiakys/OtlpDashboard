@@ -89,10 +89,31 @@ export interface PageQuery extends TimeWindow {
   minSeverity?: number
 }
 
+export interface TelemetryLimitsDto {
+  /** Days of logs retained before auto-deletion. 0 = retained indefinitely. */
+  maxLogDays: number
+  /** Days of traces retained before auto-deletion. 0 = retained indefinitely. */
+  maxTraceDays: number
+  /** Days of metric points retained before auto-deletion. 0 = retained indefinitely. */
+  maxMetricDays: number
+  /** Frequency of the retention sweep, in minutes. */
+  sweepIntervalMinutes: number
+}
+
 export interface DashboardInfoDto {
   applicationName: string
   /** Null when the caller is unauthenticated (server hides the build version). */
   version: string | null
+  /** Storage provider name ("Sqlite" / "PostgreSql" / "SqlServer"). Null
+   *  when unauthenticated — same gate as `version`. */
+  storageProvider: string | null
+  /** Null when unauthenticated — same gate as `version`, for the same reason. */
+  telemetryLimits: TelemetryLimitsDto | null
+  /** Maximum time window (in hours) the query API will accept on a
+   *  single request. Lets the SPA clamp time-range pickers up-front
+   *  rather than wait for a server-side rejection. Null when
+   *  unauthenticated. */
+  queryMaxWindowHours: number | null
 }
 
 export interface InstrumentDto {

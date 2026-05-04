@@ -48,9 +48,22 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
   if (method === 'GET' && path === '/v1/info') {
     const dto: DashboardInfoDto = {
       applicationName: 'OTel Dashboard (Demo)',
-      // Real server gates `version` behind auth — the demo mirrors that
-      // so the sidebar's "v…" line only appears post-login.
-      version: req.authenticated ? 'demo' : null
+      // Real server gates infra-shape fields behind auth — the demo
+      // mirrors that so the sidebar's "v…" line only appears post-login.
+      version: req.authenticated ? 'demo' : null,
+      storageProvider: req.authenticated ? 'Demo (in-memory)' : null,
+      // The demo retention values are illustrative — long enough that
+      // the seeded 7-day dataset stays fully visible in the time-range
+      // pickers.
+      telemetryLimits: req.authenticated
+        ? {
+            maxLogDays: 30,
+            maxTraceDays: 30,
+            maxMetricDays: 30,
+            sweepIntervalMinutes: 60
+          }
+        : null,
+      queryMaxWindowHours: req.authenticated ? 24 * 30 : null
     }
     return dto
   }

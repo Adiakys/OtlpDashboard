@@ -21,7 +21,7 @@ import type { LogRecordDto, TimeWindow } from '~/services/types'
 
 const { t, locale } = useI18n()
 const route = useRoute()
-const { $logsService } = useNuxtApp()
+const { $logsService, $logRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 
 function strFromQuery(key: string): string | undefined {
   const v = route.query[key]
@@ -67,7 +67,7 @@ const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useLogsPage) and the next live tick uses the new filter.
   { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
-  { kind: 'time-range', modelValue: page.range, disabled: page.isLive },
+  { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $logRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'severity', modelValue: severityFilter },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]

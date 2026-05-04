@@ -19,6 +19,17 @@ const presets: Preset[] = [
 const props = defineProps<{
   modelValue: TimeWindow
   disabled?: boolean
+  /** Server retention for the kind of data this picker filters. When set
+   *  and > 0, the popover renders an info icon top-right with a tooltip
+   *  reminding the user that older data has been auto-deleted. Null /
+   *  zero contributes nothing to the tooltip. */
+  retentionDays?: number | null
+  /** Maximum query window (in hours, as the server reports it). The
+   *  picker converts to days internally before composing the tooltip
+   *  — keeping the unit mismatch contained here means the three feature
+   *  pages can pass `$queryMaxWindowHours` straight through without
+   *  each repeating the `/24` rounding. */
+  maxWindowHours?: number | null
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [value: TimeWindow] }>()
@@ -85,6 +96,25 @@ const summary = computed(() => {
   const ttt = new Date(props.modelValue.to)
   return `${formatter.value.format(f)} → ${formatter.value.format(ttt)}`
 })
+
+// Two-line info-icon tooltip (retention + max-query-window). Each line
+// shows only when its source value is positive — so the
+// unauthenticated leg (both null) hides the icon entirely. The
+// hours→days conversion lives here on purpose: pages pass the raw
+// `$queryMaxWindowHours`, and rounding happens once.
+const retentionLine = computed(() =>
+  props.retentionDays && props.retentionDays > 0
+    ? t('filter.retentionInfo', { days: props.retentionDays })
+    : null
+)
+const maxWindowLine = computed(() => {
+  const h = props.maxWindowHours
+  if (!h || h <= 0) return null
+  return t('filter.maxWindowInfo', { days: Math.round(h / 24) })
+})
+const showInfoIcon = computed(() =>
+  retentionLine.value !== null || maxWindowLine.value !== null
+)
 </script>
 
 <template>
@@ -100,7 +130,30 @@ const summary = computed(() => {
     </button>
 
     <template #content>
-      <div class="flex w-[420px] max-w-[92vw]">
+      <div class="relative flex w-[420px] max-w-[92vw]">
+        <!-- Server-config hint. Composed from retention + max-query-
+             window (both auth-gated). The icon hides when neither piece
+             is set. The default Nuxt UI tooltip theme is sized for
+             single-line strings (`h-6` + `truncate`), so we use the
+             `#content` slot (sidesteps `truncate`) and override the
+             bubble's fixed height + vertical-center via `:ui` so the
+             two-line content can grow naturally. -->
+        <UTooltip
+          v-if="showInfoIcon"
+          :ui="{ content: 'h-auto !items-start py-1.5 max-w-xs' }"
+        >
+          <UIcon
+            name="i-ph-info"
+            class="absolute top-2 right-2 size-4 text-muted hover:text-default cursor-help z-10"
+          />
+          <template #content>
+            <div class="flex flex-col gap-1 text-xs leading-snug">
+              <p v-if="retentionLine">{{ retentionLine }}</p>
+              <p v-if="maxWindowLine">{{ maxWindowLine }}</p>
+            </div>
+          </template>
+        </UTooltip>
+
         <div class="w-32 shrink-0 border-r border-default p-2 space-y-0.5">
           <button
             v-for="p in presets"

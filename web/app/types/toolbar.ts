@@ -28,6 +28,23 @@ export interface TimeRangeFilterDescriptor {
   kind: 'time-range'
   modelValue: Ref<TimeWindow>
   disabled?: Ref<boolean>
+  /**
+   * Server-configured retention window for the data this picker
+   * targets. When present and > 0, the picker surfaces an "info" icon
+   * inside the popover with a tooltip explaining the cutoff. Pages
+   * source it from `$telemetryLimits.maxLogDays` / `maxTraceDays` /
+   * `maxMetricDays` after the `/v1/info` call. `null` for
+   * unauthenticated states.
+   */
+  retentionDays?: Ref<number | null>
+  /**
+   * Maximum query window (in hours, as the server reports it) the
+   * read-side API will honour. Same auth gate as `retentionDays`.
+   * Pages pass `$queryMaxWindowHours` directly — the picker converts
+   * to days internally so the unit mismatch doesn't leak across the
+   * three feature pages.
+   */
+  maxWindowHours?: Ref<number | null>
 }
 
 export interface LimitFilterDescriptor {

@@ -10,13 +10,13 @@ import type { ActionDescriptor, FilterDescriptor } from '~/types/toolbar'
 import type { TimeWindow, MetricSeriesDto } from '~/services/types'
 
 const { t, locale } = useI18n()
-const { $metricsService } = useNuxtApp()
+const { $metricsService, $metricRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 const page = useMetricsPage($metricsService)
 
 const filters: FilterDescriptor[] = [
   // Time range stays disabled in live mode (the live tick refreshes the
   // ringbuffer with whatever the server has).
-  { kind: 'time-range', modelValue: page.range, disabled: page.isLive }
+  { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $metricRetentionDays, maxWindowHours: $queryMaxWindowHours }
 ]
 
 const actions: ActionDescriptor[] = [

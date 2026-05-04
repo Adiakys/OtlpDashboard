@@ -18,15 +18,15 @@ public sealed class TelemetryLimitsOptions
     public const string SectionName = "Dashboard:TelemetryLimits";
 
     [Range(0.0, 3650.0)]
-    public double MaxLogDays { get; set; }
+    public double MaxLogDays { get; init; }
 
     [Range(0.0, 3650.0)]
-    public double MaxTraceDays { get; set; }
+    public double MaxTraceDays { get; init; }
 
     [Range(0.0, 3650.0)]
-    public double MaxMetricDays { get; set; }
+    public double MaxMetricDays { get; init; }
 
     /// <summary>How often the retention sweep runs, in minutes. Default 60.</summary>
     [Range(1, 1440)]
-    public int SweepIntervalMinutes { get; set; } = 60;
+    public int SweepIntervalMinutes { get; init; } = 60;
 }

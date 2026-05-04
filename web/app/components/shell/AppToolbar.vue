@@ -118,6 +118,8 @@ const { t } = useI18n()
           v-else-if="f.kind === 'time-range'"
           :model-value="f.modelValue.value"
           :disabled="f.disabled?.value"
+          :retention-days="f.retentionDays?.value ?? null"
+          :max-window-hours="f.maxWindowHours?.value ?? null"
           @update:model-value="f.modelValue.value = $event"
         />
         <AppLimitSelect
