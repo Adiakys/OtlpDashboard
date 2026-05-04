@@ -12,6 +12,7 @@ using OpenTelemetryDashboard.Host.Configuration;
 using OpenTelemetryDashboard.Ingestion;
 using OpenTelemetryDashboard.Ingestion.Http;
 using OpenTelemetryDashboard.Persistence;
+using OpenTelemetryDashboard.Persistence.Demo;
 using OpenTelemetryDashboard.Persistence.Sqlite;
 using OpenTelemetryDashboard.Persistence.SqlServer;
 using OpenTelemetryDashboard.Persistence.PostgreSql;
@@ -150,6 +151,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     // safe to run on every boot.
     var seeder = scope.ServiceProvider.GetRequiredService<IBuiltinDashboardSeeder>();
     await seeder.SeedAsync(CancellationToken.None);
+
+    await scope.SeedDemoHistoryDataAsync(app.Logger);
 }
 
 app.UseRateLimiter();

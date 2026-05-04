@@ -30,6 +30,7 @@ services:
       DASHBOARD__MCP__ENABLED: "true"
       Dashboard__Ingestion__Channel__Capacity: "20000"
       Logging__LogLevel__OpenTelemetryDashboard: "Debug"
+      Dashboard__DemoSeed__Enabled: "true"
       Dashboard__Storage__Provider: "PostgreSql"
       ConnectionStrings__PostgreSql: "Host=postgres;Database=telemetry;Username=otel;Password=otel"
       ConnectionStrings__SqlServer: "Server=sqlserver;Database=telemetry;User Id=sa;Password=Otel-Strong!2026;TrustServerCertificate=True"

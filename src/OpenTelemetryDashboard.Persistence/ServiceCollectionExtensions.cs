@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Abstractions.Retention;
 using OpenTelemetryDashboard.Dashboards.Storage;
+using OpenTelemetryDashboard.Persistence.Demo;
 using OpenTelemetryDashboard.Persistence.Ingestion;
 using OpenTelemetryDashboard.Persistence.Readers;
 using OpenTelemetryDashboard.Persistence.Retention;
@@ -68,6 +69,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDashboardStore, EfCoreDashboardStore>();
         services.AddSingleton<IWidgetDefinitionStore, EfCoreWidgetDefinitionStore>();
 
+        services.AddDemoHistoricalDataSeeder();
+        
         return services;
     }
 
