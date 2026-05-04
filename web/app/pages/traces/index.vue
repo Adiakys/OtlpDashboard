@@ -63,11 +63,16 @@ const actions: ActionDescriptor[] = [
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]
 
-const timeFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit'
-}))
+// ISO-ish `yyyy-MM-dd HH:mm:ss`. Locale-independent so the monospace
+// column stays aligned across multi-day windows. The trace list doesn't
+// need millisecond precision (durationMs is a separate column).
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} `
+    + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 
 // Column sizing — paired with AppDataGrid's `autoSizeStrategy: fitGridWidth`.
 // `width` here is the proportional target the grid scales up so columns
@@ -78,11 +83,11 @@ const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
   {
     field: 'start',
     headerName: t('traces.col.start'),
-    width: 100,
-    minWidth: 90,
+    width: 170,
+    minWidth: 160,
     sort: 'desc',
     cellClass: 'vellum-cell-mono',
-    valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
+    valueFormatter: p => p.value ? formatTimestamp(p.value as string) : ''
   },
   {
     field: 'serviceName',

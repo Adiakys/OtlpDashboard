@@ -82,12 +82,20 @@ function clearTraceFilter() {
   void page.reload()
 }
 
-const timeFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  fractionalSecondDigits: 3
-}))
+// ISO-ish `yyyy-MM-dd HH:mm:ss.SSS`. Locale-independent on purpose —
+// the cell is monospace and the same-shape rendering keeps the column
+// scannable when the user filters across multiple days. (A locale
+// formatter would shuffle dd/MM/yyyy vs MM/dd/yyyy and lose the
+// alignment that makes a long log tail readable.)
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad2 = (n: number) => n.toString().padStart(2, '0')
+  const pad3 = (n: number) => n.toString().padStart(3, '0')
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} `
+    + `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+    + `.${pad3(d.getMilliseconds())}`
+}
 
 // Column sizing — paired with AppDataGrid's `autoSizeStrategy: fitGridWidth`.
 // The grid scales these `width` values up to fit the viewport on first paint.
@@ -97,11 +105,11 @@ const columnDefs = computed<ColDef<LogRecordDto>[]>(() => [
   {
     field: 'time',
     headerName: t('logs.col.time'),
-    width: 120,
-    minWidth: 100,
+    width: 200,
+    minWidth: 180,
     sort: 'desc',
     cellClass: 'vellum-cell-mono',
-    valueFormatter: p => p.value ? timeFormatter.value.format(new Date(p.value as string)) : ''
+    valueFormatter: p => p.value ? formatTimestamp(p.value as string) : ''
   },
   {
     field: 'serviceName',
