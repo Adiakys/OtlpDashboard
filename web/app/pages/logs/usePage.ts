@@ -137,8 +137,18 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   const reload = () => fetchPage(false)
   const loadMore = () => fetchPage(true)
 
-  // Services list is window-scoped, and the filter re-triggers a reload.
-  watch(() => [range.value.from, range.value.to], () => { void loadServices() })
+  // Range / limit / service filter all trigger a reload of the table —
+  // changing any of them is the user saying "show me a different slice".
+  // The services list also re-fetches on range change because the set of
+  // services seen *in that window* may differ. Skipped while live mode
+  // is on (the range / limit filters are UI-disabled then anyway).
+  watch(() => [range.value.from, range.value.to], () => {
+    void loadServices()
+    if (!live.isLive.value) void reload()
+  })
+  watch(limit, () => {
+    if (!live.isLive.value) void reload()
+  })
   watch(serviceFilter, () => { void reload() })
 
   // Initial load.

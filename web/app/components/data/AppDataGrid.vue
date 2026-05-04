@@ -194,6 +194,19 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
       </Transition>
 
       <div class="flex-1 min-h-0 flex flex-col vellum-grid-host" :data-ag-theme-mode="themeMode">
+        <!-- Indeterminate progress bar for refetches that *don't* clear the
+             grid: AG Grid's `loading` overlay only kicks in when there are
+             no rows, so without this bar a manual refresh / range change /
+             filter swap leaves the user staring at stale rows with no
+             feedback that anything is happening. The 2px strip is
+             deliberately understated — it telegraphs "fetching" without
+             stealing focus from the data. -->
+        <div
+          v-show="loading && rowData.length > 0"
+          class="vellum-grid-progress shrink-0"
+          aria-hidden="true"
+        />
+
         <div class="flex-1 min-h-0 relative">
           <AgGridVue
             style="position: absolute; inset: 0; height: 100%; width: 100%;"
@@ -252,3 +265,36 @@ const showEmptyOverlay = computed(() => !props.loading && !props.error && props.
     </template>
   </div>
 </template>
+
+<style scoped>
+.vellum-grid-progress {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-graphite-500) 8%, transparent);
+}
+.vellum-grid-progress::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-ember-500) 50%,
+    transparent 100%
+  );
+  animation: vellum-grid-progress-slide 1.05s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes vellum-grid-progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vellum-grid-progress::before {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+</style>
