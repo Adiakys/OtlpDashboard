@@ -12,10 +12,10 @@ import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
 
 const { t, locale } = useI18n()
 const route = useRoute()
-const { $traceService } = useNuxtApp()
+const { $traceService, $logsService } = useNuxtApp()
 
 const traceId = computed(() => route.params.traceId as string)
-const page = useTracePage($traceService, traceId.value)
+const page = useTracePage($traceService, $logsService, traceId.value)
 
 const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   dateStyle: 'short',
@@ -123,6 +123,7 @@ const actions = computed<ActionDescriptor[]>(() => {
             </header>
             <SpanTree
               :spans="page.trace.value.spans"
+              :logs="page.logs.value"
               :selected-id="page.selected.value?.spanId ?? null"
               @select="(s) => page.selected.value = s"
             />
