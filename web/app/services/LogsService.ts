@@ -16,7 +16,12 @@ export class LogsService {
       cursor: query.cursor,
       traceId: query.traceId,
       service: query.service,
-      minSeverity: query.minSeverity
+      minSeverity: query.minSeverity,
+      // Comma-separated list — the server accepts both repeated keys and a
+      // single comma-joined string. The single string keeps the URL short
+      // when several buckets are selected.
+      severities: query.severities && query.severities.length > 0 ? query.severities.join(',') : undefined,
+      bodyContains: query.bodyContains
     })
   }
 

@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { LogsService } from '~/services/LogsService'
 import type { LogRecordDto, TimeWindow } from '~/services/types'
+import type { SeverityBucket } from '~/types/filters'
 
 export interface UseLogsPageOptions {
   initialRange?: TimeWindow
@@ -42,6 +43,12 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const selected = ref<LogRecordDto | null>(null)
+  // Server-side filters owned by the composable so the API call stays in
+  // one place and pagination is honest about the filtered result set
+  // (frontend-only filters used to filter the loaded page only — selective
+  // filters then hid every match outside the first page).
+  const severityFilter = ref<SeverityBucket[]>([])
+  const bodyQuery = ref('')
 
   // Client-side dedup for live-mode prepends. Log records have no stable ID
   // server-side, so we key on (time, spanId, body-prefix) — collisions are
@@ -61,7 +68,9 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         limit: limit.value,
         cursor: append ? cursor.value ?? undefined : undefined,
         traceId: traceId.value,
-        service: serviceFilter.value ?? undefined
+        service: serviceFilter.value ?? undefined,
+        severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
+        bodyContains: bodyQuery.value.trim() || undefined
       })
 
       if (append) {
@@ -93,7 +102,9 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         to: now,
         limit: LIVE_DELTA_LIMIT,
         traceId: traceId.value,
-        service: serviceFilter.value ?? undefined
+        service: serviceFilter.value ?? undefined,
+        severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
+        bodyContains: bodyQuery.value.trim() || undefined
       })
 
       const fresh: LogRecordDto[] = []
@@ -150,6 +161,15 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() })
+  watch(severityFilter, () => {
+    if (!live.isLive.value) void reload()
+  }, { deep: true })
+  // Body search reloads on each keystroke. The /v1/logs request is
+  // light enough that user-perceived latency stays low; if this proves
+  // chatty we'll add a debounce here.
+  watch(bodyQuery, () => {
+    if (!live.isLive.value) void reload()
+  })
 
   // Initial load.
   reload()
@@ -166,6 +186,8 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     isLoading,
     error,
     selected,
+    severityFilter,
+    bodyQuery,
     reload,
     loadMore,
     isLive: live.isLive,

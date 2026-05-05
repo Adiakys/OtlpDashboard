@@ -17,7 +17,11 @@ internal sealed record TraceQueryParameters(
     [FromQuery(Name = "to")] DateTimeOffset? To,
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
-    [FromQuery(Name = "service")] string? Service = null);
+    [FromQuery(Name = "service")] string? Service = null,
+    [FromQuery(Name = "status")] string? Status = null,
+    [FromQuery(Name = "minMs")] double? MinMs = null,
+    [FromQuery(Name = "maxMs")] double? MaxMs = null,
+    [FromQuery(Name = "spanNameContains")] string? SpanNameContains = null);
 
 /// <summary>
 /// HTTP handlers for the trace-listing and trace-detail endpoints. Wiring

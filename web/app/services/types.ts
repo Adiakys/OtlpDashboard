@@ -87,6 +87,22 @@ export interface PageQuery extends TimeWindow {
    * the noisy Info/Debug tail to the client.
    */
   minSeverity?: number
+  /**
+   * Optional log filter: keep only records whose severity falls into one of
+   * the listed buckets. Server expands each bucket name to its OTLP
+   * severity_number range. Empty/undefined disables the filter.
+   */
+  severities?: string[]
+  /** Optional log filter: case-insensitive substring match on the body. */
+  bodyContains?: string
+  /** Optional trace filter: 'ok' | 'error'. Undefined means no filter. */
+  status?: 'ok' | 'error'
+  /** Optional trace filter: inclusive lower bound on duration in milliseconds. */
+  minMs?: number
+  /** Optional trace filter: inclusive upper bound on duration in milliseconds. */
+  maxMs?: number
+  /** Optional trace filter: substring match on any span name in the trace. */
+  spanNameContains?: string
 }
 
 export interface TelemetryLimitsDto {

@@ -9,10 +9,6 @@ import SeverityBadgeCell from '~/components/data/cells/SeverityBadgeCell.vue'
 import TraceLinkCell from '~/components/data/cells/TraceLinkCell.vue'
 import LogDetailContent from './components/LogDetailContent.vue'
 import { useLogsPage } from './usePage'
-import {
-  severityBucketFromNumber,
-  type SeverityBucket
-} from '~/types/filters'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -34,26 +30,9 @@ const initialRange: TimeWindow | undefined = fromQ && toQ ? { from: fromQ, to: t
 
 const page = useLogsPage($logsService, { initialTraceId, initialRange })
 
-// Frontend-only filters: severity bucket selection (empty = all) and body search.
-const severityFilter = ref<SeverityBucket[]>([])
-const bodyQuery = ref('')
-
-const filteredItems = computed<LogRecordDto[]>(() => {
-  let rows = page.items.value
-  if (severityFilter.value.length > 0) {
-    const allowed = new Set(severityFilter.value)
-    rows = rows.filter(r => allowed.has(severityBucketFromNumber(r.severityNumber)))
-  }
-  const q = bodyQuery.value.trim().toLowerCase()
-  if (q) {
-    rows = rows.filter(r => (r.body ?? '').toLowerCase().includes(q))
-  }
-  return rows
-})
-
 const subtitle = computed(() => {
   const window = describeWindow(page.range.value)
-  return t('logs.subtitle', { count: filteredItems.value.length, window })
+  return t('logs.subtitle', { count: page.items.value.length, window })
 })
 
 function describeWindow(range: TimeWindow): string {
@@ -68,7 +47,7 @@ const filters: FilterDescriptor[] = [
   // (watcher inside useLogsPage) and the next live tick uses the new filter.
   { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $logRetentionDays, maxWindowHours: $queryMaxWindowHours },
-  { kind: 'severity', modelValue: severityFilter },
+  { kind: 'severity', modelValue: page.severityFilter },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
@@ -171,7 +150,7 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
         :actions="actions"
       >
         <template #filters-extra>
-          <AppSearchInput v-model="bodyQuery" :placeholder="t('filter.searchBody')" />
+          <AppSearchInput v-model="page.bodyQuery.value" :placeholder="t('filter.searchBody')" />
           <Transition name="scale-fade">
             <button
               v-if="page.traceId.value"
@@ -191,7 +170,7 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
 
     <AppDataGrid
       :column-defs="columnDefs"
-      :row-data="filteredItems"
+      :row-data="page.items.value"
       :loading="page.isLoading.value"
       :error="page.error.value"
       :get-row-id="rowId"

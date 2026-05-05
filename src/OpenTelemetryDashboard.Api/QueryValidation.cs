@@ -76,7 +76,68 @@ internal static class QueryValidation
             return false;
         }
 
-        query = new LogQuery(from, to, limit, cursor, traceId, service, parameters.MinSeverity);
+        if (!TryExpandSeverityBuckets(parameters.Severities, out var severityNumbers, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        var bodyContains = string.IsNullOrWhiteSpace(parameters.BodyContains) ? null : parameters.BodyContains;
+
+        query = new LogQuery(from, to, limit, cursor, traceId, service, parameters.MinSeverity, severityNumbers, bodyContains);
+        errors = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Expand the SPA's severity-bucket selection into the matching set of
+    /// OTLP severity numbers. Comma-separated values inside a single
+    /// query-string entry are also accepted (`?severities=warn,error`).
+    /// Returns <c>null</c> for the bucket list when no buckets are supplied —
+    /// the reader treats null as "no filter".
+    /// </summary>
+    internal static bool TryExpandSeverityBuckets(
+        string[]? buckets,
+        out IReadOnlyList<int>? severityNumbers,
+        [NotNullWhen(false)] out Dictionary<string, string[]>? errors)
+    {
+        if (buckets is null || buckets.Length == 0)
+        {
+            severityNumbers = null;
+            errors = null;
+            return true;
+        }
+
+        var numbers = new SortedSet<int>();
+        foreach (var raw in buckets)
+        {
+            if (raw is null) continue;
+            foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var lower = part.ToLowerInvariant();
+                var (lo, hi) = lower switch
+                {
+                    "trace" => (1, 4),
+                    "debug" => (5, 8),
+                    "info" => (9, 12),
+                    "warn" or "warning" => (13, 16),
+                    "error" => (17, 20),
+                    "fatal" => (21, 24),
+                    _ => (-1, -1),
+                };
+                if (lo < 0)
+                {
+                    severityNumbers = null;
+                    errors = SingleError(
+                        "severities",
+                        "'severities' values must be from: trace, debug, info, warn, error, fatal.");
+                    return false;
+                }
+                for (var n = lo; n <= hi; n++) numbers.Add(n);
+            }
+        }
+
+        severityNumbers = numbers.Count == 0 ? null : [.. numbers];
         errors = null;
         return true;
     }
@@ -114,7 +175,47 @@ internal static class QueryValidation
 
         var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
 
-        query = new TraceQuery(from, to, limit, cursor, service);
+        TraceStatusFilter? status = null;
+        if (!string.IsNullOrWhiteSpace(parameters.Status))
+        {
+            var lowered = parameters.Status.Trim().ToLowerInvariant();
+            status = lowered switch
+            {
+                "ok" => TraceStatusFilter.Ok,
+                "error" => TraceStatusFilter.Error,
+                "any" or "" => null,
+                _ => (TraceStatusFilter?)(-1),
+            };
+            if (status == (TraceStatusFilter)(-1))
+            {
+                query = null;
+                errors = SingleError("status", "'status' must be one of: any, ok, error.");
+                return false;
+            }
+        }
+
+        if (parameters.MinMs is { } minMs && minMs < 0)
+        {
+            query = null;
+            errors = SingleError("minMs", "'minMs' must be greater than or equal to 0.");
+            return false;
+        }
+        if (parameters.MaxMs is { } maxMs && maxMs < 0)
+        {
+            query = null;
+            errors = SingleError("maxMs", "'maxMs' must be greater than or equal to 0.");
+            return false;
+        }
+        if (parameters.MinMs is { } a && parameters.MaxMs is { } b && a > b)
+        {
+            query = null;
+            errors = SingleError("maxMs", "'maxMs' must be greater than or equal to 'minMs'.");
+            return false;
+        }
+
+        var spanName = string.IsNullOrWhiteSpace(parameters.SpanNameContains) ? null : parameters.SpanNameContains;
+
+        query = new TraceQuery(from, to, limit, cursor, service, status, parameters.MinMs, parameters.MaxMs, spanName);
         errors = null;
         return true;
     }

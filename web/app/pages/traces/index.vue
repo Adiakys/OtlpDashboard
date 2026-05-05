@@ -11,33 +11,16 @@ import type {
   ActionDescriptor,
   FilterDescriptor
 } from '~/types/toolbar'
-import type { DurationRange, TraceStatusFilter } from '~/types/filters'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
 
 const { t, locale } = useI18n()
 const { $traceService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 const page = useTracesPage($traceService)
 
-const statusFilter = ref<TraceStatusFilter>('any')
-const durationFilter = ref<DurationRange>({ minMs: null, maxMs: null })
-const searchQuery = ref('')
-
-const filteredItems = computed<TraceSummaryDto[]>(() => {
-  let rows = page.items.value
-  if (statusFilter.value === 'ok') rows = rows.filter(r => r.rootStatusCode === 'Ok')
-  else if (statusFilter.value === 'error') rows = rows.filter(r => r.rootStatusCode === 'Error')
-  const { minMs, maxMs } = durationFilter.value
-  if (minMs != null) rows = rows.filter(r => r.durationMs >= minMs)
-  if (maxMs != null) rows = rows.filter(r => r.durationMs <= maxMs)
-  const q = searchQuery.value.trim().toLowerCase()
-  if (q) rows = rows.filter(r => r.rootSpanName.toLowerCase().includes(q))
-  return rows
-})
-
-const maxDuration = computed(() => filteredItems.value.reduce((m, r) => Math.max(m, r.durationMs), 1))
+const maxDuration = computed(() => page.items.value.reduce((m, r) => Math.max(m, r.durationMs), 1))
 
 const subtitle = computed(() => t('traces.subtitle', {
-  count: filteredItems.value.length,
+  count: page.items.value.length,
   window: describeWindow(page.range.value)
 }))
 
@@ -53,8 +36,8 @@ const filters: FilterDescriptor[] = [
   // (watcher inside useTracesPage) and the next live tick uses the new filter.
   { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
-  { kind: 'status', modelValue: statusFilter },
-  { kind: 'duration', modelValue: durationFilter },
+  { kind: 'status', modelValue: page.statusFilter },
+  { kind: 'duration', modelValue: page.durationFilter },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
@@ -152,14 +135,14 @@ function onRowClick(row: TraceSummaryDto) {
         :actions="actions"
       >
         <template #filters-extra>
-          <AppSearchInput v-model="searchQuery" :placeholder="t('filter.searchTrace')" />
+          <AppSearchInput v-model="page.searchQuery.value" :placeholder="t('filter.searchTrace')" />
         </template>
       </AppToolbar>
     </template>
 
     <AppDataGrid
       :column-defs="columnDefs"
-      :row-data="filteredItems"
+      :row-data="page.items.value"
       :loading="page.isLoading.value"
       :error="page.error.value"
       :get-row-id="(r: TraceSummaryDto) => r.traceId"

@@ -116,6 +116,51 @@ public sealed class EfCoreTraceReader : ITraceReader
                         serviceHashes.Contains(s2.ResourceHash)));
         }
 
+        // Status filter — "any-span" semantics, mirrors the service filter:
+        // "Error" matches traces containing at least one Error span; "Ok"
+        // matches traces with no Error spans. Inconsistent with the Ok/Error
+        // root badge in the column when an error happens deeper than the
+        // root, but matches the discovery use case ("show me failing flows").
+        if (query.StatusFilter is { } status)
+        {
+            if (status == TraceStatusFilter.Error)
+            {
+                baseSpans = baseSpans.Where(s =>
+                    context.Spans
+                        .AsNoTracking()
+                        .Any(s2 =>
+                            s2.TraceId == s.TraceId &&
+                            s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                            s2.StatusCode == SpanStatusCode.Error));
+            }
+            else
+            {
+                baseSpans = baseSpans.Where(s =>
+                    !context.Spans
+                        .AsNoTracking()
+                        .Any(s2 =>
+                            s2.TraceId == s.TraceId &&
+                            s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                            s2.StatusCode == SpanStatusCode.Error));
+            }
+        }
+
+        // Span-name substring — also "any-span". Same rationale as the status
+        // filter: makes the search box useful for "find trace touching X"
+        // without tying the filter to root-only matching (which would force
+        // root resolution before pagination — a much heavier restructure).
+        if (!string.IsNullOrEmpty(query.SpanNameContains))
+        {
+            var pattern = $"%{EscapeLike(query.SpanNameContains)}%";
+            baseSpans = baseSpans.Where(s =>
+                context.Spans
+                    .AsNoTracking()
+                    .Any(s2 =>
+                        s2.TraceId == s.TraceId &&
+                        s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                        EF.Functions.Like(s2.Name, pattern)));
+        }
+
         var aggregateQuery = baseSpans
             .GroupBy(s => s.TraceId)
             .Select(g => new TraceAggregate
@@ -129,6 +174,20 @@ public sealed class EfCoreTraceReader : ITraceReader
                 // stable (Start, MinSpanId) DESC ordering.
                 MinSpanId = g.Min(x => EF.Property<long>(x, "Id")),
             });
+
+        // Duration filter on the aggregate (translates to a HAVING-style
+        // predicate). Bounds are inclusive in milliseconds; we convert to
+        // nanoseconds once here so the comparison stays integer-only.
+        if (query.MinDurationMs is { } minMs)
+        {
+            var minNano = (long)(minMs * 1_000_000.0);
+            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start >= minNano);
+        }
+        if (query.MaxDurationMs is { } maxMs)
+        {
+            var maxNano = (long)(maxMs * 1_000_000.0);
+            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start <= maxNano);
+        }
 
         if (query.After is { } cursor)
         {
@@ -278,6 +337,18 @@ public sealed class EfCoreTraceReader : ITraceReader
         }
 
         return roots;
+    }
+
+    /// <summary>
+    /// Escape user input for LIKE: <c>%</c> and <c>_</c> are wildcards, <c>\</c>
+    /// is the default escape character.
+    /// </summary>
+    private static string EscapeLike(string input)
+    {
+        return input
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
     }
 
     private sealed class TraceAggregate

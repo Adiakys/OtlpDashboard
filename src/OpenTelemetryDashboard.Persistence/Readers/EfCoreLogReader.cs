@@ -44,6 +44,27 @@ public sealed class EfCoreLogReader : ILogReader
             baseQuery = baseQuery.Where(l => (int)l.SeverityNumber >= minSeverity);
         }
 
+        if (query.SeverityNumbersIn is { Count: > 0 } severities)
+        {
+            // Multi-bucket SPA filter. The list is small (≤ 24 distinct
+            // values), so EF translates this to `IN (...)` over the same
+            // indexed column.
+            var allowed = severities.ToArray();
+            baseQuery = baseQuery.Where(l => allowed.Contains((int)l.SeverityNumber));
+        }
+
+        if (!string.IsNullOrEmpty(query.BodyContains))
+        {
+            // Case-insensitive substring match. EF.Functions.Like translates
+            // to ILIKE on Postgres and a case-insensitive LIKE on Sqlite/SqlServer
+            // (collation-driven). The body column is unindexed — we accept a
+            // sequential scan because the time-window predicate already bounds
+            // the working set, and `bodyContains` is typically combined with
+            // a narrow window.
+            var pattern = $"%{EscapeLike(query.BodyContains)}%";
+            baseQuery = baseQuery.Where(l => l.Body != null && EF.Functions.Like(l.Body, pattern));
+        }
+
         if (query.After is { } cursor)
         {
             baseQuery = baseQuery.Where(l =>
@@ -81,6 +102,19 @@ public sealed class EfCoreLogReader : ILogReader
         {
             yield return (row.Record, row.SecondaryKey, row.ServiceName);
         }
+    }
+
+    /// <summary>
+    /// Escape user input for LIKE: <c>%</c> and <c>_</c> are wildcards, <c>\</c>
+    /// is the default escape character. Without this, a body search containing
+    /// a literal underscore would silently match any single character.
+    /// </summary>
+    private static string EscapeLike(string input)
+    {
+        return input
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
     }
 
     public async IAsyncEnumerable<string> GetDistinctServiceNamesAsync(

@@ -13,7 +13,11 @@ export class TraceService {
       to: query.to,
       limit: query.limit,
       cursor: query.cursor,
-      service: query.service
+      service: query.service,
+      status: query.status,
+      minMs: query.minMs,
+      maxMs: query.maxMs,
+      spanNameContains: query.spanNameContains
     })
   }
 

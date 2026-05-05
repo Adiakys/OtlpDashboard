@@ -18,7 +18,13 @@ internal sealed record LogQueryParameters(
     [FromQuery(Name = "cursor")] string? Cursor,
     [FromQuery(Name = "traceId")] string? TraceId = null,
     [FromQuery(Name = "service")] string? Service = null,
-    [FromQuery(Name = "minSeverity")] int? MinSeverity = null);
+    [FromQuery(Name = "minSeverity")] int? MinSeverity = null,
+    // Comma-separated bucket names (`trace,debug,info,warn,error,fatal`).
+    // Multi-value query strings (`?severities=info&severities=warn`) also
+    // bind because ASP.NET treats repeated keys as a list — the validator
+    // accepts both shapes.
+    [FromQuery(Name = "severities")] string[]? Severities = null,
+    [FromQuery(Name = "bodyContains")] string? BodyContains = null);
 
 /// <summary>
 /// HTTP handler(s) for the log-listing endpoint. Wiring (path, method, name)

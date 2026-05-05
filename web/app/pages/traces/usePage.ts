@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { TraceService } from '~/services/TraceService'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
+import type { DurationRange, TraceStatusFilter } from '~/types/filters'
 
 const MAX_LIVE_ITEMS = 5000
 const LIVE_DELTA_LIMIT = 500
@@ -27,6 +28,13 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   const hasMore = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  // Server-side filters owned by the composable so pagination is honest
+  // about the filtered result set. Status uses 'any-span' semantics
+  // server-side (matches the existing service filter): 'error' = trace
+  // contains at least one Error span; 'ok' = no Error spans.
+  const statusFilter = ref<TraceStatusFilter>('any')
+  const durationFilter = ref<DurationRange>({ minMs: null, maxMs: null })
+  const searchQuery = ref('')
 
   async function fetchPage(append: boolean) {
     isLoading.value = true
@@ -37,7 +45,11 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         to: range.value.to,
         limit: limit.value,
         cursor: append ? cursor.value ?? undefined : undefined,
-        service: serviceFilter.value ?? undefined
+        service: serviceFilter.value ?? undefined,
+        status: statusFilter.value === 'any' ? undefined : statusFilter.value,
+        minMs: durationFilter.value.minMs ?? undefined,
+        maxMs: durationFilter.value.maxMs ?? undefined,
+        spanNameContains: searchQuery.value.trim() || undefined
       })
       items.value = append ? [...items.value, ...response.items] : response.items
       cursor.value = response.nextCursor
@@ -58,7 +70,11 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         from: anchorIso,
         to: now,
         limit: LIVE_DELTA_LIMIT,
-        service: serviceFilter.value ?? undefined
+        service: serviceFilter.value ?? undefined,
+        status: statusFilter.value === 'any' ? undefined : statusFilter.value,
+        minMs: durationFilter.value.minMs ?? undefined,
+        maxMs: durationFilter.value.maxMs ?? undefined,
+        spanNameContains: searchQuery.value.trim() || undefined
       })
 
       if (response.items.length === 0) {
@@ -125,6 +141,15 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() })
+  watch(statusFilter, () => {
+    if (!live.isLive.value) void reload()
+  })
+  watch(() => [durationFilter.value.minMs, durationFilter.value.maxMs], () => {
+    if (!live.isLive.value) void reload()
+  })
+  watch(searchQuery, () => {
+    if (!live.isLive.value) void reload()
+  })
 
   reload()
   void loadServices()
@@ -138,6 +163,9 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     hasMore,
     isLoading,
     error,
+    statusFilter,
+    durationFilter,
+    searchQuery,
     reload,
     loadMore,
     isLive: live.isLive,
