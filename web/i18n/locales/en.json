@@ -41,6 +41,7 @@
     "traces": "Traces",
     "logs": "Logs",
     "metrics": "Metrics",
+    "serviceMap": "Service map",
     "logout": "Logout",
     "collapse": "Collapse menu",
     "expand": "Expand menu"
@@ -465,5 +466,20 @@
     "overline": "Observability",
     "tagline": "Real-time traces, logs and metrics from your services.",
     "signInLabel": "Sign in"
+  },
+  "serviceMap": {
+    "title": "Service map",
+    "subtitle": "{nodeCount} services · {edgeCount} edges · {window}",
+    "emptyTitle": "No services in the selected window",
+    "emptyDescription": "Adjust the time range or send traces with multiple services to see the topology.",
+    "detail": {
+      "summary": "Summary",
+      "requests": "Requests",
+      "errorRate": "Error rate",
+      "connections": "Connections",
+      "calls": "calls",
+      "topOperations": "Top operations",
+      "viewTraces": "View traces of this service"
+    }
   }
 }

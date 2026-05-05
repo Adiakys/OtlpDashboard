@@ -2,6 +2,7 @@ import type { HttpClientService } from './HttpClientService'
 import type {
   PageQuery,
   PagedResponse,
+  ServiceMapDto,
   TimeWindow,
   TraceAggregationMetric,
   TraceAggregationsResponse,
@@ -14,6 +15,12 @@ export interface TraceAggregationQuery extends TimeWindow {
   limit?: number
   service?: string | null
   attr?: string[]
+}
+
+export interface ServiceMapQuery extends TimeWindow {
+  /** Optional focus mode: narrows the result to this service and its
+   *  direct neighbours. Null/undefined returns the full graph. */
+  service?: string | null
 }
 
 /**
@@ -53,6 +60,18 @@ export class TraceService {
       limit: query.limit,
       service: query.service ?? undefined,
       attr: query.attr && query.attr.length > 0 ? query.attr : undefined
+    })
+  }
+
+  /** Service map: distinct services touched in the window plus the
+   *  cross-service call edges between them. Self-loops are filtered
+   *  server-side. `service` (optional) narrows to that service and
+   *  its direct neighbours. */
+  getServiceMap(query: ServiceMapQuery): Promise<ServiceMapDto> {
+    return this.http.get<ServiceMapDto>('/v1/traces/service-map', {
+      from: query.from,
+      to: query.to,
+      service: query.service ?? undefined
     })
   }
 

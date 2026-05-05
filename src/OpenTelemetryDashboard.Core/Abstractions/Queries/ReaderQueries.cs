@@ -125,3 +125,40 @@ public sealed record TraceAggregationRow(
     long ErrorCount,
     double AvgMs,
     double MaxMs);
+
+/// <summary>
+/// Service-map aggregation: distinct services touched in the window
+/// and the cross-service call edges between them. <see cref="ServiceName"/>
+/// (when set) narrows the result to that service and its direct neighbours
+/// — useful for "focus on this service" mode without changing endpoint.
+/// </summary>
+public sealed record ServiceMapQuery(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    string? ServiceName = null);
+
+/// <summary>
+/// One service in the map. Counts include every span (root + children),
+/// not only the request entrypoints — gives a sense of total traffic
+/// the service handled, even when called from multiple places.
+/// </summary>
+public sealed record ServiceMapNode(
+    string Service,
+    long RequestCount,
+    long ErrorCount);
+
+/// <summary>
+/// One directed edge: a span of <see cref="ToService"/> whose parent
+/// span belongs to <see cref="FromService"/>. Self-loops
+/// (<c>From == To</c>) are filtered out — the SQL self-join rejects
+/// them at source.
+/// </summary>
+public sealed record ServiceMapEdge(
+    string FromService,
+    string ToService,
+    long CallCount,
+    long ErrorCount);
+
+public sealed record ServiceMapResult(
+    IReadOnlyList<ServiceMapNode> Nodes,
+    IReadOnlyList<ServiceMapEdge> Edges);

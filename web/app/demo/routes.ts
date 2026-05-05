@@ -97,6 +97,69 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
   if (method === 'GET' && path === '/v1/traces/services') {
     return [...DEMO_SERVICES].sort()
   }
+  if (method === 'GET' && path === '/v1/traces/service-map') {
+    const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
+    const toMs = parseTimeParam(query.to) ?? Date.now()
+    const focus = optionalString(query, 'service')
+    // Demo aggregation walks the same generated trace list and folds
+    // it into nodes + edges in memory. Mirrors the SQL aggregation
+    // semantically (node = service, edge = parent-child cross-service
+    // pair, self-loops dropped). For the demo's volume (a few hundred
+    // traces) the cost is negligible.
+    const list = generateTraceList({
+      fromMs, toMs,
+      limit: 800,
+      service: null,
+      cursor: null
+    })
+    const nodeMap = new Map<string, { service: string; requestCount: number; errorCount: number }>()
+    const edgeMap = new Map<string, { fromService: string; toService: string; callCount: number; errorCount: number }>()
+    for (const summary of list.items) {
+      const t = summary as { traceId: string; rootStatusCode: string; serviceName: string | null }
+      const detail = generateTraceDetail(t.traceId)
+      // Bucket spans by service for node counts.
+      for (const span of detail.spans) {
+        const svc = span.serviceName ?? 'unknown'
+        const node = nodeMap.get(svc) ?? { service: svc, requestCount: 0, errorCount: 0 }
+        node.requestCount++
+        if (span.statusCode === 'Error') node.errorCount++
+        nodeMap.set(svc, node)
+      }
+      // Build edges by walking parent → child links across services.
+      const byId = new Map<string, { service: string; statusCode: string }>()
+      for (const span of detail.spans) {
+        byId.set(span.spanId, { service: span.serviceName ?? 'unknown', statusCode: span.statusCode })
+      }
+      for (const span of detail.spans) {
+        if (!span.parentSpanId) continue
+        const parent = byId.get(span.parentSpanId)
+        if (!parent) continue
+        const childSvc = span.serviceName ?? 'unknown'
+        if (parent.service === childSvc) continue
+        const key = `${parent.service}|${childSvc}`
+        const edge = edgeMap.get(key) ?? {
+          fromService: parent.service,
+          toService: childSvc,
+          callCount: 0,
+          errorCount: 0
+        }
+        edge.callCount++
+        if (span.statusCode === 'Error') edge.errorCount++
+        edgeMap.set(key, edge)
+      }
+    }
+    let nodes = [...nodeMap.values()]
+    let edges = [...edgeMap.values()]
+    if (focus) {
+      const keptEdges = edges.filter(e => e.fromService === focus || e.toService === focus)
+      const keptServices = new Set<string>([focus])
+      for (const e of keptEdges) { keptServices.add(e.fromService); keptServices.add(e.toService) }
+      edges = keptEdges
+      nodes = nodes.filter(n => keptServices.has(n.service))
+    }
+    return { nodes, edges }
+  }
+
   if (method === 'GET' && path === '/v1/traces/aggregations') {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
     const toMs = parseTimeParam(query.to) ?? Date.now()

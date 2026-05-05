@@ -41,6 +41,7 @@
     "traces": "Tracce",
     "logs": "Log",
     "metrics": "Metriche",
+    "serviceMap": "Mappa servizi",
     "logout": "Esci",
     "collapse": "Comprimi menu",
     "expand": "Espandi menu"
@@ -466,5 +467,20 @@
     "overline": "Observability",
     "tagline": "Tracce, log e metriche in tempo reale dai tuoi servizi.",
     "signInLabel": "Accesso"
+  },
+  "serviceMap": {
+    "title": "Mappa servizi",
+    "subtitle": "{nodeCount} servizi · {edgeCount} archi · {window}",
+    "emptyTitle": "Nessun servizio nella finestra selezionata",
+    "emptyDescription": "Modifica l'intervallo o invia trace con più servizi per vedere la topologia.",
+    "detail": {
+      "summary": "Sommario",
+      "requests": "Richieste",
+      "errorRate": "Error rate",
+      "connections": "Connessioni",
+      "calls": "chiamate",
+      "topOperations": "Top operazioni",
+      "viewTraces": "Vedi le trace di questo servizio"
+    }
   }
 }

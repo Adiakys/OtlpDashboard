@@ -287,6 +287,66 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetServiceMap_ReturnsNodesAndCrossServiceEdges()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 1, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var serviceA = $"map-a-{suffix}";
+        var serviceB = $"map-b-{suffix}";
+
+        var traceIdBytes = RandomBytes(16);
+        var traceId = TraceId.FromBytes(traceIdBytes);
+        var rootSpanIdBytes = RandomBytes(8);
+        var rootSpanId = SpanId.FromBytes(rootSpanIdBytes);
+        var childSpanIdBytes = RandomBytes(8);
+
+        // One trace: root on serviceA calls a child on serviceB. The
+        // self-join inside `GetServiceMapAsync` should surface a single
+        // edge `serviceA → serviceB`.
+        await SeedSpanWithParentAsync(
+            client,
+            service: serviceA,
+            anchor: anchor,
+            traceIdBytes: traceIdBytes,
+            spanIdBytes: rootSpanIdBytes,
+            parentSpanIdBytes: null,
+            name: $"root.{suffix}");
+        await SeedSpanWithParentAsync(
+            client,
+            service: serviceB,
+            anchor: anchor.AddSeconds(1),
+            traceIdBytes: traceIdBytes,
+            spanIdBytes: childSpanIdBytes,
+            parentSpanIdBytes: rootSpanIdBytes,
+            name: $"child.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.TraceId == traceId) == 2);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
+            new Uri($"/api/v1/traces/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        response.ShouldNotBeNull();
+        var ourNodes = response!.Nodes.Where(n => n.Service == serviceA || n.Service == serviceB).ToList();
+        ourNodes.ShouldContain(n => n.Service == serviceA && n.RequestCount >= 1);
+        ourNodes.ShouldContain(n => n.Service == serviceB && n.RequestCount >= 1);
+
+        var ourEdges = response.Edges.Where(e =>
+            (e.FromService == serviceA && e.ToService == serviceB) ||
+            (e.FromService == serviceB && e.ToService == serviceA)).ToList();
+        ourEdges.Count.ShouldBe(1);
+        ourEdges[0]!.FromService.ShouldBe(serviceA);
+        ourEdges[0]!.ToService.ShouldBe(serviceB);
+        ourEdges[0]!.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task GetTraceAggregations_GroupsAndSortsByMetric()
     {
         using var client = _fixture.CreateClient();
@@ -673,6 +733,51 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     /// <summary>
+    /// Seed one OTLP span with a fixed id / parent / service, used by
+    /// the service-map test to build a precise two-span trace whose
+    /// edges the reader can pick up.
+    /// </summary>
+    private static async Task SeedSpanWithParentAsync(
+        HttpClient client,
+        string service,
+        DateTimeOffset anchor,
+        byte[] traceIdBytes,
+        byte[] spanIdBytes,
+        byte[]? parentSpanIdBytes,
+        string name)
+    {
+        var request = new ExportTraceServiceRequest();
+        var resourceSpans = new ResourceSpans
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = service } },
+                },
+            },
+        };
+        var scopeSpans = new ScopeSpans { Scope = new InstrumentationScope { Name = "tests" } };
+        scopeSpans.Spans.Add(new OtlpSpan
+        {
+            TraceId = ByteString.CopyFrom(traceIdBytes),
+            SpanId = ByteString.CopyFrom(spanIdBytes),
+            ParentSpanId = parentSpanIdBytes is null
+                ? ByteString.Empty
+                : ByteString.CopyFrom(parentSpanIdBytes),
+            Name = name,
+            Kind = OtlpSpan.Types.SpanKind.Internal,
+            StartTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor),
+            EndTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMilliseconds(50))
+        });
+        resourceSpans.ScopeSpans.Add(scopeSpans);
+        request.ResourceSpans.Add(resourceSpans);
+
+        using var response = await PostProtobufAsync(client, "/v1/traces", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    /// <summary>
     /// Seed a single log record with arbitrary attributes — used by the
     /// attribute-filter tests to put both string-typed and numeric-typed
     /// values on the wire so the provider-native JSON path translation
@@ -1054,6 +1159,12 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
     private sealed record TraceAggregationsResponse(IReadOnlyList<TraceAggregationItem> Items);
     private sealed record TraceAggregationItem(string Key, long Count, long ErrorCount, double AvgMs, double MaxMs);
+
+    private sealed record ServiceMapApiResponse(
+        IReadOnlyList<ServiceMapApiNode> Nodes,
+        IReadOnlyList<ServiceMapApiEdge> Edges);
+    private sealed record ServiceMapApiNode(string Service, long RequestCount, long ErrorCount);
+    private sealed record ServiceMapApiEdge(string FromService, string ToService, long CallCount, long ErrorCount);
 
     private sealed record InstrumentItem(
         string ResourceHash,

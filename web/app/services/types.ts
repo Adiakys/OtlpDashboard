@@ -85,6 +85,28 @@ export interface TraceAggregationsResponse {
 
 export type TraceAggregationMetric = 'count' | 'errorRate' | 'avgMs' | 'maxMs'
 
+/** One node in the service-map: a service touched in the window
+ *  with its total span count and error count. */
+export interface ServiceMapNodeDto {
+  service: string
+  requestCount: number
+  errorCount: number
+}
+
+/** A directed call edge from one service to another. Self-loops are
+ *  filtered out at the source. */
+export interface ServiceMapEdgeDto {
+  fromService: string
+  toService: string
+  callCount: number
+  errorCount: number
+}
+
+export interface ServiceMapDto {
+  nodes: ServiceMapNodeDto[]
+  edges: ServiceMapEdgeDto[]
+}
+
 export interface TimeWindow {
   from: string
   to: string

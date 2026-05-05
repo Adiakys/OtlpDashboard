@@ -377,6 +377,24 @@ internal static class QueryValidation
         return true;
     }
 
+    public static bool TryBuildServiceMapQuery(
+        ServiceMapParameters parameters,
+        QueryApiOptions options,
+        [NotNullWhen(true)] out ServiceMapQuery? query,
+        [NotNullWhen(false)] out Dictionary<string, string[]>? errors)
+    {
+        if (!TryValidateWindow(parameters.From, parameters.To, options, out var from, out var to, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
+        query = new ServiceMapQuery(from, to, service);
+        errors = null;
+        return true;
+    }
+
     public static bool TryBuildMetricPointsQuery(
         MetricPointsQueryParameters parameters,
         QueryApiOptions options,
