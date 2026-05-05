@@ -21,7 +21,11 @@ export function useDashboardLive(
     liveTickCounter.value++
   }
 
-  const live = useLivePolling(onTick, { autoStart: false, intervalMs: options.intervalMs ?? 5000 })
+  // Auto-start: a dashboard is a "current state of the system" view, so the
+  // expected default is that it's already updating when the user lands on
+  // it. The pause-while-editing watcher below still guarantees background
+  // refreshes don't fight with manual layout changes.
+  const live = useLivePolling(onTick, { autoStart: true, intervalMs: options.intervalMs ?? 5000 })
 
   // Disable live polling while editing — the user is mutating the layout and
   // background refreshes would either clobber it or mask concurrency conflicts.
