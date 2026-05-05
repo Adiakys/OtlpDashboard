@@ -54,11 +54,11 @@ describe('normalizeKind', () => {
 })
 
 describe('STD_DEFINITIONS', () => {
-  it('exposes all 10 builtin kinds', () => {
+  it('exposes all 11 builtin kinds', () => {
     const expected = [
       'metric-stat', 'metric-line', 'metric-sparkline',
       'metric-gauge', 'metric-bar-gauge', 'metric-pie',
-      'metric-heatmap', 'recent-traces', 'logs-stream', 'text'
+      'metric-heatmap', 'recent-traces', 'top-traces', 'logs-stream', 'text'
     ]
     expect(Object.keys(STD_DEFINITIONS).sort()).toEqual(expected.sort())
   })
@@ -114,7 +114,7 @@ describe('catalog merge', () => {
   it('bySource segments correctly', () => {
     const customs = ref<WidgetDefinition[]>([makeCustom('a', 'metric-stat')])
     const catalog = buildWidgetCatalog(customs, ref([]))
-    expect(catalog.bySource('std').value.length).toBe(10)
+    expect(catalog.bySource('std').value.length).toBe(11)
     expect(catalog.bySource('custom').value.length).toBe(1)
     expect(catalog.bySource('library').value.length).toBe(0)
   })

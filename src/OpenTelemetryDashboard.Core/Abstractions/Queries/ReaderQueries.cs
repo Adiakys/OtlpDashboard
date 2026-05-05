@@ -80,3 +80,48 @@ public enum TraceStatusFilter
     /// <summary>The trace contains at least one Error span.</summary>
     Error,
 }
+
+/// <summary>
+/// "Top-N" aggregation over root spans inside a time window. Group key
+/// is the root span name; the four metrics (<c>count</c>, <c>errorCount</c>,
+/// <c>avgMs</c>, <c>maxMs</c>) are always computed — the consumer picks
+/// which one drives the sort. Attribute filters apply to the root span,
+/// so a query like "top-10 GET /counter where http.status_code=500"
+/// is well-defined.
+/// </summary>
+public sealed record TraceAggregationQuery(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int Limit,
+    TraceAggregationMetric SortBy,
+    string? ServiceName = null,
+    IReadOnlyList<AttributeFilter>? AttributeFilters = null);
+
+/// <summary>
+/// Sort dimensions exposed by the aggregation endpoint. Higher value =
+/// higher rank in all four cases.
+/// </summary>
+public enum TraceAggregationMetric
+{
+    /// <summary>Number of root spans that match.</summary>
+    Count,
+    /// <summary>errorCount / count, in the [0,1] range.</summary>
+    ErrorRate,
+    /// <summary>Mean of <c>EndUnixNano - StartUnixNano</c> per group, in ms.</summary>
+    AvgMs,
+    /// <summary>Largest single duration in the group, in ms.</summary>
+    MaxMs,
+}
+
+/// <summary>
+/// One row of <see cref="TraceAggregationQuery"/>'s output. The Reader
+/// fills all four metrics; the API surfaces them all so the SPA can
+/// render the unsorted ones as secondary columns without a re-fetch
+/// when the user re-sorts client-side.
+/// </summary>
+public sealed record TraceAggregationRow(
+    string Key,
+    long Count,
+    long ErrorCount,
+    double AvgMs,
+    double MaxMs);

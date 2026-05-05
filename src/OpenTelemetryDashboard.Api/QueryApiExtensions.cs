@@ -68,6 +68,7 @@ public static class QueryApiExtensions
         group.MapGet("/logs/services", ServicesEndpoints.GetLogServicesAsync).WithName("GetLogServices");
         group.MapGet("/traces", TracesEndpoints.GetTracesAsync).WithName("GetTraces");
         group.MapGet("/traces/services", ServicesEndpoints.GetTraceServicesAsync).WithName("GetTraceServices");
+        group.MapGet("/traces/aggregations", TracesEndpoints.GetTraceAggregationsAsync).WithName("GetTraceAggregations");
         group.MapGet("/traces/{traceId}", TracesEndpoints.GetTraceAsync).WithName("GetTrace");
         group.MapGet("/metrics", MetricsEndpoints.ListInstrumentsAsync).WithName("ListMetrics");
         group.MapGet("/metrics/points", MetricsEndpoints.GetPointsAsync).WithName("GetMetricPoints");

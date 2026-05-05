@@ -9,6 +9,7 @@ import type {
   MetricSparklineConfig,
   MetricStatConfig,
   RecentTracesConfig,
+  TopTracesConfig,
   TextWidgetConfig,
   WidgetConfig,
   WidgetKind
@@ -179,6 +180,21 @@ export const WIDGET_REGISTRY: Record<WidgetKind, WidgetKindMetadata> = {
     } satisfies RecentTracesConfig),
     hasPreview: true
   },
+  'top-traces': {
+    titleKey: 'dashboard.widgets.topTraces.title',
+    descKey: 'dashboard.widgets.topTraces.desc',
+    icon: 'i-ph-trophy',
+    defaultSize: { w: 6, h: 4 },
+    component: defineAsyncComponent(() => import('./widgets/TopTracesWidget.vue')),
+    configForm: defineAsyncComponent(() => import('./configs/TopTracesConfigForm.vue')),
+    defaultConfig: () => ({
+      range: 'last-1h',
+      service: null,
+      metric: 'count',
+      limit: 10
+    } satisfies TopTracesConfig),
+    hasPreview: true
+  },
   'logs-stream': {
     titleKey: 'dashboard.widgets.logsStream.title',
     descKey: 'dashboard.widgets.logsStream.desc',
@@ -219,6 +235,7 @@ export const WIDGET_KINDS: WidgetKind[] = [
   'metric-pie',
   'metric-heatmap',
   'recent-traces',
+  'top-traces',
   'logs-stream',
   'text'
 ]

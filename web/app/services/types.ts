@@ -68,6 +68,23 @@ export interface TraceDetailDto {
   spans: SpanDto[]
 }
 
+/** One row of the Top-N aggregation. The server fills all four
+ *  metrics regardless of which one drove the sort, so the SPA can
+ *  re-sort client-side without a refetch. */
+export interface TraceAggregationItemDto {
+  key: string
+  count: number
+  errorCount: number
+  avgMs: number
+  maxMs: number
+}
+
+export interface TraceAggregationsResponse {
+  items: TraceAggregationItemDto[]
+}
+
+export type TraceAggregationMetric = 'count' | 'errorRate' | 'avgMs' | 'maxMs'
+
 export interface TimeWindow {
   from: string
   to: string

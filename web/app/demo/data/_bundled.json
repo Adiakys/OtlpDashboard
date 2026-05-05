@@ -169,6 +169,20 @@
             "minSeverity": "all",
             "limit": 50
           }
+        },
+        {
+          "id": "c4d51234-1234-5678-90ab-00000000000c",
+          "kind": "std:top-traces",
+          "x": 0,
+          "y": 23,
+          "w": 12,
+          "h": 5,
+          "config": {
+            "range": "last-1h",
+            "service": null,
+            "metric": "count",
+            "limit": 10
+          }
         }
       ]
     }

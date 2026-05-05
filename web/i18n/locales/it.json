@@ -169,6 +169,14 @@
         "title": "Heatmap",
         "desc": "Griglia: una riga per gruppo, una colonna per intervallo di tempo, colore = valore."
       },
+      "topTraces": {
+        "title": "Top operazioni",
+        "desc": "Top-N degli span radice aggregati per nome. Ordinabile per richieste, error rate, durata media/massima. Click → drill-down su /traces.",
+        "count": "Numero",
+        "errorRate": "% err",
+        "avg": "Media",
+        "max": "Max"
+      },
       "recentTraces": {
         "title": "Trace recenti",
         "desc": "Lista di trace ordinabili per durata o errori, click → dettaglio trace."
@@ -262,6 +270,13 @@
         "recent": "Più recenti",
         "slowest": "Più lenti",
         "errorsFirst": "Errori prima"
+      },
+      "topTracesMetric": {
+        "label": "Ordina per",
+        "count": "Numero richieste",
+        "errorRate": "Error rate",
+        "avgMs": "Durata media",
+        "maxMs": "Durata massima"
       },
       "severity": {
         "label": "Severità minima",

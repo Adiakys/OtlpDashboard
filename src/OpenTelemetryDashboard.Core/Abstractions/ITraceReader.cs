@@ -40,4 +40,15 @@ public interface ITraceReader
         DateTimeOffset fromTime,
         DateTimeOffset toTime,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Top-N root-span aggregation grouped by span name. Ordered by the
+    /// query's <see cref="TraceAggregationMetric"/> descending, capped at
+    /// <see cref="TraceAggregationQuery.Limit"/>. All four metrics are
+    /// always computed so the consumer can render secondary columns
+    /// without a refetch on re-sort.
+    /// </summary>
+    Task<IReadOnlyList<TraceAggregationRow>> AggregateTracesAsync(
+        TraceAggregationQuery query,
+        CancellationToken cancellationToken);
 }

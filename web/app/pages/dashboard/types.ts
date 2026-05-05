@@ -21,6 +21,7 @@ export type BuiltinKind =
   | 'metric-pie'
   | 'metric-heatmap'
   | 'recent-traces'
+  | 'top-traces'
   | 'logs-stream'
   | 'text'
 
@@ -211,6 +212,19 @@ export interface RecentTracesConfig extends BaseWidgetConfig {
   limit?: number
 }
 
+export type TopTracesMetric = 'count' | 'errorRate' | 'avgMs' | 'maxMs'
+
+export interface TopTracesConfig extends BaseWidgetConfig {
+  range: RangePreset
+  /** Restrict to a specific service.name; null = all. */
+  service?: string | null
+  /** Sort/highlight metric. The server returns all four columns
+   *  regardless; this picks which one drives the order. */
+  metric: TopTracesMetric
+  /** Cap on rows fetched/rendered (default 10, max 100 server-side). */
+  limit?: number
+}
+
 export type LogSeverityFilter = 'all' | 'info' | 'warn' | 'error' | 'fatal'
 
 export interface LogsStreamConfig extends BaseWidgetConfig {
@@ -270,6 +284,7 @@ export type WidgetConfig =
   | MetricPieConfig
   | MetricHeatmapConfig
   | RecentTracesConfig
+  | TopTracesConfig
   | LogsStreamConfig
   | TextWidgetConfig
   | HtmlInstanceConfig
@@ -398,6 +413,9 @@ export function isRecentTraces(
   item: WidgetItem
 ): item is WidgetItem & { config: RecentTracesConfig } {
   return isBuiltin(item, 'recent-traces')
+}
+export function isTopTraces(item: WidgetItem): item is WidgetItem & { config: TopTracesConfig } {
+  return isBuiltin(item, 'top-traces')
 }
 export function isLogsStream(item: WidgetItem): item is WidgetItem & { config: LogsStreamConfig } {
   return isBuiltin(item, 'logs-stream')

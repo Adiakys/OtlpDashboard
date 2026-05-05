@@ -322,6 +322,61 @@ internal static class QueryValidation
         return true;
     }
 
+    public static bool TryBuildTraceAggregationQuery(
+        TraceAggregationParameters parameters,
+        QueryApiOptions options,
+        [NotNullWhen(true)] out TraceAggregationQuery? query,
+        [NotNullWhen(false)] out Dictionary<string, string[]>? errors)
+    {
+        if (!TryValidateWindow(parameters.From, parameters.To, options, out var from, out var to, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        // Aggregations cap at 100 — Top-N is the use case, anything
+        // above isn't actionable visually and would slow the GROUP BY
+        // for no gain.
+        var limit = parameters.Limit ?? 10;
+        if (limit < 1 || limit > 100)
+        {
+            query = null;
+            errors = SingleError("limit", "'limit' must be between 1 and 100 for aggregations.");
+            return false;
+        }
+
+        var metric = TraceAggregationMetric.Count;
+        if (!string.IsNullOrWhiteSpace(parameters.Metric))
+        {
+            metric = parameters.Metric.Trim().ToLowerInvariant() switch
+            {
+                "count" => TraceAggregationMetric.Count,
+                "errorrate" or "error_rate" => TraceAggregationMetric.ErrorRate,
+                "avgms" or "avg_ms" or "avg" => TraceAggregationMetric.AvgMs,
+                "maxms" or "max_ms" or "max" => TraceAggregationMetric.MaxMs,
+                _ => (TraceAggregationMetric)(-1),
+            };
+            if ((int)metric < 0)
+            {
+                query = null;
+                errors = SingleError("metric", "'metric' must be one of: count, errorRate, avgMs, maxMs.");
+                return false;
+            }
+        }
+
+        var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
+
+        if (!TryParseAttributeFilters(parameters.Attr, out var attrFilters, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        query = new TraceAggregationQuery(from, to, limit, metric, service, attrFilters);
+        errors = null;
+        return true;
+    }
+
     public static bool TryBuildMetricPointsQuery(
         MetricPointsQueryParameters parameters,
         QueryApiOptions options,

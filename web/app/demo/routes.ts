@@ -97,6 +97,50 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
   if (method === 'GET' && path === '/v1/traces/services') {
     return [...DEMO_SERVICES].sort()
   }
+  if (method === 'GET' && path === '/v1/traces/aggregations') {
+    const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
+    const toMs = parseTimeParam(query.to) ?? Date.now()
+    const limit = numberParam(query, 'limit') ?? 10
+    const service = optionalString(query, 'service')
+    const metric = optionalString(query, 'metric') ?? 'count'
+    // The full backend GROUP BYs at SQL; the demo walks the same
+    // summary list it would surface to /v1/traces and aggregates in
+    // memory. Coherent with the rest of the demo (same scenarios →
+    // same counts), at the cost of refetching the list per call.
+    const list = generateTraceList({
+      fromMs, toMs,
+      limit: 500, // fetch enough to aggregate meaningfully
+      service,
+      cursor: null
+    })
+    const buckets = new Map<string, { count: number, errorCount: number, sum: number, max: number }>()
+    for (const t of list.items) {
+      const summary = t as { rootSpanName: string, durationMs: number, rootStatusCode: string }
+      const key = summary.rootSpanName
+      const bucket = buckets.get(key) ?? { count: 0, errorCount: 0, sum: 0, max: 0 }
+      bucket.count++
+      if (summary.rootStatusCode === 'Error') bucket.errorCount++
+      bucket.sum += summary.durationMs
+      if (summary.durationMs > bucket.max) bucket.max = summary.durationMs
+      buckets.set(key, bucket)
+    }
+    const items = [...buckets.entries()].map(([key, b]) => ({
+      key,
+      count: b.count,
+      errorCount: b.errorCount,
+      avgMs: b.sum / b.count,
+      maxMs: b.max
+    }))
+    items.sort((a, b) => {
+      switch (metric) {
+        case 'errorRate': return (b.errorCount / b.count) - (a.errorCount / a.count)
+        case 'avgMs': return b.avgMs - a.avgMs
+        case 'maxMs': return b.maxMs - a.maxMs
+        default: return b.count - a.count
+      }
+    })
+    return { items: items.slice(0, limit) }
+  }
   if (method === 'GET' && path === '/v1/traces') {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
     const toMs = parseTimeParam(query.to) ?? Date.now()

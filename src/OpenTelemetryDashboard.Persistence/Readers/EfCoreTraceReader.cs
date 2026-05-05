@@ -274,6 +274,102 @@ public sealed class EfCoreTraceReader : ITraceReader
         }
     }
 
+    public async Task<IReadOnlyList<TraceAggregationRow>> AggregateTracesAsync(
+        TraceAggregationQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var fromNano = UnixNanoTime.ToUnixNanoseconds(query.From);
+        var toNano = UnixNanoTime.ToUnixNanoseconds(query.To);
+
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+
+        // Aggregate operates on root spans only — `groupBy=name` is the
+        // root span's name, which is what users mean by "endpoint" /
+        // "operation". The service and attribute filters apply to the
+        // root span (cleaner semantics than the trace-list's "any-span"
+        // for an aggregation use case).
+        var rootSpans = context.Spans
+            .AsNoTracking()
+            .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
+            .Where(s => s.ParentSpanId == null);
+
+        if (!string.IsNullOrEmpty(query.ServiceName))
+        {
+            var service = query.ServiceName;
+            var serviceHashes = context.Resources
+                .AsNoTracking()
+                .Where(r => r.ServiceName == service)
+                .Select(r => r.Hash);
+            rootSpans = rootSpans.Where(s => serviceHashes.Contains(s.ResourceHash));
+        }
+
+        if (query.AttributeFilters is { Count: > 0 } filters)
+        {
+            foreach (var filter in filters)
+            {
+                var key = filter.Key;
+                var value = filter.Value;
+                rootSpans = rootSpans.Where(s =>
+                    TelemetryDbFunctions.JsonAttributeEquals(
+                        EF.Property<string>(s, nameof(Span.Attributes)),
+                        key,
+                        value));
+            }
+        }
+
+        // Aggregate in nanoseconds (integer math the SQLite translator
+        // accepts), then convert to milliseconds client-side. Doing the
+        // division inside the SELECT projection trips the EF SQLite
+        // provider's translator on the combination of `Avg` + `Max`
+        // over a computed expression — the cleanest workaround is to
+        // pre-project the row to a flat shape and aggregate that.
+        var aggregateShape = rootSpans
+            .Select(s => new
+            {
+                s.Name,
+                s.StatusCode,
+                DurationNs = s.EndUnixNano - s.StartUnixNano
+            })
+            .GroupBy(x => x.Name)
+            .Select(g => new
+            {
+                Key = g.Key,
+                Count = (long)g.Count(),
+                ErrorCount = (long)g.Count(x => x.StatusCode == SpanStatusCode.Error),
+                AvgNs = g.Average(x => (double)x.DurationNs),
+                MaxNs = g.Max(x => x.DurationNs)
+            });
+
+        // Order at the database, take limit. ErrorRate sorts by
+        // (errorCount * 1.0 / count) descending — division-by-zero
+        // is impossible because GROUP BY guarantees count ≥ 1.
+        var ordered = query.SortBy switch
+        {
+            TraceAggregationMetric.Count => aggregateShape.OrderByDescending(r => r.Count),
+            TraceAggregationMetric.AvgMs => aggregateShape.OrderByDescending(r => r.AvgNs),
+            TraceAggregationMetric.MaxMs => aggregateShape.OrderByDescending(r => r.MaxNs),
+            TraceAggregationMetric.ErrorRate => aggregateShape.OrderByDescending(r => r.ErrorCount * 1.0 / r.Count),
+            _ => aggregateShape.OrderByDescending(r => r.Count),
+        };
+
+        var rows = await ordered
+            .Take(query.Limit)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        const double NsPerMs = 1_000_000.0;
+        return rows
+            .Select(r => new TraceAggregationRow(
+                r.Key,
+                r.Count,
+                r.ErrorCount,
+                r.AvgNs / NsPerMs,
+                r.MaxNs / NsPerMs))
+            .ToList();
+    }
+
     public async IAsyncEnumerable<string> GetDistinctServiceNamesAsync(
         DateTimeOffset fromTime,
         DateTimeOffset toTime,

@@ -287,6 +287,61 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetTraceAggregations_GroupsAndSortsByMetric()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 8, 1, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var service = $"agg-svc-{suffix}";
+        var rootHot = $"hot.{suffix}";
+        var rootCold = $"cold.{suffix}";
+
+        // 3 hits on rootHot (1 errored), 1 hit on rootCold (slower).
+        await SeedSpansAsync(client, service, anchor.AddSeconds(0), RandomBytes(16), rootHot, spanCount: 1);
+        await SeedSpansAsync(client, service, anchor.AddSeconds(2), RandomBytes(16), rootHot, spanCount: 1);
+        await SeedSpansAsync(client, service, anchor.AddSeconds(4), RandomBytes(16), rootHot, spanCount: 1);
+        await SeedSpansAsync(client, service, anchor.AddSeconds(6), RandomBytes(16), rootCold, spanCount: 1);
+
+        // Mark one hot trace as Error so the errorRate metric has signal.
+        // Domain Span has init-only StatusCode, so an in-place mutation
+        // isn't an option — use ExecuteUpdateAsync to bypass tracking
+        // and rewrite the column directly.
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name == rootHot) == 3 &&
+            await ctx.Spans.CountAsync(s => s.Name == rootCold) == 1);
+        await using (var ctx = await CreateContextAsync())
+        {
+            var firstHotStart = await ctx.Spans
+                .Where(s => s.Name == rootHot)
+                .MinAsync(s => s.StartUnixNano);
+            await ctx.Spans
+                .Where(s => s.Name == rootHot && s.StartUnixNano == firstHotStart)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(
+                    s => s.StatusCode, SpanStatusCode.Error));
+        }
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // Sorted by count: hot (3) then cold (1).
+        var byCount = await client.GetFromJsonAsync<TraceAggregationsResponse>(
+            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&service={service}&metric=count&limit=10", UriKind.Relative),
+            JsonOptions);
+        byCount.ShouldNotBeNull();
+        byCount!.Items.Select(i => i.Key).ShouldBe([rootHot, rootCold]);
+        byCount.Items[0]!.Count.ShouldBe(3);
+        byCount.Items[0]!.ErrorCount.ShouldBe(1);
+
+        // Sorted by errorRate: hot (1/3 ≈ 0.33) ahead of cold (0).
+        var byErrRate = await client.GetFromJsonAsync<TraceAggregationsResponse>(
+            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&service={service}&metric=errorRate&limit=10", UriKind.Relative),
+            JsonOptions);
+        byErrRate.ShouldNotBeNull();
+        byErrRate!.Items[0]!.Key.ShouldBe(rootHot);
+    }
+
+    [Fact]
     public async Task GetTraces_Returns_Summaries_Grouped_By_Trace()
     {
         using var client = _fixture.CreateClient();
@@ -996,6 +1051,9 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
     private sealed record TraceDetailResponse(string TraceId, IReadOnlyList<SpanItem> Spans);
     private sealed record SpanItem(string SpanId, string Name, string? ServiceName);
+
+    private sealed record TraceAggregationsResponse(IReadOnlyList<TraceAggregationItem> Items);
+    private sealed record TraceAggregationItem(string Key, long Count, long ErrorCount, double AvgMs, double MaxMs);
 
     private sealed record InstrumentItem(
         string ResourceHash,

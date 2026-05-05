@@ -173,6 +173,14 @@
         "title": "Recent traces",
         "desc": "Sortable trace list (recent / slowest / errors first), click → trace detail."
       },
+      "topTraces": {
+        "title": "Top operations",
+        "desc": "Top-N root spans aggregated by name. Sortable by request count, error rate, average or max duration. Click → drill-down to /traces.",
+        "count": "Count",
+        "errorRate": "Err %",
+        "avg": "Avg",
+        "max": "Max"
+      },
       "logsStream": {
         "title": "Log stream",
         "desc": "Tail of recent logs filtered by service and minimum severity."
@@ -261,6 +269,13 @@
         "recent": "Most recent",
         "slowest": "Slowest",
         "errorsFirst": "Errors first"
+      },
+      "topTracesMetric": {
+        "label": "Sort by",
+        "count": "Request count",
+        "errorRate": "Error rate",
+        "avgMs": "Avg duration",
+        "maxMs": "Max duration"
       },
       "severity": {
         "label": "Min severity",
