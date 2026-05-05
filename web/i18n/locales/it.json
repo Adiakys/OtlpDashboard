@@ -82,7 +82,15 @@
     "attrKey": "Chiave",
     "attrValue": "Valore",
     "attrKeyPlaceholder": "es. http.route",
-    "attrValuePlaceholder": "es. POST /counter/{value}"
+    "attrValuePlaceholder": "es. POST /counter/{value}",
+    "severityBucket": {
+      "trace": "Trace",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warn",
+      "error": "Error",
+      "fatal": "Fatal"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -327,7 +335,13 @@
       "resource": "Resource hash"
     },
     "traceFilter": "Filtrato per trace {traceId}",
-    "removeTraceFilter": "Rimuovi filtro trace"
+    "removeTraceFilter": "Rimuovi filtro trace",
+    "histogram": {
+      "ariaLabel": "Istogramma del volume di log per severità nel tempo",
+      "total": "log",
+      "empty": "Nessun log nella finestra selezionata.",
+      "truncated": "l'istogramma copre solo i log caricati — alza il limite per vedere tutta la finestra"
+    }
   },
   "traces": {
     "title": "Tracce",

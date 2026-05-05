@@ -8,6 +8,8 @@ import AppSearchInput from '~/components/form/AppSearchInput.vue'
 import SeverityBadgeCell from '~/components/data/cells/SeverityBadgeCell.vue'
 import TraceLinkCell from '~/components/data/cells/TraceLinkCell.vue'
 import LogDetailContent from './components/LogDetailContent.vue'
+import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
+import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
 import type {
   ActionDescriptor,
@@ -68,6 +70,18 @@ const page = useLogsPage($logsService, {
 watch(page.queryState, (q) => {
   void router.replace({ query: q })
 }, { deep: true })
+
+// Severity histogram — frontend-only for now: bucketed from whatever
+// the page already loaded. The composable exposes
+// `SeverityHistogramData`; swapping in a server-side aggregation
+// later is a one-line change at this call site, no renderer work.
+// `truncated` flips when the page hit its limit and the server says
+// there's more — the histogram surfaces that as a footnote.
+const histogram = useInMemoryLogsHistogram(
+  computed(() => page.items.value),
+  page.range,
+  computed(() => page.items.value.length > 0 && page.hasMore.value)
+)
 
 const subtitle = computed(() => {
   const window = describeWindow(page.range.value)
@@ -207,6 +221,11 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
         </template>
       </AppToolbar>
     </template>
+
+    <LogsSeverityHistogram
+      v-if="page.items.value.length > 0"
+      :data="histogram"
+    />
 
     <AppDataGrid
       :column-defs="columnDefs"
