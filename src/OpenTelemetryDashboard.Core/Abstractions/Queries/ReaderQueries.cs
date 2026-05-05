@@ -138,14 +138,28 @@ public sealed record ServiceMapQuery(
     string? ServiceName = null);
 
 /// <summary>
-/// One service in the map. Counts include every span (root + children),
-/// not only the request entrypoints — gives a sense of total traffic
-/// the service handled, even when called from multiple places.
+/// One service in the map. <see cref="Kind"/> distinguishes:
+///  - <see cref="ServiceMapNodeKind.Service"/> — an OTel-emitting
+///    service (has its own resource and `service.name`).
+///  - <see cref="ServiceMapNodeKind.Dependency"/> — a synthesised
+///    external entity (e.g. <c>postgresql</c>, <c>redis</c>) inferred
+///    from <c>kind=Client</c> spans with attributes like
+///    <c>db.system</c> on the host service. Same look-and-feel data
+///    shape, but the host service is implicit (the parent end of the
+///    edges that point to it).
+/// Counts include every span (or every client call for dependencies).
 /// </summary>
 public sealed record ServiceMapNode(
     string Service,
+    ServiceMapNodeKind Kind,
     long RequestCount,
     long ErrorCount);
+
+public enum ServiceMapNodeKind
+{
+    Service,
+    Dependency,
+}
 
 /// <summary>
 /// One directed edge: a span of <see cref="ToService"/> whose parent

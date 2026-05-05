@@ -86,9 +86,13 @@ export interface TraceAggregationsResponse {
 export type TraceAggregationMetric = 'count' | 'errorRate' | 'avgMs' | 'maxMs'
 
 /** One node in the service-map: a service touched in the window
- *  with its total span count and error count. */
+ *  with its total span count and error count. `kind` is `service`
+ *  for OTel-emitting services and `dependency` for synthesised
+ *  external entities (databases, caches) inferred from kind=Client
+ *  spans with `db.system`-like attributes. */
 export interface ServiceMapNodeDto {
   service: string
+  kind: 'service' | 'dependency'
   requestCount: number
   errorCount: number
 }

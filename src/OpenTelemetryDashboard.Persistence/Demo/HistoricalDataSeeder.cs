@@ -360,15 +360,14 @@ public sealed class HistoricalDataSeeder
 
         var rng = new Random(42);
 
-        // Build one Resource per service the seeded scenarios touch.
-        // Spans/logs route to the right resource via `ServiceFromScope`
-        // — the same mapping the SPA-side demo applies in TypeScript.
-        // This makes the Docker-backed demo report the same service
-        // distribution as GitHub Pages: `?service=postgresql` matches
-        // DB spans, the trace detail surfaces accurate service.name
-        // per span, and the future service map sees a non-degenerate
-        // graph with multiple nodes.
-        var (resources, hashByService) = BuildResources();
+        // Single resource: in real OTel, the SDK lives inside the
+        // calling service (`sample-server`). Spans on Npgsql / Redis
+        // scopes are emitted by sample-server, not by the database
+        // itself — so they share the same `service.name` as the host.
+        // The service map's dependency-synthesis logic picks them up
+        // via the `db.system` attribute we set below.
+        var resource = BuildSampleServerResource();
+        var resourceHash = resource.Hash;
 
         var nowUnixNano = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1_000_000L;
         var windowSeconds = TimeSpan.FromDays(_options.Days).TotalSeconds;
@@ -412,7 +411,7 @@ public sealed class HistoricalDataSeeder
                 TraceId = traceId,
                 SpanId = rootSpanId,
                 ParentSpanId = null,
-                ResourceHash = hashByService[ServiceFromScope(scenario.RootScope)],
+                ResourceHash = resourceHash,
                 Name = scenario.RootName,
                 Kind = scenario.RootKind,
                 StartUnixNano = rootStartNano,
@@ -450,7 +449,7 @@ public sealed class HistoricalDataSeeder
                     TraceId = traceId,
                     SpanId = childSpanId,
                     ParentSpanId = parentSpanId,
-                    ResourceHash = hashByService[ServiceFromScope(child.Scope)],
+                    ResourceHash = resourceHash,
                     Name = child.Name,
                     Kind = child.Kind,
                     StartUnixNano = childStart,
@@ -459,11 +458,7 @@ public sealed class HistoricalDataSeeder
                     StatusMessage = childIsError ? StatusMessageForScenario(scenario) : null,
                     ScopeName = child.Scope,
                     ScopeVersion = "1.0.0",
-                    Attributes = new Dictionary<string, object?>
-                    {
-                        ["demo.seeder"] = "historical",
-                        ["demo.scenario"] = scenario.Name
-                    }
+                    Attributes = ChildSpanAttributes(scenario, child.Scope)
                 });
             }
 
@@ -477,7 +472,7 @@ public sealed class HistoricalDataSeeder
                 var body = FillTemplate(line.Body, rng);
                 correlatedLogs.Add(new LogRecord
                 {
-                    ResourceHash = hashByService[ServiceFromScope(line.Scope)],
+                    ResourceHash = resourceHash,
                     TimeUnixNano = time,
                     ObservedTimeUnixNano = time,
                     SeverityNumber = line.Severity,
@@ -510,7 +505,7 @@ public sealed class HistoricalDataSeeder
             var time = (long)(nowUnixNano - windowSeconds * 1_000_000_000L * sampleAge());
             bgLogs.Add(new LogRecord
             {
-                ResourceHash = hashByService[ServiceFromScope(tpl.Scope)],
+                ResourceHash = resourceHash,
                 TimeUnixNano = time,
                 ObservedTimeUnixNano = time,
                 SeverityNumber = tpl.Severity,
@@ -526,78 +521,68 @@ public sealed class HistoricalDataSeeder
             });
         }
 
-        var traceBatch = new TraceBatch(resources, spans);
+        var traceBatch = new TraceBatch([resource], spans);
         await _traceSink.WriteAsync([traceBatch], cancellationToken).ConfigureAwait(false);
 
         var allLogs = new List<LogRecord>(correlatedLogs.Count + bgLogs.Count);
         allLogs.AddRange(correlatedLogs);
         allLogs.AddRange(bgLogs);
-        var logBatch = new LogBatch(resources, allLogs);
+        var logBatch = new LogBatch([resource], allLogs);
         await _logSink.WriteAsync([logBatch], cancellationToken).ConfigureAwait(false);
 
         _logger.SeedingCompleted(spans.Count, allLogs.Count, _options.Days);
     }
 
-    /// <summary>
-    /// Map an OTel scope to the service the seeder routes its spans/logs
-    /// to. Mirrors the SPA-side <c>serviceFromScope</c> in
-    /// <c>web/app/demo/generators/scenarios.ts</c> — keep both sides in
-    /// sync if you ever need a third service (e.g. RabbitMQ instrumentation).
-    /// </summary>
-    private static string ServiceFromScope(string scope)
+    /// <summary>Build the single sample-server resource. Mirrors the
+    /// shape a real OTel SDK in a .NET service would emit.</summary>
+    private static Resource BuildSampleServerResource()
     {
-        if (scope.StartsWith("Npgsql", StringComparison.Ordinal)) return "postgresql";
-        if (scope.StartsWith("StackExchange.Redis", StringComparison.Ordinal)) return "redis";
-        return "sample-server";
+        var attrs = new Dictionary<string, object?>
+        {
+            ["service.namespace"] = "oteldemo",
+            ["service.version"] = "1.0.0",
+            ["deployment.environment"] = "demo"
+        };
+        var hash = ResourceHasher.Compute(
+            serviceName: "sample-server",
+            serviceInstanceId: "server-1",
+            schemaUrl: null,
+            droppedAttributesCount: 0,
+            attributes: attrs);
+        return new Resource
+        {
+            Hash = hash,
+            ServiceName = "sample-server",
+            ServiceInstanceId = "server-1",
+            SchemaUrl = null,
+            DroppedAttributesCount = 0,
+            Attributes = attrs
+        };
     }
 
     /// <summary>
-    /// Build one Resource per service the scenarios touch. The returned
-    /// list is what the sink persists; the dictionary is the per-span
-    /// lookup the loop above uses to attach the right ResourceHash.
+    /// Per-span attribute map for child spans. When the scope belongs
+    /// to a known external dependency instrumentation library, attach
+    /// the OTel-standard <c>db.system</c> attribute — that's what the
+    /// service-map's dependency synthesis groups on, so the demo data
+    /// matches what real instrumentation libraries emit.
     /// </summary>
-    private static (IReadOnlyList<Resource> Resources, Dictionary<string, byte[]> HashByService) BuildResources()
+    private static Dictionary<string, object?> ChildSpanAttributes(Scenario scenario, string scope)
     {
-        // Per-service identity. instance.id is conventional (`<service>-1`)
-        // — irrelevant for the dashboard but matches what a real OTel
-        // exporter would emit for a single replica.
-        var configs = new (string Name, string InstanceId)[]
+        var attrs = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ("sample-server", "server-1"),
-            ("postgresql",    "postgres-1"),
-            ("redis",         "redis-1")
+            ["demo.seeder"] = "historical",
+            ["demo.scenario"] = scenario.Name
         };
-
-        var resources = new List<Resource>(configs.Length);
-        var hashByService = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        foreach (var (name, instanceId) in configs)
+        if (scope.StartsWith("Npgsql", StringComparison.Ordinal))
         {
-            // Same canonical attribute set across services so the seed
-            // data shows a consistent deployment.environment etc.
-            var attrs = new Dictionary<string, object?>
-            {
-                ["service.namespace"] = "oteldemo",
-                ["service.version"] = "1.0.0",
-                ["deployment.environment"] = "demo"
-            };
-            var hash = ResourceHasher.Compute(
-                serviceName: name,
-                serviceInstanceId: instanceId,
-                schemaUrl: null,
-                droppedAttributesCount: 0,
-                attributes: attrs);
-            hashByService[name] = hash;
-            resources.Add(new Resource
-            {
-                Hash = hash,
-                ServiceName = name,
-                ServiceInstanceId = instanceId,
-                SchemaUrl = null,
-                DroppedAttributesCount = 0,
-                Attributes = attrs
-            });
+            attrs["db.system"] = "postgresql";
         }
-        return (resources, hashByService);
+        else if (scope.StartsWith("StackExchange.Redis", StringComparison.Ordinal))
+        {
+            attrs["db.system"] = "redis";
+        }
+        return attrs;
     }
 
     private static string StatusMessageForScenario(Scenario s) => s.Name switch

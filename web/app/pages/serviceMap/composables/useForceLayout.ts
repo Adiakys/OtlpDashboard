@@ -20,6 +20,7 @@ import type { ServiceMapDto } from '~/services/types'
  */
 export interface PositionedNode extends SimulationNodeDatum {
   service: string
+  kind: 'service' | 'dependency'
   requestCount: number
   errorCount: number
 }
@@ -95,6 +96,7 @@ export function useForceLayout(
       const cached = positionCache.get(dto.service)
       const node: PositionedNode = {
         service: dto.service,
+        kind: dto.kind,
         requestCount: dto.requestCount,
         errorCount: dto.errorCount,
         x: cached?.x ?? w / 2 + (Math.random() - 0.5) * 40,

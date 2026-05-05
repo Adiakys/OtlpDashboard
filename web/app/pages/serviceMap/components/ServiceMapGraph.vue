@@ -261,38 +261,77 @@ watch(() => props.data.nodes.length, () => {
           </g>
         </g>
 
-        <!-- Nodes -->
+        <!-- Nodes. Services render as circles; dependencies as
+             rounded squares so the eye separates "things that emit"
+             from "things that get called". Same colour palette
+             (sage/amber/rust by error rate), same labels, same hover
+             halo — the shape is the only visual cue. -->
         <g class="vellum-svc-map__nodes">
           <g
             v-for="n in nodes"
             :key="n.service"
             :transform="`translate(${n.x ?? 0},${n.y ?? 0})`"
             class="vellum-svc-map__node"
-            :class="{ 'vellum-svc-map__node--selected': selected === n.service }"
+            :class="[
+              { 'vellum-svc-map__node--selected': selected === n.service },
+              n.kind === 'dependency' ? 'vellum-svc-map__node--dependency' : 'vellum-svc-map__node--service'
+            ]"
             @pointerdown="onNodeDown(n, $event)"
             @pointermove="onNodeMove"
             @pointerup="onNodeUp(n, $event)"
             @click="onNodeClick(n)"
           >
             <title>
-              {{ n.service }}: {{ n.requestCount }} spans,
+              {{ n.service }} ({{ n.kind }}): {{ n.requestCount }} spans,
               {{ n.errorCount }} errors
             </title>
-            <circle
-              :r="nodeRadius(n) + 3"
-              fill="var(--ui-bg)"
-              :stroke="nodeColor(n)"
-              stroke-width="0"
-              opacity="0"
-              class="vellum-svc-map__node-halo"
-            />
-            <circle
-              :r="nodeRadius(n)"
-              :fill="nodeColor(n)"
-              fill-opacity="0.18"
-              :stroke="nodeColor(n)"
-              stroke-width="2"
-            />
+
+            <template v-if="n.kind === 'service'">
+              <circle
+                :r="nodeRadius(n) + 3"
+                fill="var(--ui-bg)"
+                :stroke="nodeColor(n)"
+                stroke-width="0"
+                opacity="0"
+                class="vellum-svc-map__node-halo"
+              />
+              <circle
+                :r="nodeRadius(n)"
+                :fill="nodeColor(n)"
+                fill-opacity="0.18"
+                :stroke="nodeColor(n)"
+                stroke-width="2"
+              />
+            </template>
+            <template v-else>
+              <rect
+                :x="-(nodeRadius(n) + 3)"
+                :y="-(nodeRadius(n) + 3)"
+                :width="(nodeRadius(n) + 3) * 2"
+                :height="(nodeRadius(n) + 3) * 2"
+                rx="6"
+                ry="6"
+                fill="var(--ui-bg)"
+                :stroke="nodeColor(n)"
+                stroke-width="0"
+                opacity="0"
+                class="vellum-svc-map__node-halo"
+              />
+              <rect
+                :x="-nodeRadius(n)"
+                :y="-nodeRadius(n)"
+                :width="nodeRadius(n) * 2"
+                :height="nodeRadius(n) * 2"
+                rx="4"
+                ry="4"
+                :fill="nodeColor(n)"
+                fill-opacity="0.18"
+                :stroke="nodeColor(n)"
+                stroke-width="2"
+                stroke-dasharray="3 2"
+              />
+            </template>
+
             <text
               text-anchor="middle"
               :y="nodeRadius(n) + 14"

@@ -40,9 +40,15 @@ const topLoading = ref(false)
 const topError = ref<string | null>(null)
 let inFlight = 0
 
-watch(() => [props.service, props.range.from, props.range.to], async () => {
+// Dependency nodes are synthesised — no real OTel resource has
+// `service.name = "postgresql"`, so the Top-N aggregation (which
+// filters on resource service.name) wouldn't find anything for them.
+// Skip the call for dependency kind; the connections / summary
+// sections still surface the useful data.
+watch(() => [props.service, node.value?.kind, props.range.from, props.range.to], async () => {
   topOps.value = []
   if (!props.service) return
+  if (node.value?.kind !== 'service') return
   const ticket = ++inFlight
   topLoading.value = true
   topError.value = null
@@ -138,8 +144,10 @@ function viewTraces() {
         </div>
       </section>
 
-      <!-- Top operations on this service -->
-      <section>
+      <!-- Top operations on this service. Hidden for dependency
+           nodes — they don't emit spans of their own, just receive
+           Client calls from the host services. -->
+      <section v-if="node.kind === 'service'">
         <h3 class="text-overline text-muted">{{ t('serviceMap.detail.topOperations') }}</h3>
         <div v-if="topLoading" class="mt-2 text-mono-sm text-muted">
           {{ t('common.loading') }}
@@ -162,8 +170,11 @@ function viewTraces() {
         </ul>
       </section>
 
-      <!-- Drill-down link -->
+      <!-- Drill-down link. The /traces page filters on `service.name`,
+           which only matches real services — for dependency nodes the
+           filter would return nothing, so we hide the button. -->
       <UButton
+        v-if="node.kind === 'service'"
         size="sm"
         color="primary"
         variant="subtle"

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Api.Contracts;
 using OpenTelemetryDashboard.Api.Mappings;
 using OpenTelemetryDashboard.Core.Abstractions;
+using OpenTelemetryDashboard.Core.Abstractions.Queries;
 using OpenTelemetryDashboard.Core.Domain;
 
 namespace OpenTelemetryDashboard.Api.Endpoints;
@@ -117,7 +118,13 @@ internal static class TracesEndpoints
         }
 
         var result = await reader.GetServiceMapAsync(query, cancellationToken).ConfigureAwait(false);
-        var nodes = result.Nodes.Select(n => new ServiceMapNodeDto(n.Service, n.RequestCount, n.ErrorCount)).ToList();
+        var nodes = result.Nodes
+            .Select(n => new ServiceMapNodeDto(
+                n.Service,
+                n.Kind == ServiceMapNodeKind.Dependency ? "dependency" : "service",
+                n.RequestCount,
+                n.ErrorCount))
+            .ToList();
         var edges = result.Edges.Select(e => new ServiceMapEdgeDto(e.FromService, e.ToService, e.CallCount, e.ErrorCount)).ToList();
         return TypedResults.Ok(new ServiceMapDto(nodes, edges));
     }

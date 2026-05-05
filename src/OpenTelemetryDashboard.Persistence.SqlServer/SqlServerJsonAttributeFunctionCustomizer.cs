@@ -26,26 +26,39 @@ internal sealed class SqlServerJsonAttributeFunctionCustomizer : RelationalModel
         ArgumentNullException.ThrowIfNull(context);
 
         base.Customize(modelBuilder, context);
-        TelemetryDbFunctions.RegisterJsonAttributeEquals(modelBuilder, Translate);
+        TelemetryDbFunctions.RegisterJsonAttributeEquals(modelBuilder, TranslateEquals);
+        TelemetryDbFunctions.RegisterJsonAttributeValue(modelBuilder, TranslateValue);
     }
 
-    private static SqlBinaryExpression Translate(IReadOnlyList<SqlExpression> args)
+    private static SqlBinaryExpression TranslateEquals(IReadOnlyList<SqlExpression> args)
     {
         var stringMapping = args[2].TypeMapping;
-        var path = ConcatPath(args[1], stringMapping);
-        var extract = new SqlFunctionExpression(
-            functionName: "JSON_VALUE",
-            arguments: [args[0], path],
-            nullable: true,
-            argumentsPropagateNullability: [true, true],
-            type: typeof(string),
-            typeMapping: stringMapping);
+        var extract = BuildJsonValue(args[0], args[1], stringMapping);
         return new SqlBinaryExpression(
             ExpressionType.Equal,
             extract,
             args[2],
             typeof(bool),
             typeMapping: null);
+    }
+
+    private static SqlFunctionExpression TranslateValue(IReadOnlyList<SqlExpression> args)
+    {
+        var stringMapping = args[1].TypeMapping;
+        return BuildJsonValue(args[0], args[1], stringMapping);
+    }
+
+    private static SqlFunctionExpression BuildJsonValue(
+        SqlExpression jsonColumn, SqlExpression key, RelationalTypeMapping? stringMapping)
+    {
+        var path = ConcatPath(key, stringMapping);
+        return new SqlFunctionExpression(
+            functionName: "JSON_VALUE",
+            arguments: [jsonColumn, path],
+            nullable: true,
+            argumentsPropagateNullability: [true, true],
+            type: typeof(string),
+            typeMapping: stringMapping);
     }
 
     /// <summary>SQL Server uses the same JSON path syntax as SQLite —

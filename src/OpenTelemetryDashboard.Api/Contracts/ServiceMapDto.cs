@@ -12,6 +12,10 @@ public sealed record ServiceMapDto(
 
 public sealed record ServiceMapNodeDto(
     string Service,
+    /// <summary>"service" for OTel-emitting services; "dependency" for
+    /// synthesised external entities (databases, caches) inferred from
+    /// kind=Client + db.system spans.</summary>
+    string Kind,
     long RequestCount,
     long ErrorCount);
 

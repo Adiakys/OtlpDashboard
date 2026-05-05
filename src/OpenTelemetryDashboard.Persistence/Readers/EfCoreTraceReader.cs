@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Abstractions.Queries;
 using OpenTelemetryDashboard.Core.Common;
@@ -10,11 +11,16 @@ namespace OpenTelemetryDashboard.Persistence.Readers;
 public sealed class EfCoreTraceReader : ITraceReader
 {
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
+    private readonly IOptionsMonitor<ServiceMapOptions> _serviceMapOptions;
 
-    public EfCoreTraceReader(IDbContextFactory<TelemetryDbContext> contextFactory)
+    public EfCoreTraceReader(
+        IDbContextFactory<TelemetryDbContext> contextFactory,
+        IOptionsMonitor<ServiceMapOptions> serviceMapOptions)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
+        ArgumentNullException.ThrowIfNull(serviceMapOptions);
         _contextFactory = contextFactory;
+        _serviceMapOptions = serviceMapOptions;
     }
 
     public async Task<Span?> FindSpanAsync(TraceId traceId, SpanId spanId, CancellationToken cancellationToken)
@@ -390,12 +396,16 @@ public sealed class EfCoreTraceReader : ITraceReader
             join r in context.Resources.AsNoTracking() on s.ResourceHash equals r.Hash
             where r.ServiceName != null
             group s.StatusCode by r.ServiceName! into g
-            select new ServiceMapNode(
-                g.Key,
-                g.Count(),
-                g.Count(x => x == SpanStatusCode.Error));
+            select new
+            {
+                Service = g.Key,
+                Count = (long)g.Count(),
+                ErrorCount = (long)g.Count(x => x == SpanStatusCode.Error)
+            };
 
-        var nodes = await nodeQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+        var serviceNodes = (await nodeQuery.ToListAsync(cancellationToken).ConfigureAwait(false))
+            .Select(x => new ServiceMapNode(x.Service, ServiceMapNodeKind.Service, x.Count, x.ErrorCount))
+            .ToList();
 
         // Edges: self-join on (TraceId, ParentSpanId == SpanId). Self-
         // loops (parent and child on the same service) are dropped at
@@ -421,7 +431,83 @@ public sealed class EfCoreTraceReader : ITraceReader
                 g.Count(),
                 g.Count(x => x == SpanStatusCode.Error));
 
-        var edges = await edgeQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+        var serviceEdges = await edgeQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        // External-dependency synthesis: a Postgres or Redis instance
+        // typically doesn't run an OTel SDK, so it never emits spans of
+        // its own. The instrumentation libs (Npgsql, StackExchange.Redis,
+        // ...) inside the *calling* service produce kind=Client spans
+        // tagged with attributes like `db.system` or `messaging.system`.
+        // We synthesise one virtual node per distinct attribute value
+        // (e.g. one `postgresql` node) — mirrors what Datadog/Honeycomb
+        // show as "dependencies" — and one edge per (host, value) pair.
+        //
+        // Which attribute keys count as "dependency markers" is a
+        // configuration concern (`ServiceMapOptions.DependencyAttributes`)
+        // so operators can extend it to their own conventions without
+        // touching code. One query per key — the keys are typically 2-3
+        // and each query is GROUP-BY indexed on StartUnixNano.
+        var depKeys = _serviceMapOptions.CurrentValue.DependencyAttributes
+            ?.Where(k => !string.IsNullOrEmpty(k))
+            ?.Distinct(StringComparer.Ordinal)
+            ?.ToArray() ?? [];
+
+        var deps = new List<(string Host, string DepName, long Count, long ErrorCount)>();
+        foreach (var key in depKeys)
+        {
+            // Closure-captured `key` is lifted by EF as a parameter,
+            // so each iteration emits its own parameterised SQL plan.
+            var attributeKey = key;
+            var depQuery =
+                from s in context.Spans.AsNoTracking()
+                where s.StartUnixNano >= fromNano && s.StartUnixNano < toNano
+                   && s.Kind == SpanKind.Client
+                join r in context.Resources.AsNoTracking() on s.ResourceHash equals r.Hash
+                where r.ServiceName != null
+                let depValue = TelemetryDbFunctions.JsonAttributeValue(
+                    EF.Property<string>(s, nameof(Span.Attributes)),
+                    attributeKey)
+                where depValue != null
+                group s.StatusCode by new { Host = r.ServiceName!, DepValue = depValue! } into g
+                select new
+                {
+                    g.Key.Host,
+                    g.Key.DepValue,
+                    Count = (long)g.Count(),
+                    ErrorCount = (long)g.Count(x => x == SpanStatusCode.Error)
+                };
+
+            var rows = await depQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var r in rows)
+            {
+                deps.Add((r.Host, r.DepValue, r.Count, r.ErrorCount));
+            }
+        }
+
+        // Roll up dependency rows by value into a single node per
+        // distinct kind (e.g. one `postgresql` node even when called
+        // from multiple host services or matched by multiple keys),
+        // then create one edge per (host, value) pair.
+        var dependencyNodes = deps
+            .GroupBy(d => d.DepName, StringComparer.Ordinal)
+            .Select(g => new ServiceMapNode(
+                g.Key,
+                ServiceMapNodeKind.Dependency,
+                g.Sum(x => x.Count),
+                g.Sum(x => x.ErrorCount)))
+            .ToList();
+
+        var dependencyEdges = deps
+            .GroupBy(d => (d.Host, d.DepName))
+            .Select(g => new ServiceMapEdge(
+                g.Key.Host,
+                g.Key.DepName,
+                g.Sum(x => x.Count),
+                g.Sum(x => x.ErrorCount)))
+            .ToList();
+
+        var nodes = serviceNodes.Concat(dependencyNodes).ToList();
+        var edges = serviceEdges.Concat(dependencyEdges).ToList();
 
         // Focus mode: narrow to a service and its direct neighbours.
         // Done in C# (post-fetch) — keeps the SQL queries simple, works

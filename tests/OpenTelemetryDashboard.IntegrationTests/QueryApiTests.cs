@@ -347,6 +347,51 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetServiceMap_SynthesizesDependencyNodesFromClientSpans()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 15, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var hostService = $"map-host-{suffix}";
+
+        // Two client spans on the host service: one tagged db.system=postgresql,
+        // one tagged db.system=redis. The reader should synthesize two
+        // virtual `dependency` nodes (postgresql, redis) plus one host
+        // `service` node, with edges from host to each dependency.
+        await SeedClientSpanWithAttributesAsync(
+            client, hostService, anchor, RandomBytes(16), RandomBytes(8),
+            name: $"pg.query.{suffix}",
+            attributes: [new KeyValuePair<string, AnyValue>("db.system", new AnyValue { StringValue = "postgresql" })]);
+        await SeedClientSpanWithAttributesAsync(
+            client, hostService, anchor.AddSeconds(1), RandomBytes(16), RandomBytes(8),
+            name: $"redis.get.{suffix}",
+            attributes: [new KeyValuePair<string, AnyValue>("db.system", new AnyValue { StringValue = "redis" })]);
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"pg.query.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"redis.get.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
+            new Uri($"/api/v1/traces/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        response.ShouldNotBeNull();
+        // Host service should be present as a normal `service` node.
+        response!.Nodes.ShouldContain(n => n.Service == hostService && n.Kind == "service");
+        // Postgres + Redis as `dependency` nodes (synthesised from the
+        // db.system attribute, not from a real OTel-emitting service).
+        response.Nodes.ShouldContain(n => n.Service == "postgresql" && n.Kind == "dependency");
+        response.Nodes.ShouldContain(n => n.Service == "redis" && n.Kind == "dependency");
+        // Edges from the host into each dependency.
+        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "postgresql");
+        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "redis");
+    }
+
+    [Fact]
     public async Task GetTraceAggregations_GroupsAndSortsByMetric()
     {
         using var client = _fixture.CreateClient();
@@ -729,6 +774,54 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         request.ResourceLogs.Add(resourceLogs);
 
         using var response = await PostProtobufAsync(client, "/v1/logs", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// Seed one client-kind span with arbitrary attributes — used by
+    /// the service-map dependency synthesis test to exercise the
+    /// `kind=Client + db.system=...` shape that real instrumentation
+    /// libraries (Npgsql, StackExchange.Redis) produce.
+    /// </summary>
+    private static async Task SeedClientSpanWithAttributesAsync(
+        HttpClient client,
+        string service,
+        DateTimeOffset anchor,
+        byte[] traceIdBytes,
+        byte[] spanIdBytes,
+        string name,
+        IReadOnlyList<KeyValuePair<string, AnyValue>> attributes)
+    {
+        var request = new ExportTraceServiceRequest();
+        var resourceSpans = new ResourceSpans
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = service } },
+                },
+            },
+        };
+        var scopeSpans = new ScopeSpans { Scope = new InstrumentationScope { Name = "tests" } };
+        var span = new OtlpSpan
+        {
+            TraceId = ByteString.CopyFrom(traceIdBytes),
+            SpanId = ByteString.CopyFrom(spanIdBytes),
+            Name = name,
+            Kind = OtlpSpan.Types.SpanKind.Client,
+            StartTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor),
+            EndTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMilliseconds(20))
+        };
+        foreach (var pair in attributes)
+        {
+            span.Attributes.Add(new KeyValue { Key = pair.Key, Value = pair.Value });
+        }
+        scopeSpans.Spans.Add(span);
+        resourceSpans.ScopeSpans.Add(scopeSpans);
+        request.ResourceSpans.Add(resourceSpans);
+
+        using var response = await PostProtobufAsync(client, "/v1/traces", request);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
@@ -1163,7 +1256,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     private sealed record ServiceMapApiResponse(
         IReadOnlyList<ServiceMapApiNode> Nodes,
         IReadOnlyList<ServiceMapApiEdge> Edges);
-    private sealed record ServiceMapApiNode(string Service, long RequestCount, long ErrorCount);
+    private sealed record ServiceMapApiNode(string Service, string Kind, long RequestCount, long ErrorCount);
     private sealed record ServiceMapApiEdge(string FromService, string ToService, long CallCount, long ErrorCount);
 
     private sealed record InstrumentItem(

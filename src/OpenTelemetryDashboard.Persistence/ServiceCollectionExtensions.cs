@@ -58,6 +58,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => new ResourceCache(resourceCacheSize));
         services.AddSingleton(_ => new InstrumentCache());
 
+        // Service-map dependency-synthesis keys. Bound here (not in
+        // the host) because the reader is the only consumer — keeps
+        // the persistence module self-contained. Defaults baked into
+        // ServiceMapOptions; appsettings only needs to override.
+        services.AddOptions<ServiceMapOptions>()
+            .BindConfiguration(ServiceMapOptions.SectionName);
+
         services.AddSingleton<ITraceSink, EfCoreTraceSink>();
         services.AddSingleton<ILogSink, EfCoreLogSink>();
         services.AddSingleton<IMetricSink, EfCoreMetricSink>();

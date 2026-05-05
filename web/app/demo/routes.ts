@@ -114,12 +114,18 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     })
     const nodeMap = new Map<string, { service: string; requestCount: number; errorCount: number }>()
     const edgeMap = new Map<string, { fromService: string; toService: string; callCount: number; errorCount: number }>()
+    // A service that never originates a root span is treated as a
+    // synthesised dependency (matches the backend logic, which
+    // synthesises dependency nodes from kind=Client + db.system on
+    // host services). The SPA generators expose the same shape via
+    // the `serviceFromScope` mapping so postgresql/redis fall here.
+    const rootServices = new Set<string>()
     for (const summary of list.items) {
       const t = summary as { traceId: string; rootStatusCode: string; serviceName: string | null }
       const detail = generateTraceDetail(t.traceId)
-      // Bucket spans by service for node counts.
       for (const span of detail.spans) {
         const svc = span.serviceName ?? 'unknown'
+        if (!span.parentSpanId) rootServices.add(svc)
         const node = nodeMap.get(svc) ?? { service: svc, requestCount: 0, errorCount: 0 }
         node.requestCount++
         if (span.statusCode === 'Error') node.errorCount++
@@ -148,7 +154,10 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
         edgeMap.set(key, edge)
       }
     }
-    let nodes = [...nodeMap.values()]
+    let nodes = [...nodeMap.values()].map(n => ({
+      ...n,
+      kind: rootServices.has(n.service) ? 'service' as const : 'dependency' as const
+    }))
     let edges = [...edgeMap.values()]
     if (focus) {
       const keptEdges = edges.filter(e => e.fromService === focus || e.toService === focus)

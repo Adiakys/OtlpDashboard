@@ -37,30 +37,47 @@ internal sealed class PostgresJsonAttributeFunctionCustomizer : RelationalModelC
 
         var jsonbMapping = _typeMappingSource.FindMapping("jsonb");
         if (jsonbMapping is null) return;
-        TelemetryDbFunctions.RegisterJsonAttributeEquals(modelBuilder, args => Translate(args, jsonbMapping));
+        TelemetryDbFunctions.RegisterJsonAttributeEquals(modelBuilder, args => TranslateEquals(args, jsonbMapping));
+        TelemetryDbFunctions.RegisterJsonAttributeValue(modelBuilder, args => TranslateValue(args, jsonbMapping));
     }
 
-    private static SqlBinaryExpression Translate(
+    private static SqlBinaryExpression TranslateEquals(
         IReadOnlyList<SqlExpression> args,
         RelationalTypeMapping jsonbMapping)
     {
-        var jsonbCast = new SqlUnaryExpression(
-            operatorType: ExpressionType.Convert,
-            operand: args[0],
-            type: typeof(string),
-            typeMapping: jsonbMapping);
-        var extract = new SqlFunctionExpression(
-            functionName: "jsonb_extract_path_text",
-            arguments: [jsonbCast, args[1]],
-            nullable: true,
-            argumentsPropagateNullability: [true, true],
-            type: typeof(string),
-            typeMapping: args[2].TypeMapping);
+        var extract = BuildExtract(args[0], args[1], jsonbMapping, args[2].TypeMapping);
         return new SqlBinaryExpression(
             ExpressionType.Equal,
             extract,
             args[2],
             typeof(bool),
             typeMapping: null);
+    }
+
+    private static SqlFunctionExpression TranslateValue(
+        IReadOnlyList<SqlExpression> args,
+        RelationalTypeMapping jsonbMapping)
+    {
+        return BuildExtract(args[0], args[1], jsonbMapping, args[1].TypeMapping);
+    }
+
+    private static SqlFunctionExpression BuildExtract(
+        SqlExpression jsonColumn,
+        SqlExpression key,
+        RelationalTypeMapping jsonbMapping,
+        RelationalTypeMapping? stringMapping)
+    {
+        var jsonbCast = new SqlUnaryExpression(
+            operatorType: ExpressionType.Convert,
+            operand: jsonColumn,
+            type: typeof(string),
+            typeMapping: jsonbMapping);
+        return new SqlFunctionExpression(
+            functionName: "jsonb_extract_path_text",
+            arguments: [jsonbCast, key],
+            nullable: true,
+            argumentsPropagateNullability: [true, true],
+            type: typeof(string),
+            typeMapping: stringMapping);
     }
 }
