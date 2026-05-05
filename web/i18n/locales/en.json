@@ -336,7 +336,9 @@
       "spanDetail": "Span detail",
       "events": "Events",
       "links": "Links",
-      "noSpans": "This trace has no spans."
+      "noSpans": "This trace has no spans.",
+      "viewTree": "Tree",
+      "viewFlame": "Flame"
     }
   },
   "metrics": {

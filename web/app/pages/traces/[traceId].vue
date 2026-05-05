@@ -6,6 +6,7 @@ import AppEmptyState from '~/components/ui/AppEmptyState.vue'
 import AppErrorState from '~/components/ui/AppErrorState.vue'
 import AppSkeleton from '~/components/ui/AppSkeleton.vue'
 import SpanTree from './components/SpanTree.vue'
+import SpanFlameGraph from './components/SpanFlameGraph.vue'
 import SpanDetailPanel from './components/SpanDetailPanel.vue'
 import { useTracePage } from './useTracePage'
 import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
@@ -16,6 +17,13 @@ const { $traceService, $logsService } = useNuxtApp()
 
 const traceId = computed(() => route.params.traceId as string)
 const page = useTracePage($traceService, $logsService, traceId.value)
+
+// Span panel layout — `tree` is the linear list (default, low-density
+// scenarios), `flame` is the depth-stacked timeline (better when the
+// trace runs deep, e.g. middleware/repository/db chains). Local state
+// only — the user picks per-trace; not persisted across reloads.
+type SpanView = 'tree' | 'flame'
+const spanView = ref<SpanView>('tree')
 
 const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   dateStyle: 'short',
@@ -118,10 +126,38 @@ const actions = computed<ActionDescriptor[]>(() => {
       >
         <template #first>
           <div class="h-full flex flex-col border border-default rounded-lg overflow-hidden bg-default">
-            <header class="px-3 py-2 border-b border-default text-xs uppercase tracking-wide text-muted">
-              {{ t('traces.detail.spans') }}
+            <header class="px-3 py-2 border-b border-default flex items-center justify-between gap-3">
+              <span class="text-xs uppercase tracking-wide text-muted">
+                {{ t('traces.detail.spans') }}
+              </span>
+              <div class="vellum-span-view-toggle">
+                <button
+                  type="button"
+                  :class="['vellum-span-view-toggle__btn', spanView === 'tree' ? 'vellum-span-view-toggle__btn--active' : '']"
+                  @click="spanView = 'tree'"
+                >
+                  <UIcon name="i-ph-tree-view" class="size-3.5" />
+                  <span>{{ t('traces.detail.viewTree') }}</span>
+                </button>
+                <button
+                  type="button"
+                  :class="['vellum-span-view-toggle__btn', spanView === 'flame' ? 'vellum-span-view-toggle__btn--active' : '']"
+                  @click="spanView = 'flame'"
+                >
+                  <UIcon name="i-ph-flame" class="size-3.5" />
+                  <span>{{ t('traces.detail.viewFlame') }}</span>
+                </button>
+              </div>
             </header>
             <SpanTree
+              v-if="spanView === 'tree'"
+              :spans="page.trace.value.spans"
+              :logs="page.logs.value"
+              :selected-id="page.selected.value?.spanId ?? null"
+              @select="(s) => page.selected.value = s"
+            />
+            <SpanFlameGraph
+              v-else
               :spans="page.trace.value.spans"
               :logs="page.logs.value"
               :selected-id="page.selected.value?.spanId ?? null"
@@ -141,3 +177,39 @@ const actions = computed<ActionDescriptor[]>(() => {
     </template>
   </AppPage>
 </template>
+
+<style scoped>
+/* Compact segmented toggle in the spans panel header. Two buttons
+   sharing a single rounded border give a clear "this OR that"
+   affordance without the visual weight of a full UButton group. */
+.vellum-span-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.vellum-span-view-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ui-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--t-instant) var(--ease-out), color var(--t-instant) var(--ease-out);
+}
+.vellum-span-view-toggle__btn + .vellum-span-view-toggle__btn {
+  border-left: 1px solid var(--ui-border);
+}
+.vellum-span-view-toggle__btn:hover {
+  color: var(--ui-text);
+  background: var(--ui-bg-elevated);
+}
+.vellum-span-view-toggle__btn--active {
+  color: var(--ui-text);
+  background: var(--ui-bg-elevated);
+}
+</style>

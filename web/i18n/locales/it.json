@@ -337,7 +337,9 @@
       "spanDetail": "Dettaglio span",
       "events": "Eventi",
       "links": "Link",
-      "noSpans": "Questa trace non contiene span."
+      "noSpans": "Questa trace non contiene span.",
+      "viewTree": "Albero",
+      "viewFlame": "Flame"
     }
   },
   "metrics": {

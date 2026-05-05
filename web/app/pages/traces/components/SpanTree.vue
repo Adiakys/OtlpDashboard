@@ -1,37 +1,13 @@
 <script setup lang="ts">
 import type { LogRecordDto, SpanDto } from '~/services/types'
-import { severityBucketFromNumber, type SeverityBucket } from '~/types/filters'
 import AppBadge from '~/components/ui/AppBadge.vue'
-
-type AlertBucket = Extract<SeverityBucket, 'warn' | 'error' | 'fatal'>
-
-interface LogMarker {
-  /** Position [0,1] within the trace timeline (same coordinate system
-   *  as the bar's `offset`). */
-  position: number
-  bucket: AlertBucket
-  body: string
-  time: string
-  /** Stable key for the v-for. */
-  key: string
-}
-
-interface DisplaySpan {
-  span: SpanDto
-  depth: number
-  /** Relative offset of the span start within the trace [0,1]. */
-  offset: number
-  /** Relative width of the span (duration / trace duration) [0,1]. */
-  width: number
-  /** Warn/Error/Fatal logs attached to this span, positioned along the
-   *  trace timeline. Empty for spans without correlated alerts. */
-  alerts: LogMarker[]
-}
+import { type AlertBucket, buildTraceLayout } from '../composables/useTraceLayout'
 
 const props = defineProps<{
   spans: SpanDto[]
   /** Correlated logs for the whole trace. Filtered + grouped by spanId
-   *  here so the parent doesn't need to know about severity buckets. */
+   *  inside <c>useTraceLayout</c> so the parent doesn't need to know
+   *  about severity buckets. */
   logs?: LogRecordDto[]
   selectedId?: string | null
 }>()
@@ -64,68 +40,7 @@ function alertRingClass(bucket: AlertBucket): string {
   return bucket === 'warn' ? 'ring-warning/60' : 'ring-error/60'
 }
 
-const rows = computed<DisplaySpan[]>(() => {
-  if (props.spans.length === 0) return []
-  const byId = new Map<string, SpanDto>()
-  for (const s of props.spans) byId.set(s.spanId, s)
-
-  const traceStart = props.spans.reduce((min, s) => {
-    const t = new Date(s.start).getTime()
-    return t < min ? t : min
-  }, Number.POSITIVE_INFINITY)
-  const traceEnd = props.spans.reduce((max, s) => {
-    const t = new Date(s.end).getTime()
-    return t > max ? t : max
-  }, Number.NEGATIVE_INFINITY)
-  const span = Math.max(1, traceEnd - traceStart)
-
-  const depthCache = new Map<string, number>()
-  function depthOf(s: SpanDto, guard = 0): number {
-    if (guard > 64) return 0
-    const cached = depthCache.get(s.spanId)
-    if (cached !== undefined) return cached
-    if (!s.parentSpanId) {
-      depthCache.set(s.spanId, 0)
-      return 0
-    }
-    const parent = byId.get(s.parentSpanId)
-    const d = parent ? depthOf(parent, guard + 1) + 1 : 0
-    depthCache.set(s.spanId, d)
-    return d
-  }
-
-  // Bucket the alert-level logs by their owning spanId once, so each
-  // row's lookup is O(1) instead of O(N) over the full log set.
-  const alertsBySpanId = new Map<string, LogMarker[]>()
-  for (const log of props.logs ?? []) {
-    if (!log.spanId) continue
-    const bucket = severityBucketFromNumber(log.severityNumber)
-    if (bucket !== 'warn' && bucket !== 'error' && bucket !== 'fatal') continue
-    const arr = alertsBySpanId.get(log.spanId) ?? []
-    arr.push({
-      position: ((new Date(log.time).getTime()) - traceStart) / span,
-      bucket,
-      body: log.body ?? '',
-      time: log.time,
-      key: `${log.spanId}|${log.time}|${(log.body ?? '').slice(0, 32)}`
-    })
-    alertsBySpanId.set(log.spanId, arr)
-  }
-
-  return [...props.spans]
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-    .map(s => {
-      const start = new Date(s.start).getTime()
-      const end = new Date(s.end).getTime()
-      return {
-        span: s,
-        depth: depthOf(s),
-        offset: (start - traceStart) / span,
-        width: Math.max(0.005, (end - start) / span),
-        alerts: alertsBySpanId.get(s.spanId) ?? []
-      }
-    })
-})
+const rows = computed(() => buildTraceLayout(props.spans, props.logs).spans)
 
 function fmtDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`
