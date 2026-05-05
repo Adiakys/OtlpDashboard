@@ -52,7 +52,7 @@ async function submit() {
   }
 
   // Hard navigation: bypass Vue Router so the destination route mounts
-  // from a clean SPA boot (token already in localStorage). The global
+  // from a clean SPA boot (token already in the auth cookie). The global
   // auth middleware will let it through on the next tick; the dashboard
   // layout renders without the empty-layout-still-mounted glitch.
   if (import.meta.client) {

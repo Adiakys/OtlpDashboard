@@ -11,19 +11,30 @@
  * subpath). The fetch-level 401 interceptor in `plugins/services.ts`
  * stays as a backstop for tokens that expire mid-session.
  *
- * Reads localStorage directly rather than going through
+ * Reads `document.cookie` directly rather than going through
  * `useNuxtApp().$authStore`. The DI route turned out to be unreliable
  * during chained `replace: true` transitions, where the provider map
- * could still be settling. localStorage access is synchronous and
- * race-free.
+ * could still be settling. Cookie access is synchronous and race-free.
+ * The envelope shape is mirrored from `AuthStore.ts`; if it changes
+ * there, update the type-guard below.
  */
 const STORAGE_KEY = 'dashboard.auth'
 
+function readAuthCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const prefix = `${encodeURIComponent(STORAGE_KEY)}=`
+  for (const part of document.cookie.split('; ')) {
+    if (part.startsWith(prefix)) {
+      return decodeURIComponent(part.slice(prefix.length))
+    }
+  }
+  return null
+}
+
 function isAuthenticated(): boolean {
-  if (typeof window === 'undefined') return false
+  const raw = readAuthCookie()
+  if (!raw) return false
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return false
     const env = JSON.parse(raw) as { token?: unknown; expiresAt?: unknown }
     return (
       typeof env.token === 'string' &&
