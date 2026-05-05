@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace OpenTelemetryDashboard.Persistence.PostgreSql;
@@ -23,6 +24,7 @@ public static class PostgreSqlTelemetryStoreExtensions
             {
                 npgsql.MigrationsAssembly(typeof(PostgreSqlTelemetryStoreExtensions).Assembly.GetName().Name);
             });
+            options.ReplaceService<IModelCustomizer, PostgresJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 
@@ -49,6 +51,7 @@ public static class PostgreSqlTelemetryStoreExtensions
             {
                 npgsql.MigrationsAssembly(typeof(PostgreSqlTelemetryStoreExtensions).Assembly.GetName().Name);
             });
+            options.ReplaceService<IModelCustomizer, PostgresJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 }

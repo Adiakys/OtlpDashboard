@@ -21,7 +21,10 @@ internal sealed record TraceQueryParameters(
     [FromQuery(Name = "status")] string? Status = null,
     [FromQuery(Name = "minMs")] double? MinMs = null,
     [FromQuery(Name = "maxMs")] double? MaxMs = null,
-    [FromQuery(Name = "spanNameContains")] string? SpanNameContains = null);
+    [FromQuery(Name = "spanNameContains")] string? SpanNameContains = null,
+    // Attribute filters as `key:value` pairs (any-span match,
+    // AND across pairs). See <see cref="LogQueryParameters.Attr"/>.
+    [FromQuery(Name = "attr")] string[]? Attr = null);
 
 /// <summary>
 /// HTTP handlers for the trace-listing and trace-detail endpoints. Wiring

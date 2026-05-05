@@ -65,6 +65,34 @@ public sealed class EfCoreLogReader : ILogReader
             baseQuery = baseQuery.Where(l => l.Body != null && EF.Functions.Like(l.Body, pattern));
         }
 
+        // Attribute filters: AND of key/value pairs. The Attributes column
+        // is a serialized JSON string (see AttributesJsonConverter); we
+        // match the canonical `"key":"value"` substring against the raw
+        // column text via `EF.Property<string>` — that bypass works
+        // because the converter's provider type is already `string`. No
+        // index — sequential scan inside the time window. Numeric/boolean
+        // attributes are out of scope for this version (they'd need
+        // unquoted patterns and provider-specific JSON operators to stay
+        // precise).
+        if (query.AttributeFilters is { Count: > 0 } logAttrs)
+        {
+            // Each filter becomes a provider-native JSON path predicate
+            // via TelemetryDbFunctions.JsonAttributeEquals — the storage
+            // provider's package (Persistence.Sqlite/SqlServer/PostgreSql)
+            // registers the translation. Multiple filters AND naturally
+            // by stacking Where calls.
+            foreach (var filter in logAttrs)
+            {
+                var key = filter.Key;
+                var value = filter.Value;
+                baseQuery = baseQuery.Where(l =>
+                    TelemetryDbFunctions.JsonAttributeEquals(
+                        EF.Property<string>(l, nameof(LogRecord.Attributes)),
+                        key,
+                        value));
+            }
+        }
+
         if (query.After is { } cursor)
         {
             baseQuery = baseQuery.Where(l =>

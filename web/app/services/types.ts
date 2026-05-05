@@ -103,6 +103,12 @@ export interface PageQuery extends TimeWindow {
   maxMs?: number
   /** Optional trace filter: substring match on any span name in the trace. */
   spanNameContains?: string
+  /** Optional attribute filters in `key:value` form, AND'd together.
+   *  Match semantics are string-typed only: the server matches the
+   *  canonical `"key":"value"` JSON substring against the row's
+   *  attribute column. Numeric/boolean attribute filtering is not
+   *  supported in this version. */
+  attr?: string[]
 }
 
 export interface TelemetryLimitsDto {

@@ -34,7 +34,8 @@ public sealed record LogQuery(
     string? ServiceName = null,
     int? MinSeverityNumber = null,
     IReadOnlyList<int>? SeverityNumbersIn = null,
-    string? BodyContains = null);
+    string? BodyContains = null,
+    IReadOnlyList<AttributeFilter>? AttributeFilters = null);
 
 /// <summary>
 /// Parameters for a time-windowed, keyset-paginated trace-summary query.
@@ -56,7 +57,17 @@ public sealed record TraceQuery(
     TraceStatusFilter? StatusFilter = null,
     double? MinDurationMs = null,
     double? MaxDurationMs = null,
-    string? SpanNameContains = null);
+    string? SpanNameContains = null,
+    IReadOnlyList<AttributeFilter>? AttributeFilters = null);
+
+/// <summary>
+/// Single key/value pair to require on a span's or log's attribute map.
+/// Multi-filter queries AND the pairs together. Match semantics: the pair
+/// is matched as a JSON string-typed property (<c>"key":"value"</c>);
+/// numeric/boolean attributes aren't filterable in this version. Both
+/// fields are pre-validated by the caller — non-empty, no LIKE wildcards.
+/// </summary>
+public sealed record AttributeFilter(string Key, string Value);
 
 /// <summary>
 /// Trace-level status filter, evaluated with "any-span" semantics so it

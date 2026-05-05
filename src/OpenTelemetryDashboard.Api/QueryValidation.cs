@@ -84,7 +84,15 @@ internal static class QueryValidation
 
         var bodyContains = string.IsNullOrWhiteSpace(parameters.BodyContains) ? null : parameters.BodyContains;
 
-        query = new LogQuery(from, to, limit, cursor, traceId, service, parameters.MinSeverity, severityNumbers, bodyContains);
+        if (!TryParseAttributeFilters(parameters.Attr, out var logAttrFilters, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        query = new LogQuery(
+            from, to, limit, cursor, traceId, service, parameters.MinSeverity,
+            severityNumbers, bodyContains, logAttrFilters);
         errors = null;
         return true;
     }
@@ -215,8 +223,102 @@ internal static class QueryValidation
 
         var spanName = string.IsNullOrWhiteSpace(parameters.SpanNameContains) ? null : parameters.SpanNameContains;
 
-        query = new TraceQuery(from, to, limit, cursor, service, status, parameters.MinMs, parameters.MaxMs, spanName);
+        if (!TryParseAttributeFilters(parameters.Attr, out var traceAttrFilters, out errors))
+        {
+            query = null;
+            return false;
+        }
+
+        query = new TraceQuery(
+            from, to, limit, cursor, service, status, parameters.MinMs, parameters.MaxMs,
+            spanName, traceAttrFilters);
         errors = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Parse <c>attr=key:value</c> entries (or comma-separated within one
+    /// entry) into validated <see cref="AttributeFilter"/> pairs. Whitespace
+    /// is trimmed; empty pairs are silently dropped; malformed entries
+    /// (no colon, empty key/value, key with disallowed chars) produce a 400.
+    /// Returns <c>null</c> when no filters were supplied — readers treat
+    /// that as "no filter".
+    /// <para>
+    /// Keys are restricted to OTel-style identifiers
+    /// (<c>[a-zA-Z][a-zA-Z0-9._-]*</c>). The strict allow-list lets the
+    /// readers safely embed the key into a JSON path string at query
+    /// time without any escaping concerns — the chars that would
+    /// otherwise require careful path-syntax escaping (<c>"</c>, <c>$</c>,
+    /// backslash, brackets) never reach the SQL layer.
+    /// </para>
+    /// </summary>
+    internal static bool TryParseAttributeFilters(
+        string[]? raw,
+        out IReadOnlyList<AttributeFilter>? filters,
+        [NotNullWhen(false)] out Dictionary<string, string[]>? errors)
+    {
+        if (raw is null || raw.Length == 0)
+        {
+            filters = null;
+            errors = null;
+            return true;
+        }
+
+        var list = new List<AttributeFilter>(raw.Length);
+        foreach (var entry in raw)
+        {
+            if (entry is null) continue;
+            // Multi-pair-per-entry support: `?attr=a:1,b:2` is the same
+            // as `?attr=a:1&attr=b:2`. The single-key form remains the
+            // primary interface; the comma form is just URL ergonomics.
+            foreach (var part in entry.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var colon = part.IndexOf(':', StringComparison.Ordinal);
+                if (colon < 0)
+                {
+                    filters = null;
+                    errors = SingleError("attr", "'attr' values must be in the form 'key:value'.");
+                    return false;
+                }
+                var key = part[..colon].Trim();
+                var value = part[(colon + 1)..].Trim();
+                if (key.Length == 0 || value.Length == 0)
+                {
+                    filters = null;
+                    errors = SingleError("attr", "'attr' key and value must both be non-empty.");
+                    return false;
+                }
+                if (!IsValidAttributeKey(key))
+                {
+                    filters = null;
+                    errors = SingleError(
+                        "attr",
+                        "'attr' keys must match [a-zA-Z][a-zA-Z0-9._-]*.");
+                    return false;
+                }
+                list.Add(new AttributeFilter(key, value));
+            }
+        }
+
+        filters = list.Count == 0 ? null : list;
+        errors = null;
+        return true;
+    }
+
+    private static bool IsValidAttributeKey(string key)
+    {
+        if (key.Length == 0) return false;
+        var first = key[0];
+        if (!((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z'))) return false;
+        for (var i = 1; i < key.Length; i++)
+        {
+            var c = key[i];
+            var ok = (c >= 'a' && c <= 'z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || c == '.' || c == '_' || c == '-';
+            if (!ok) return false;
+        }
         return true;
     }
 

@@ -161,6 +161,39 @@ public sealed class EfCoreTraceReader : ITraceReader
                         EF.Functions.Like(s2.Name, pattern)));
         }
 
+        // Attribute filters — "any-span" semantics, AND across pairs:
+        // each pair must be present on at least one span of the trace
+        // (different pairs may be satisfied by different spans). Matches
+        // the discovery use case "find me traces that touched key=value
+        // anywhere". Implementation: one EXISTS-correlated subquery per
+        // pair. The pattern matches the canonical `"key":"value"` JSON
+        // substring on the spans' Attributes column via `EF.Property<string>`
+        // (the converter's provider type is `string`, so the bypass is safe).
+        if (query.AttributeFilters is { Count: > 0 } traceAttrs)
+        {
+            // Any-span semantics: each filter must be satisfied by at
+            // least one span of the trace. AND across filters means
+            // different filters can be satisfied by different spans
+            // (matches the existing `service` and `spanNameContains`
+            // behaviour). Each pair becomes its own EXISTS-correlated
+            // subquery so the planner can short-circuit per trace.
+            foreach (var filter in traceAttrs)
+            {
+                var key = filter.Key;
+                var value = filter.Value;
+                baseSpans = baseSpans.Where(s =>
+                    context.Spans
+                        .AsNoTracking()
+                        .Any(s2 =>
+                            s2.TraceId == s.TraceId &&
+                            s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                            TelemetryDbFunctions.JsonAttributeEquals(
+                                EF.Property<string>(s2, nameof(Span.Attributes)),
+                                key,
+                                value)));
+            }
+        }
+
         var aggregateQuery = baseSpans
             .GroupBy(s => s.TraceId)
             .Select(g => new TraceAggregate

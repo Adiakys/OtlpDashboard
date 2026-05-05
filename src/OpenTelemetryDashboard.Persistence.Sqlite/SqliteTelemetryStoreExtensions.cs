@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace OpenTelemetryDashboard.Persistence.Sqlite;
@@ -33,6 +34,7 @@ public static class SqliteTelemetryStoreExtensions
                 // under the limit) and keeps trace listings readable.
                 sqlite.MaxBatchSize(100);
             });
+            options.ReplaceService<IModelCustomizer, SqliteJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 
@@ -69,6 +71,7 @@ public static class SqliteTelemetryStoreExtensions
                 // under the limit) and keeps trace listings readable.
                 sqlite.MaxBatchSize(100);
             });
+            options.ReplaceService<IModelCustomizer, SqliteJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 }

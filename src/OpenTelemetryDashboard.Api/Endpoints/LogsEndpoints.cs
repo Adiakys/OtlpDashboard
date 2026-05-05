@@ -24,7 +24,11 @@ internal sealed record LogQueryParameters(
     // bind because ASP.NET treats repeated keys as a list — the validator
     // accepts both shapes.
     [FromQuery(Name = "severities")] string[]? Severities = null,
-    [FromQuery(Name = "bodyContains")] string? BodyContains = null);
+    [FromQuery(Name = "bodyContains")] string? BodyContains = null,
+    // Attribute filters as `key:value` pairs. Repeated keys are AND'd:
+    // `?attr=http.route:/foo&attr=demo.scenario:post_counter_value`.
+    // String-typed match only — see <see cref="AttributeFilter"/>.
+    [FromQuery(Name = "attr")] string[]? Attr = null);
 
 /// <summary>
 /// HTTP handler(s) for the log-listing endpoint. Wiring (path, method, name)

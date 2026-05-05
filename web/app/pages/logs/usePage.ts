@@ -49,6 +49,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   // filters then hid every match outside the first page).
   const severityFilter = ref<SeverityBucket[]>([])
   const bodyQuery = ref('')
+  const attributeFilters = ref<string[]>([])
 
   // Client-side dedup for live-mode prepends. Log records have no stable ID
   // server-side, so we key on (time, spanId, body-prefix) — collisions are
@@ -70,7 +71,8 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         traceId: traceId.value,
         service: serviceFilter.value ?? undefined,
         severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
-        bodyContains: bodyQuery.value.trim() || undefined
+        bodyContains: bodyQuery.value.trim() || undefined,
+        attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
       })
 
       if (append) {
@@ -104,7 +106,8 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         traceId: traceId.value,
         service: serviceFilter.value ?? undefined,
         severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
-        bodyContains: bodyQuery.value.trim() || undefined
+        bodyContains: bodyQuery.value.trim() || undefined,
+        attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
       })
 
       const fresh: LogRecordDto[] = []
@@ -170,6 +173,9 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   watch(bodyQuery, () => {
     if (!live.isLive.value) void reload()
   })
+  watch(attributeFilters, () => {
+    if (!live.isLive.value) void reload()
+  }, { deep: true })
 
   // Initial load.
   reload()
@@ -188,6 +194,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     selected,
     severityFilter,
     bodyQuery,
+    attributeFilters,
     reload,
     loadMore,
     isLive: live.isLive,

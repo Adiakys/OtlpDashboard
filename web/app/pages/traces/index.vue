@@ -38,6 +38,7 @@ const filters: FilterDescriptor[] = [
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'status', modelValue: page.statusFilter },
   { kind: 'duration', modelValue: page.durationFilter },
+  { kind: 'attributes', modelValue: page.attributeFilters },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 

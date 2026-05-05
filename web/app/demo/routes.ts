@@ -102,14 +102,28 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const limit = numberParam(query, 'limit') ?? 25
     const service = optionalString(query, 'service')
-    const result: PagedResponse<unknown> = generateTraceList({
+    const result = generateTraceList({
       fromMs,
       toMs,
       limit,
       service,
       cursor: optionalString(query, 'cursor')
     })
-    return result
+    // Attribute filter: applied in-memory by walking each summary's
+    // implied detail (the scenario sets `demo.scenario` on every span).
+    // The full backend implementation does this in SQL; the demo
+    // approximates by filtering the summary list to the scenarios
+    // whose root attributes match all requested pairs.
+    const filters = attrPairs(query)
+    if (filters.length > 0) {
+      result.items = result.items.filter(t => {
+        const detail = generateTraceDetail((t as { traceId: string }).traceId)
+        return filters.every(f =>
+          detail.spans.some(s => String((s.attributes as Record<string, unknown>)[f.key] ?? '') === f.value)
+        )
+      })
+    }
+    return result as PagedResponse<unknown>
   }
   {
     const m = /^\/v1\/traces\/([^/]+)$/.exec(path)
@@ -126,7 +140,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 15 * 60_000
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const limit = numberParam(query, 'limit') ?? 50
-    return generateLogList({
+    const result = generateLogList({
       fromMs,
       toMs,
       limit,
@@ -134,6 +148,13 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
       minSeverity: numberParam(query, 'minSeverity'),
       traceIdFilter: optionalString(query, 'traceId')
     })
+    const filters = attrPairs(query)
+    if (filters.length > 0) {
+      result.items = result.items.filter(l =>
+        filters.every(f => String((l.attributes as Record<string, unknown>)[f.key] ?? '') === f.value)
+      )
+    }
+    return result
   }
 
   // ------------- /v1/dashboards -----------------------------------
@@ -213,6 +234,33 @@ function numberParam(query: Record<string, unknown>, key: string): number | unde
 function boolParam(query: Record<string, unknown>, key: string): boolean {
   const v = query[key]
   return v === true || v === 'true' || v === 1 || v === '1'
+}
+
+/**
+ * Parse `?attr=` repeated/CSV entries into key/value pairs. Mirrors
+ * the server-side parser in C# QueryValidation. Used by the demo to
+ * filter the generated trace/log lists in-memory — the demo data has
+ * a single attribute (`demo.scenario`) on most rows, so the typical
+ * filter request matches exactly the trace whose scenario we picked.
+ */
+function attrPairs(query: Record<string, unknown>): Array<{ key: string; value: string }> {
+  const raw = query['attr']
+  const entries: string[] = Array.isArray(raw)
+    ? (raw as unknown[]).filter((v): v is string => typeof v === 'string')
+    : typeof raw === 'string' ? [raw] : []
+  const out: Array<{ key: string; value: string }> = []
+  for (const entry of entries) {
+    for (const part of entry.split(',')) {
+      const trimmed = part.trim()
+      if (!trimmed) continue
+      const colon = trimmed.indexOf(':')
+      if (colon < 0) continue
+      const key = trimmed.slice(0, colon).trim()
+      const value = trimmed.slice(colon + 1).trim()
+      if (key && value) out.push({ key, value })
+    }
+  }
+  return out
 }
 
 function parseTimeParam(value: unknown): number | null {

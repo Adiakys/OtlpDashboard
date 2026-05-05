@@ -48,6 +48,7 @@ const filters: FilterDescriptor[] = [
   { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $logRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'severity', modelValue: page.severityFilter },
+  { kind: 'attributes', modelValue: page.attributeFilters },
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 

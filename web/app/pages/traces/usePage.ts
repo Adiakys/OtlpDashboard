@@ -35,6 +35,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   const statusFilter = ref<TraceStatusFilter>('any')
   const durationFilter = ref<DurationRange>({ minMs: null, maxMs: null })
   const searchQuery = ref('')
+  const attributeFilters = ref<string[]>([])
 
   async function fetchPage(append: boolean) {
     isLoading.value = true
@@ -49,7 +50,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
         maxMs: durationFilter.value.maxMs ?? undefined,
-        spanNameContains: searchQuery.value.trim() || undefined
+        spanNameContains: searchQuery.value.trim() || undefined,
+        attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
       })
       items.value = append ? [...items.value, ...response.items] : response.items
       cursor.value = response.nextCursor
@@ -74,7 +76,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
         maxMs: durationFilter.value.maxMs ?? undefined,
-        spanNameContains: searchQuery.value.trim() || undefined
+        spanNameContains: searchQuery.value.trim() || undefined,
+        attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
       })
 
       if (response.items.length === 0) {
@@ -150,6 +153,9 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   watch(searchQuery, () => {
     if (!live.isLive.value) void reload()
   })
+  watch(attributeFilters, () => {
+    if (!live.isLive.value) void reload()
+  }, { deep: true })
 
   reload()
   void loadServices()
@@ -166,6 +172,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     statusFilter,
     durationFilter,
     searchQuery,
+    attributeFilters,
     reload,
     loadMore,
     isLive: live.isLive,

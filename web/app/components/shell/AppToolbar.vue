@@ -7,6 +7,7 @@ import AppSeveritySelect from '~/components/form/AppSeveritySelect.vue'
 import AppStatusSelect from '~/components/form/AppStatusSelect.vue'
 import AppDurationFilter from '~/components/form/AppDurationFilter.vue'
 import AppSearchInput from '~/components/form/AppSearchInput.vue'
+import AppAttributesFilter from '~/components/form/AppAttributesFilter.vue'
 import AppLiveToggle from '~/components/ui/AppLiveToggle.vue'
 
 withDefaults(defineProps<{
@@ -151,6 +152,12 @@ const { t } = useI18n()
           v-else-if="f.kind === 'search'"
           :model-value="f.modelValue.value"
           :placeholder="f.placeholder"
+          :disabled="f.disabled?.value"
+          @update:model-value="f.modelValue.value = $event"
+        />
+        <AppAttributesFilter
+          v-else-if="f.kind === 'attributes'"
+          :model-value="f.modelValue.value"
           :disabled="f.disabled?.value"
           @update:model-value="f.modelValue.value = $event"
         />

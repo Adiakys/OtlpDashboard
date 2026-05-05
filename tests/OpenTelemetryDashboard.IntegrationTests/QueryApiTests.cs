@@ -189,6 +189,91 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetLogs_FilterByAttribute_PicksOnlyMatching()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 7, 1, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var markerString = $"attr-str-{suffix}";
+        var markerNumeric = $"attr-num-{suffix}";
+        var markerOther = $"attr-other-{suffix}";
+
+        // Two logs match the filter (one string attr, one numeric attr); one doesn't.
+        await SeedLogWithAttributesAsync(client, anchor, markerString,
+            attributes:
+            [
+                new KeyValuePair<string, AnyValue>("http.route", new AnyValue { StringValue = "/counter" }),
+                new KeyValuePair<string, AnyValue>("scenario", new AnyValue { StringValue = "cache_hit" }),
+            ]);
+        await SeedLogWithAttributesAsync(client, anchor.AddSeconds(2), markerNumeric,
+            attributes:
+            [
+                new KeyValuePair<string, AnyValue>("http.status_code", new AnyValue { IntValue = 200 }),
+                new KeyValuePair<string, AnyValue>("scenario", new AnyValue { StringValue = "cache_hit" }),
+            ]);
+        await SeedLogWithAttributesAsync(client, anchor.AddSeconds(4), markerOther,
+            attributes:
+            [
+                new KeyValuePair<string, AnyValue>("scenario", new AnyValue { StringValue = "deadlock" }),
+            ]);
+
+        await WaitForAsync(async ctx =>
+            await ctx.Logs.CountAsync(l => l.Body == markerString) == 1 &&
+            await ctx.Logs.CountAsync(l => l.Body == markerNumeric) == 1 &&
+            await ctx.Logs.CountAsync(l => l.Body == markerOther) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // Filter by string-typed attribute: should pick markerString only.
+        var byString = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&limit=100&attr=http.route:/counter", UriKind.Relative),
+            JsonOptions);
+        byString.ShouldNotBeNull();
+        byString!.Items.Where(i => i.Body!.StartsWith("attr-", StringComparison.Ordinal))
+            .Select(i => i.Body)
+            .ShouldBe([markerString]);
+
+        // Filter by numeric attribute: should pick markerNumeric only — the
+        // provider-native JSON_VALUE/json_extract/jsonb_extract_path_text
+        // returns text regardless of the JSON value's type.
+        var byNumeric = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&limit=100&attr=http.status_code:200", UriKind.Relative),
+            JsonOptions);
+        byNumeric.ShouldNotBeNull();
+        byNumeric!.Items.Where(i => i.Body!.StartsWith("attr-", StringComparison.Ordinal))
+            .Select(i => i.Body)
+            .ShouldBe([markerNumeric]);
+
+        // AND across pairs: scenario=cache_hit AND http.route=/counter →
+        // only markerString (markerNumeric also has scenario=cache_hit
+        // but lacks the http.route attribute).
+        var anded = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&limit=100&attr=scenario:cache_hit&attr=http.route:/counter", UriKind.Relative),
+            JsonOptions);
+        anded.ShouldNotBeNull();
+        anded!.Items.Where(i => i.Body!.StartsWith("attr-", StringComparison.Ordinal))
+            .Select(i => i.Body)
+            .ShouldBe([markerString]);
+    }
+
+    [Fact]
+    public async Task GetLogs_FilterByAttribute_RejectsBadKey()
+    {
+        using var client = _fixture.CreateClient();
+        var from = new DateTimeOffset(2030, 7, 1, 9, 0, 0, TimeSpan.Zero);
+        var to = from.AddHours(1);
+
+        // Disallowed character (single quote) — must be rejected before
+        // hitting the DB so a malicious key can't slip through unsanitised.
+        using var response = await client.GetAsync(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&attr=' OR 1=1 --:1", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetLogs_MalformedTraceId_Returns400()
     {
         using var client = _fixture.CreateClient();
@@ -525,6 +610,49 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
             });
         }
 
+        resourceLogs.ScopeLogs.Add(scopeLogs);
+        request.ResourceLogs.Add(resourceLogs);
+
+        using var response = await PostProtobufAsync(client, "/v1/logs", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// Seed a single log record with arbitrary attributes — used by the
+    /// attribute-filter tests to put both string-typed and numeric-typed
+    /// values on the wire so the provider-native JSON path translation
+    /// can be exercised end-to-end.
+    /// </summary>
+    private static async Task SeedLogWithAttributesAsync(
+        HttpClient client,
+        DateTimeOffset anchor,
+        string marker,
+        IReadOnlyList<KeyValuePair<string, AnyValue>> attributes)
+    {
+        var request = new ExportLogsServiceRequest();
+        var resourceLogs = new ResourceLogs
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = $"logs-{marker}" } },
+                },
+            },
+        };
+        var scopeLogs = new ScopeLogs { Scope = new InstrumentationScope { Name = "tests" } };
+        var record = new OtlpLogRecord
+        {
+            TimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor),
+            SeverityNumber = OpenTelemetry.Proto.Logs.V1.SeverityNumber.Info,
+            SeverityText = "INFO",
+            Body = new AnyValue { StringValue = marker },
+        };
+        foreach (var pair in attributes)
+        {
+            record.Attributes.Add(new KeyValue { Key = pair.Key, Value = pair.Value });
+        }
+        scopeLogs.LogRecords.Add(record);
         resourceLogs.ScopeLogs.Add(scopeLogs);
         request.ResourceLogs.Add(resourceLogs);
 

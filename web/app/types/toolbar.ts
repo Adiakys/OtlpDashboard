@@ -15,6 +15,7 @@ export type FilterDescriptor =
   | StatusFilterDescriptor
   | DurationFilterDescriptor
   | SearchFilterDescriptor
+  | AttributesFilterDescriptor
 
 export interface ApplicationFilterDescriptor {
   kind: 'application'
@@ -76,6 +77,18 @@ export interface SearchFilterDescriptor {
   kind: 'search'
   modelValue: Ref<string>
   placeholder?: string
+  disabled?: Ref<boolean>
+}
+
+/**
+ * Multi-value attribute filter. Each entry is a `key:value` string
+ * (string-typed match — see `PageQuery.attr`). Pages pass a writeable
+ * ref the picker mutates directly when the user adds or removes a
+ * pair via the popover.
+ */
+export interface AttributesFilterDescriptor {
+  kind: 'attributes'
+  modelValue: Ref<string[]>
   disabled?: Ref<boolean>
 }
 

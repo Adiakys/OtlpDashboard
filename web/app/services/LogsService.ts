@@ -21,7 +21,8 @@ export class LogsService {
       // single comma-joined string. The single string keeps the URL short
       // when several buckets are selected.
       severities: query.severities && query.severities.length > 0 ? query.severities.join(',') : undefined,
-      bodyContains: query.bodyContains
+      bodyContains: query.bodyContains,
+      attr: query.attr && query.attr.length > 0 ? query.attr : undefined
     })
   }
 

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace OpenTelemetryDashboard.Persistence.SqlServer;
@@ -23,6 +24,7 @@ public static class SqlServerTelemetryStoreExtensions
             {
                 sqlServer.MigrationsAssembly(typeof(SqlServerTelemetryStoreExtensions).Assembly.GetName().Name);
             });
+            options.ReplaceService<IModelCustomizer, SqlServerJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 
@@ -49,6 +51,7 @@ public static class SqlServerTelemetryStoreExtensions
             {
                 sqlServer.MigrationsAssembly(typeof(SqlServerTelemetryStoreExtensions).Assembly.GetName().Name);
             });
+            options.ReplaceService<IModelCustomizer, SqlServerJsonAttributeFunctionCustomizer>();
         }, poolSize);
     }
 }

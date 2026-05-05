@@ -17,7 +17,8 @@ export class TraceService {
       status: query.status,
       minMs: query.minMs,
       maxMs: query.maxMs,
-      spanNameContains: query.spanNameContains
+      spanNameContains: query.spanNameContains,
+      attr: query.attr && query.attr.length > 0 ? query.attr : undefined
     })
   }
 

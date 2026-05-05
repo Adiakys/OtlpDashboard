@@ -32,7 +32,9 @@
     "name": "Name",
     "value": "Value",
     "attributes": "Attributes",
-    "results": "rows"
+    "results": "rows",
+    "add": "Add",
+    "remove": "Remove"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -75,7 +77,12 @@
     "range24h": "Last 24h",
     "range7d": "Last 7d",
     "retentionInfo": "Data older than {days} days is automatically deleted by the retention policy.",
-    "maxWindowInfo": "Maximum query window: {days} days."
+    "maxWindowInfo": "Maximum query window: {days} days.",
+    "attributes": "Attributes",
+    "attrKey": "Key",
+    "attrValue": "Value",
+    "attrKeyPlaceholder": "e.g. http.route",
+    "attrValuePlaceholder": "e.g. POST /counter/{value}"
   },
   "dashboard": {
     "title": "Dashboard",

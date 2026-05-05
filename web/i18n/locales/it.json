@@ -32,7 +32,9 @@
     "name": "Nome",
     "value": "Valore",
     "attributes": "Attributi",
-    "results": "risultati"
+    "results": "risultati",
+    "add": "Aggiungi",
+    "remove": "Rimuovi"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -75,7 +77,12 @@
     "range24h": "Ultime 24 ore",
     "range7d": "Ultimi 7 giorni",
     "retentionInfo": "I dati più vecchi di {days} giorni vengono cancellati automaticamente dalla policy di retention.",
-    "maxWindowInfo": "Finestra massima della query: {days} giorni."
+    "maxWindowInfo": "Finestra massima della query: {days} giorni.",
+    "attributes": "Attributi",
+    "attrKey": "Chiave",
+    "attrValue": "Valore",
+    "attrKeyPlaceholder": "es. http.route",
+    "attrValuePlaceholder": "es. POST /counter/{value}"
   },
   "dashboard": {
     "title": "Dashboard",
