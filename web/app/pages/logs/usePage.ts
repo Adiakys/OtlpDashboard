@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { LogsService } from '~/services/LogsService'
 import type { LogRecordDto, TimeWindow } from '~/services/types'
@@ -7,9 +7,16 @@ import type { SeverityBucket } from '~/types/filters'
 export interface UseLogsPageOptions {
   initialRange?: TimeWindow
   initialTraceId?: string
+  initialService?: string | null
+  initialSeverity?: SeverityBucket[]
+  initialBody?: string
+  initialAttr?: string[]
+  initialLimit?: number
   /** Default: true. Set to false in unit tests to control live mode manually. */
   autoLive?: boolean
 }
+
+const DEFAULT_LIMIT = 50
 
 // Cap on rows retained while live — older ones are trimmed from the tail.
 const MAX_LIVE_ITEMS = 5000
@@ -34,9 +41,9 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
 
   const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
   const traceId = ref<string | undefined>(options.initialTraceId)
-  const serviceFilter = ref<string | null>(null)
+  const serviceFilter = ref<string | null>(options.initialService ?? null)
   const availableServices = ref<string[]>([])
-  const limit = ref(50)
+  const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<LogRecordDto[]>([])
   const cursor = ref<string | null>(null)
   const hasMore = ref(false)
@@ -47,9 +54,9 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   // one place and pagination is honest about the filtered result set
   // (frontend-only filters used to filter the loaded page only — selective
   // filters then hid every match outside the first page).
-  const severityFilter = ref<SeverityBucket[]>([])
-  const bodyQuery = ref('')
-  const attributeFilters = ref<string[]>([])
+  const severityFilter = ref<SeverityBucket[]>(options.initialSeverity ?? [])
+  const bodyQuery = ref(options.initialBody ?? '')
+  const attributeFilters = ref<string[]>(options.initialAttr ?? [])
 
   // Client-side dedup for live-mode prepends. Log records have no stable ID
   // server-side, so we key on (time, spanId, body-prefix) — collisions are
@@ -177,6 +184,26 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     if (!live.isLive.value) void reload()
   }, { deep: true })
 
+  // Filter state encoded for URL persistence. The page watches this
+  // and pushes it back via `router.replace` so refreshes / shares /
+  // bookmarks land on the same view. Optional (defaulted) values are
+  // omitted to keep the URL short — the parser on the receiving end
+  // falls back to the same defaults.
+  const queryState = computed(() => {
+    const q: Record<string, string | string[]> = {
+      from: range.value.from,
+      to: range.value.to
+    }
+    if (traceId.value) q.traceId = traceId.value
+    if (serviceFilter.value) q.service = serviceFilter.value
+    if (severityFilter.value.length > 0) q.severities = severityFilter.value.join(',')
+    const body = bodyQuery.value.trim()
+    if (body) q.bodyContains = body
+    if (attributeFilters.value.length > 0) q.attr = attributeFilters.value
+    if (limit.value !== DEFAULT_LIMIT) q.limit = String(limit.value)
+    return q
+  })
+
   // Initial load.
   reload()
   void loadServices()
@@ -195,6 +222,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     severityFilter,
     bodyQuery,
     attributeFilters,
+    queryState,
     reload,
     loadMore,
     isLive: live.isLive,

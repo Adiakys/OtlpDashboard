@@ -12,10 +12,60 @@ import type {
   FilterDescriptor
 } from '~/types/toolbar'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
+import type { TraceStatusFilter } from '~/types/filters'
 
 const { t, locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const { $traceService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
-const page = useTracesPage($traceService)
+
+// Hydrate filter state from the URL — bookmarks / shared links / hard
+// refreshes all land on the same view. The composable's `queryState`
+// computed below tracks the live state in URL form, watched here.
+function strFromQuery(key: string): string | undefined {
+  const v = route.query[key]
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+function strArrayFromQuery(key: string): string[] {
+  const v = route.query[key]
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string' && x.length > 0)
+  if (typeof v === 'string' && v.length > 0) return [v]
+  return []
+}
+function numFromQuery(key: string): number | undefined {
+  const s = strFromQuery(key)
+  if (!s) return undefined
+  const n = Number(s)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+const fromQ = strFromQuery('from')
+const toQ = strFromQuery('to')
+const initialRange: TimeWindow | undefined = fromQ && toQ ? { from: fromQ, to: toQ } : undefined
+const statusQ = strFromQuery('status')
+const initialStatus: TraceStatusFilter | undefined =
+  statusQ === 'ok' || statusQ === 'error' ? statusQ : undefined
+const minMsQ = numFromQuery('minMs')
+const maxMsQ = numFromQuery('maxMs')
+const initialDuration = (minMsQ != null || maxMsQ != null)
+  ? { minMs: minMsQ ?? null, maxMs: maxMsQ ?? null }
+  : undefined
+
+const page = useTracesPage($traceService, {
+  initialRange,
+  initialService: strFromQuery('service') ?? null,
+  initialStatus,
+  initialDuration,
+  initialSearch: strFromQuery('spanNameContains'),
+  initialAttr: strArrayFromQuery('attr'),
+  initialLimit: numFromQuery('limit')
+})
+
+// Persist filter changes to the URL via `replace` — back button stays
+// useful (no history flood for keystrokes); composable strips defaults
+// so the URL is compact.
+watch(page.queryState, (q) => {
+  void router.replace({ query: q })
+}, { deep: true })
 
 const maxDuration = computed(() => page.items.value.reduce((m, r) => Math.max(m, r.durationMs), 1))
 

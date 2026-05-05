@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { TraceService } from '~/services/TraceService'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
@@ -6,8 +6,16 @@ import type { DurationRange, TraceStatusFilter } from '~/types/filters'
 
 const MAX_LIVE_ITEMS = 5000
 const LIVE_DELTA_LIMIT = 500
+const DEFAULT_LIMIT = 50
 
 export interface UseTracesPageOptions {
+  initialRange?: TimeWindow
+  initialService?: string | null
+  initialStatus?: TraceStatusFilter
+  initialDuration?: DurationRange
+  initialSearch?: string
+  initialAttr?: string[]
+  initialLimit?: number
   /** Default: true. Set to false in unit tests to control live mode manually. */
   autoLive?: boolean
 }
@@ -19,10 +27,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     return { from: from.toISOString(), to: to.toISOString() }
   }
 
-  const range = ref<TimeWindow>(defaultWindow())
-  const serviceFilter = ref<string | null>(null)
+  const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
+  const serviceFilter = ref<string | null>(options.initialService ?? null)
   const availableServices = ref<string[]>([])
-  const limit = ref(50)
+  const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<TraceSummaryDto[]>([])
   const cursor = ref<string | null>(null)
   const hasMore = ref(false)
@@ -32,10 +40,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   // about the filtered result set. Status uses 'any-span' semantics
   // server-side (matches the existing service filter): 'error' = trace
   // contains at least one Error span; 'ok' = no Error spans.
-  const statusFilter = ref<TraceStatusFilter>('any')
-  const durationFilter = ref<DurationRange>({ minMs: null, maxMs: null })
-  const searchQuery = ref('')
-  const attributeFilters = ref<string[]>([])
+  const statusFilter = ref<TraceStatusFilter>(options.initialStatus ?? 'any')
+  const durationFilter = ref<DurationRange>(options.initialDuration ?? { minMs: null, maxMs: null })
+  const searchQuery = ref(options.initialSearch ?? '')
+  const attributeFilters = ref<string[]>(options.initialAttr ?? [])
 
   async function fetchPage(append: boolean) {
     isLoading.value = true
@@ -157,6 +165,24 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     if (!live.isLive.value) void reload()
   }, { deep: true })
 
+  // Filter state encoded for URL persistence — see logs/usePage for
+  // the rationale. Defaulted values are omitted to keep the URL short.
+  const queryState = computed(() => {
+    const q: Record<string, string | string[]> = {
+      from: range.value.from,
+      to: range.value.to
+    }
+    if (serviceFilter.value) q.service = serviceFilter.value
+    if (statusFilter.value !== 'any') q.status = statusFilter.value
+    if (durationFilter.value.minMs != null) q.minMs = String(durationFilter.value.minMs)
+    if (durationFilter.value.maxMs != null) q.maxMs = String(durationFilter.value.maxMs)
+    const search = searchQuery.value.trim()
+    if (search) q.spanNameContains = search
+    if (attributeFilters.value.length > 0) q.attr = attributeFilters.value
+    if (limit.value !== DEFAULT_LIMIT) q.limit = String(limit.value)
+    return q
+  })
+
   reload()
   void loadServices()
 
@@ -173,6 +199,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     durationFilter,
     searchQuery,
     attributeFilters,
+    queryState,
     reload,
     loadMore,
     isLive: live.isLive,

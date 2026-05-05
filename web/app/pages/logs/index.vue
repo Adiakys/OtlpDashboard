@@ -14,21 +14,60 @@ import type {
   FilterDescriptor
 } from '~/types/toolbar'
 import type { LogRecordDto, TimeWindow } from '~/services/types'
+import { SEVERITY_BUCKETS, type SeverityBucket } from '~/types/filters'
 
 const { t, locale } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const { $logsService, $logRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 
+// All filter state seeds from the URL. The composable's `queryState`
+// computed below tracks the live state in URL form; the watcher
+// below pushes it back via `router.replace` so refreshes / bookmarks
+// / shared links all land on the same view.
 function strFromQuery(key: string): string | undefined {
   const v = route.query[key]
   return typeof v === 'string' && v.length > 0 ? v : undefined
 }
-const initialTraceId = strFromQuery('traceId')
+function strArrayFromQuery(key: string): string[] {
+  const v = route.query[key]
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string' && x.length > 0)
+  if (typeof v === 'string' && v.length > 0) return [v]
+  return []
+}
+function numFromQuery(key: string): number | undefined {
+  const s = strFromQuery(key)
+  if (!s) return undefined
+  const n = Number(s)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
 const fromQ = strFromQuery('from')
 const toQ = strFromQuery('to')
 const initialRange: TimeWindow | undefined = fromQ && toQ ? { from: fromQ, to: toQ } : undefined
+const severitiesQ = strFromQuery('severities')
+const initialSeverity = severitiesQ
+  ? severitiesQ.split(',')
+      .map(s => s.trim())
+      .filter((s): s is SeverityBucket => SEVERITY_BUCKETS.includes(s as SeverityBucket))
+  : undefined
 
-const page = useLogsPage($logsService, { initialTraceId, initialRange })
+const page = useLogsPage($logsService, {
+  initialTraceId: strFromQuery('traceId'),
+  initialRange,
+  initialService: strFromQuery('service') ?? null,
+  initialSeverity,
+  initialBody: strFromQuery('bodyContains'),
+  initialAttr: strArrayFromQuery('attr'),
+  initialLimit: numFromQuery('limit')
+})
+
+// Persist filter state back to the URL. `replace` keeps the back
+// button useful (no flood of intermediate states for, e.g., every
+// keystroke in the search box). The composable's `queryState`
+// already strips defaulted values so the URL stays compact.
+watch(page.queryState, (q) => {
+  void router.replace({ query: q })
+}, { deep: true })
 
 const subtitle = computed(() => {
   const window = describeWindow(page.range.value)
