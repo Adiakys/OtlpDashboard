@@ -46,10 +46,18 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
 
   const list = useDashboardList(service, {
     onSelected: async (_id) => {
-      // Switching dashboards always discards in-progress edits — the page
-      // surface decides upfront whether to confirm with the user.
-      if (edit.isEditing.value) edit.cancelEdit()
+      // Switching dashboards discards any in-progress edits on the
+      // previous one (the page surface decides upfront whether to
+      // confirm with the user) but preserves the *editing flag*: if
+      // the user was tweaking dashboard A and switches to B, they
+      // expect B to open in edit mode too. Cancel-then-reenter also
+      // gives `applyPersisted` inside `load()` a clean run — without
+      // the cancel, the working layout would stay locked to A's
+      // widgets while we paint B.
+      const wasEditing = edit.isEditing.value
+      if (wasEditing) edit.cancelEdit()
       await load()
+      if (wasEditing) edit.enterEdit()
     }
   })
 
@@ -125,6 +133,14 @@ export function useDashboardPage(service: DashboardService, metricsService: Metr
   }
 
   async function createDashboardAndEdit(name: string): Promise<DashboardDto | null> {
+    // Drop any in-progress edits on whatever was on screen before. The
+    // create button lives in the edit toolbar, so this branch is the
+    // common case — without it, `applyPersisted` only refreshes the
+    // snapshot (the working layout is preserved while editing) and the
+    // user lands on the new dashboard with the previous one's widgets
+    // still rendered. Saving then ships those widgets under the new
+    // dashboard's id and conflicts on the server side.
+    if (edit.isEditing.value) edit.cancelEdit()
     const dto = await list.createDashboard(name)
     if (!dto) {
       // Surface the list-level error on the page so the modal can stay open.

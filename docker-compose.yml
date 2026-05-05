@@ -14,15 +14,15 @@
 
 services:
   dashboard:
-    build:
-      context: .
-      dockerfile: src/OpenTelemetryDashboard.Host/Dockerfile
     image: opentelemetrydashboard:dev
     container_name: otel-dashboard
     restart: unless-stopped
-    ports:
-      - "4317:4317"  # OTLP gRPC
-      - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: 2.0
+    build:
+      context: .
+      dockerfile: src/OpenTelemetryDashboard.Host/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       DASHBOARD__BROWSERTOKEN: "changeme"
@@ -41,14 +41,17 @@ services:
       Dashboard__TelemetryLimits__MaxLogDays: "30"
       Dashboard__TelemetryLimits__MaxTraceDays: "30"
       Dashboard__TelemetryLimits__MaxMetricDays: "30"
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
     volumes:
       - dashboard-data:/app/data
       - ./demo/widget-libraries/dotnet:/app/data/widget-libraries/dotnet:ro
       - ./demo/widget-libraries/postgres:/app/data/widget-libraries/postgres:ro
       - ./demo/dashboards:/app/builtin-dashboards:ro
-    mem_limit: 512m
-    mem_reservation: 128m
-    cpus: 2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   sample-server:
     build:
@@ -100,9 +103,9 @@ services:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U otel -d telemetry"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
+      interval: 3s
+      timeout: 1s
+      retries: 15
 
   sqlserver:
     profiles: ["sqlserver"]

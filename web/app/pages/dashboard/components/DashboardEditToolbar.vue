@@ -49,7 +49,7 @@ function onFileChosen(event: Event) {
     </UButton>
 
     <UButton
-      icon="i-ph-squares-four"
+      icon="i-ph-stack-plus"
       size="sm"
       color="neutral"
       variant="ghost"

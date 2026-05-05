@@ -27,10 +27,20 @@ export function useDashboardLive(
   // refreshes don't fight with manual layout changes.
   const live = useLivePolling(onTick, { autoStart: true, intervalMs: options.intervalMs ?? 5000 })
 
-  // Disable live polling while editing — the user is mutating the layout and
-  // background refreshes would either clobber it or mask concurrency conflicts.
+  // Live polling vs edit mode:
+  //  - On entering edit, stop the timer — background refreshes during a
+  //    layout edit would either clobber the working copy or mask
+  //    concurrency conflicts that the explicit save flow handles.
+  //  - On leaving edit (save / cancel / switch dashboard), bring live
+  //    back. The dashboard's baseline mode is "current state of the
+  //    system"; pausing during edit is a transient exception, not a
+  //    sticky setting.
   watch(() => isEditing.value, editing => {
-    if (editing && live.isLive.value) live.stop()
+    if (editing) {
+      if (live.isLive.value) live.stop()
+    } else {
+      if (!live.isLive.value) live.toggle()
+    }
   })
 
   function toggleLive(): void {
