@@ -49,8 +49,11 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     public async Task GetLogs_Window_Too_Large_Returns_400()
     {
         using var client = _fixture.CreateClient();
+        // Cap is at most `[Range(1, 24*90)]` = 2160h on the validator side, and
+        // the host's appsettings.json sits at the maximum. 100 days exceeds
+        // both regardless of operator override.
         var from = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var to = from.AddDays(30);
+        var to = from.AddDays(100);
 
         using var response = await client.GetAsync(
             new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}", UriKind.Relative));

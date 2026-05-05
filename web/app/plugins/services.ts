@@ -6,7 +6,7 @@ import { LogsService } from '~/services/LogsService'
 import { MetricsService } from '~/services/MetricsService'
 import { TraceService } from '~/services/TraceService'
 import { WidgetService } from '~/services/WidgetService'
-import type { TelemetryLimitsDto } from '~/services/types'
+import type { QueryLimitsDto, TelemetryLimitsDto } from '~/services/types'
 
 /**
  * DI container — runs once per client context. HttpClientService is a
@@ -88,7 +88,7 @@ export default defineNuxtPlugin(async () => {
   const appName = ref('OTel Dashboard')
   const appVersion = ref('')
   const telemetryLimits = ref<TelemetryLimitsDto | null>(null)
-  const queryMaxWindowHours = ref<number | null>(null)
+  const queryLimits = ref<QueryLimitsDto | null>(null)
 
   // Per-kind retention projections, exposed as their own refs so pages
   // can pass them straight to the time-range picker without each one
@@ -96,6 +96,10 @@ export default defineNuxtPlugin(async () => {
   const logRetentionDays = computed(() => telemetryLimits.value?.maxLogDays ?? null)
   const traceRetentionDays = computed(() => telemetryLimits.value?.maxTraceDays ?? null)
   const metricRetentionDays = computed(() => telemetryLimits.value?.maxMetricDays ?? null)
+  // Same pattern for the query-API caps: one ref, two projections so
+  // pages can inject `$queryMaxWindowHours` / `$queryMaxLimit` directly.
+  const queryMaxWindowHours = computed(() => queryLimits.value?.maxWindowHours ?? null)
+  const queryMaxLimit = computed(() => queryLimits.value?.maxLimit ?? null)
 
   async function refreshInfo() {
     try {
@@ -107,7 +111,7 @@ export default defineNuxtPlugin(async () => {
       // and time-range pickers don't show stale hints after logout.
       appVersion.value = info.version ?? ''
       telemetryLimits.value = info.telemetryLimits
-      queryMaxWindowHours.value = info.queryMaxWindowHours
+      queryLimits.value = info.queryLimits
     } catch {
       /* keep the defaults */
     }
@@ -135,7 +139,9 @@ export default defineNuxtPlugin(async () => {
       logRetentionDays,
       traceRetentionDays,
       metricRetentionDays,
+      queryLimits,
       queryMaxWindowHours,
+      queryMaxLimit,
       refreshInfo,
       demoMode: isDemo
     }

@@ -11,11 +11,11 @@ public sealed class QueryApiOptions
     public const string SectionName = "Dashboard:QueryApi";
 
     [Range(1, 10_000)]
-    public int DefaultLimit { get; set; } = 100;
+    public int DefaultLimit { get; init; } = 1_000;
 
-    [Range(1, 10_000)]
-    public int MaxLimit { get; set; } = 1_000;
+    [Range(1, 25_000)]
+    public int MaxLimit { get; init; } = 10_000;
 
-    [Range(1, 24 * 30)]
-    public int MaxWindowHours { get; set; } = 24 * 7;
+    [Range(1, 24 * 90)]
+    public int MaxWindowHours { get; init; } = 24 * 7;
 }

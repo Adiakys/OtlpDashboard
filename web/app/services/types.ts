@@ -125,11 +125,17 @@ export interface DashboardInfoDto {
   storageProvider: string | null
   /** Null when unauthenticated — same gate as `version`, for the same reason. */
   telemetryLimits: TelemetryLimitsDto | null
-  /** Maximum time window (in hours) the query API will accept on a
-   *  single request. Lets the SPA clamp time-range pickers up-front
-   *  rather than wait for a server-side rejection. Null when
-   *  unauthenticated. */
-  queryMaxWindowHours: number | null
+  /** Server-side caps on a single Query-API call. Lets the SPA clamp
+   *  pickers up-front (time-range, page size) rather than wait for a
+   *  server-side rejection. Null when unauthenticated. */
+  queryLimits: QueryLimitsDto | null
+}
+
+export interface QueryLimitsDto {
+  /** Maximum time window in hours that the Query API accepts. */
+  maxWindowHours: number
+  /** Maximum page size the Query API accepts. */
+  maxLimit: number
 }
 
 export interface InstrumentDto {

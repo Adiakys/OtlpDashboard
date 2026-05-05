@@ -52,7 +52,10 @@ public static class DashboardInfoFactory
                     MaxMetricDays: limits.MaxMetricDays,
                     SweepIntervalMinutes: limits.SweepIntervalMinutes
                 ),
-            QueryMaxWindowHours = queryApi.MaxWindowHours,
+            QueryLimits = new QueryLimitsDto(
+                MaxWindowHours: queryApi.MaxWindowHours,
+                MaxLimit: queryApi.MaxLimit
+            ),
         };
     }
 

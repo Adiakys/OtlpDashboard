@@ -63,7 +63,9 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
             sweepIntervalMinutes: 60
           }
         : null,
-      queryMaxWindowHours: req.authenticated ? 24 * 30 : null
+      queryLimits: req.authenticated
+        ? { maxWindowHours: 24 * 30, maxLimit: 10_000 }
+        : null
     }
     return dto
   }

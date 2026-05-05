@@ -27,8 +27,8 @@ public sealed class DashboardInfoDto(string applicationName)
     public string? StorageProvider { get; init; }
 
     public TelemetryLimitsDto? TelemetryLimits { get; init; }
-    
-    public int? QueryMaxWindowHours { get; init; }
+
+    public QueryLimitsDto? QueryLimits { get; init; }
 }
 
 public sealed record TelemetryLimitsDto(
@@ -36,3 +36,12 @@ public sealed record TelemetryLimitsDto(
     double MaxTraceDays,
     double MaxMetricDays,
     int SweepIntervalMinutes);
+
+/// <summary>
+/// Server-side caps on a single Query-API call. Surfaced so the SPA can
+/// clamp its pickers up-front (time-range, page size) rather than wait for
+/// a 400 from the server.
+/// </summary>
+public sealed record QueryLimitsDto(
+    int MaxWindowHours,
+    int MaxLimit);
