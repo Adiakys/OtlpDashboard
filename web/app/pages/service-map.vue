@@ -10,9 +10,9 @@ import type { ActionDescriptor, FilterDescriptor } from '~/types/toolbar'
 import type { TimeWindow } from '~/services/types'
 
 const { t, locale } = useI18n()
-const { $traceService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
+const { $serviceMapService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
 
-const page = useServiceMapPage($traceService)
+const page = useServiceMapPage($serviceMapService)
 
 const subtitle = computed(() => {
   const win = describeWindow(page.range.value)

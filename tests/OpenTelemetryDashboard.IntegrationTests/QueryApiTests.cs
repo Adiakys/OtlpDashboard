@@ -329,7 +329,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var to = anchor.AddMinutes(5);
 
         var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
-            new Uri($"/api/v1/traces/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            new Uri($"/api/v1/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
             JsonOptions);
 
         response.ShouldNotBeNull();
@@ -376,7 +376,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var to = anchor.AddMinutes(5);
 
         var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
-            new Uri($"/api/v1/traces/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            new Uri($"/api/v1/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
             JsonOptions);
 
         response.ShouldNotBeNull();

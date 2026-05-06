@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import type { TraceService } from '~/services/TraceService'
+import type { ServiceMapService } from '~/services/ServiceMapService'
 import type { ServiceMapDto, TimeWindow } from '~/services/types'
 
 const EMPTY_MAP: ServiceMapDto = { nodes: [], edges: [] }
@@ -10,7 +10,7 @@ const EMPTY_MAP: ServiceMapDto = { nodes: [], edges: [] }
  * service map is exploratory, not a live monitor — auto-ticking the
  * graph layout every 5s would be disorienting.
  */
-export function useServiceMapPage(traceService: TraceService) {
+export function useServiceMapPage(serviceMapService: ServiceMapService) {
   const defaultWindow = (): TimeWindow => {
     const to = new Date()
     const from = new Date(to.getTime() - 60 * 60 * 1000)
@@ -31,7 +31,7 @@ export function useServiceMapPage(traceService: TraceService) {
     isLoading.value = true
     error.value = null
     try {
-      const response = await traceService.getServiceMap({
+      const response = await serviceMapService.getServiceMap({
         from: range.value.from,
         to: range.value.to,
         service: serviceFilter.value

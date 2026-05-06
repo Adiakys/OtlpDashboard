@@ -102,7 +102,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
   if (method === 'GET' && path === '/v1/traces/services') {
     return [...DEMO_SERVICES].sort()
   }
-  if (method === 'GET' && path === '/v1/traces/service-map') {
+  if (method === 'GET' && path === '/v1/service-map') {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const focus = optionalString(query, 'service')

@@ -39,14 +39,6 @@ internal sealed record TraceAggregationParameters(
     [FromQuery(Name = "attr")] string[]? Attr = null);
 
 /// <summary>
-/// Query-string binding target for <c>GET /api/v1/traces/service-map</c>.
-/// </summary>
-internal sealed record ServiceMapParameters(
-    [FromQuery(Name = "from")] DateTimeOffset? From,
-    [FromQuery(Name = "to")] DateTimeOffset? To,
-    [FromQuery(Name = "service")] string? Service = null);
-
-/// <summary>
 /// HTTP handlers for the trace-listing and trace-detail endpoints. Wiring
 /// lives in <see cref="QueryApiExtensions.MapQueryApi"/>; this class holds
 /// only the per-endpoint logic.
@@ -104,29 +96,6 @@ internal static class TracesEndpoints
             items.Add(new TraceAggregationItemDto(row.Key, row.Count, row.ErrorCount, row.AvgMs, row.MaxMs));
         }
         return TypedResults.Ok(new TraceAggregationsResponse(items));
-    }
-
-    public static async Task<Results<Ok<ServiceMapDto>, ValidationProblem>> GetServiceMapAsync(
-        [AsParameters] ServiceMapParameters parameters,
-        ITraceReader reader,
-        IOptions<QueryApiOptions> options,
-        CancellationToken cancellationToken)
-    {
-        if (!QueryValidation.TryBuildServiceMapQuery(parameters, options.Value, out var query, out var errors))
-        {
-            return TypedResults.ValidationProblem(errors);
-        }
-
-        var result = await reader.GetServiceMapAsync(query, cancellationToken).ConfigureAwait(false);
-        var nodes = result.Nodes
-            .Select(n => new ServiceMapNodeDto(
-                n.Service,
-                n.Kind == ServiceMapNodeKind.Dependency ? "dependency" : "service",
-                n.RequestCount,
-                n.ErrorCount))
-            .ToList();
-        var edges = result.Edges.Select(e => new ServiceMapEdgeDto(e.FromService, e.ToService, e.CallCount, e.ErrorCount)).ToList();
-        return TypedResults.Ok(new ServiceMapDto(nodes, edges));
     }
 
     public static async Task<Results<Ok<TraceDetailDto>, NotFound, ValidationProblem>> GetTraceAsync(

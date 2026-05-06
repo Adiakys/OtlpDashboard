@@ -4,6 +4,7 @@ import { HttpClientService } from '~/services/HttpClientService'
 import { InfoService } from '~/services/InfoService'
 import { LogsService } from '~/services/LogsService'
 import { MetricsService } from '~/services/MetricsService'
+import { ServiceMapService } from '~/services/ServiceMapService'
 import { TraceService } from '~/services/TraceService'
 import { WidgetService } from '~/services/WidgetService'
 import type { QueryLimitsDto, TelemetryLimitsDto } from '~/services/types'
@@ -131,6 +132,7 @@ export default defineNuxtPlugin(async () => {
       logsService: new LogsService(http),
       traceService: new TraceService(http),
       metricsService: new MetricsService(http),
+      serviceMapService: new ServiceMapService(http),
       dashboardService: new DashboardService(http),
       widgetService: new WidgetService(http),
       appName,

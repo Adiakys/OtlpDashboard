@@ -59,9 +59,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(_ => new InstrumentCache());
 
         // Service-map dependency-synthesis keys. Bound here (not in
-        // the host) because the reader is the only consumer — keeps
-        // the persistence module self-contained. Defaults baked into
-        // ServiceMapOptions; appsettings only needs to override.
+        // the host) because the service-map reader is the only
+        // consumer — keeps the persistence module self-contained.
+        // Defaults baked into ServiceMapOptions; appsettings only
+        // needs to override.
         services.AddOptions<ServiceMapOptions>()
             .BindConfiguration(ServiceMapOptions.SectionName);
 
@@ -72,6 +73,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITraceReader, EfCoreTraceReader>();
         services.AddSingleton<ILogReader, EfCoreLogReader>();
         services.AddSingleton<IMetricReader, EfCoreMetricReader>();
+        services.AddSingleton<IServiceMapReader, EfCoreServiceMapReader>();
 
         services.AddSingleton<IDashboardStore, EfCoreDashboardStore>();
         services.AddSingleton<IWidgetDefinitionStore, EfCoreWidgetDefinitionStore>();

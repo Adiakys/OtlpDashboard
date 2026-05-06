@@ -51,14 +51,4 @@ public interface ITraceReader
     Task<IReadOnlyList<TraceAggregationRow>> AggregateTracesAsync(
         TraceAggregationQuery query,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Service-map aggregation: returns distinct services touched in
-    /// the window plus the cross-service call edges between them. When
-    /// <see cref="ServiceMapQuery.ServiceName"/> is set, the result is
-    /// narrowed to that service and its direct neighbours (focus mode).
-    /// </summary>
-    Task<ServiceMapResult> GetServiceMapAsync(
-        ServiceMapQuery query,
-        CancellationToken cancellationToken);
 }
