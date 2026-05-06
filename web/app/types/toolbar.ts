@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import type { TimeWindow } from '~/services/types'
 import type { DurationRange, SeverityBucket, TraceStatusFilter } from './filters'
 
@@ -125,5 +126,7 @@ export interface BreadcrumbItem {
   labelKey?: string
   label?: string
   icon?: string
-  to?: string
+  /** A path string or a Vue Router location (`{ path, query, ... }`) so
+   *  callers can preserve query state on the back-link. */
+  to?: string | RouteLocationRaw
 }

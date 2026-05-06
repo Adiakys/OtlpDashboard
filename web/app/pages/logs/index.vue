@@ -83,6 +83,19 @@ const histogram = useInMemoryLogsHistogram(
   computed(() => page.items.value.length > 0 && page.hasMore.value)
 )
 
+// Hide-histogram preference. Persisted in localStorage so refreshes
+// keep the user's view choice — same pattern as the sidebar
+// collapsed flag. Read once at setup, written on each toggle.
+const HIST_STORAGE_KEY = 'logs.histogramHidden'
+const histogramHidden = ref(
+  import.meta.client && window.localStorage.getItem(HIST_STORAGE_KEY) === '1'
+)
+watch(histogramHidden, (v) => {
+  if (import.meta.client) {
+    window.localStorage.setItem(HIST_STORAGE_KEY, v ? '1' : '0')
+  }
+})
+
 const subtitle = computed(() => {
   const window = describeWindow(page.range.value)
   return t('logs.subtitle', { count: page.items.value.length, window })
@@ -218,12 +231,29 @@ const selectedId = computed(() => page.selected.value ? rowId(page.selected.valu
               <UIcon name="i-ph-x" class="size-3.5" />
             </button>
           </Transition>
+
+          <!-- Histogram show/hide. ml-auto pushes the toggle to the
+               far right of the filter row, separating it visually from
+               the data filters on the left. The icon flips with the
+               persisted state so the affordance is always current. -->
+          <button
+            type="button"
+            class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-default bg-default hover:bg-elevated text-muted hover:text-default text-xs transition-colors"
+            :title="histogramHidden ? t('logs.histogram.show') : t('logs.histogram.hide')"
+            :aria-label="histogramHidden ? t('logs.histogram.show') : t('logs.histogram.hide')"
+            @click="histogramHidden = !histogramHidden"
+          >
+            <UIcon
+              :name="histogramHidden ? 'i-ph-chart-bar' : 'i-ph-eye-slash'"
+              class="size-3.5"
+            />
+          </button>
         </template>
       </AppToolbar>
     </template>
 
     <LogsSeverityHistogram
-      v-if="page.items.value.length > 0"
+      v-if="page.items.value.length > 0 && !histogramHidden"
       :data="histogram"
     />
 
