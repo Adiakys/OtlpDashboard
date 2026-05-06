@@ -15,6 +15,16 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const { $traceService, $logsService } = useNuxtApp()
 
+// The list page forwards its filter query to the detail URL so the
+// "Traces" breadcrumb can land back on the same filtered view. When
+// the user reaches the detail directly (deep link, refresh, navigation
+// from logs / spans), there's no query to carry — the link falls back
+// to a bare `/traces`.
+const backToListTo = computed(() => {
+  const q = route.query
+  return Object.keys(q).length > 0 ? { path: '/traces', query: q } : '/traces'
+})
+
 const traceId = computed(() => route.params.traceId as string)
 const page = useTracePage($traceService, $logsService, traceId.value)
 
@@ -50,7 +60,7 @@ const summary = computed(() => {
 })
 
 const breadcrumb = computed<BreadcrumbItem[]>(() => [
-  { labelKey: 'nav.traces', icon: 'i-ph-tree-structure', to: '/traces' },
+  { labelKey: 'nav.traces', icon: 'i-ph-tree-structure', to: backToListTo.value },
   { label: summary.value?.rootName ?? traceId.value.slice(0, 12) + '…' }
 ])
 

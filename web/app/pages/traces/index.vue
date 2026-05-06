@@ -172,7 +172,11 @@ const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
 ])
 
 function onRowClick(row: TraceSummaryDto) {
-  navigateTo(`/traces/${row.traceId}`)
+  // Carry the current filter query through to the detail route so the
+  // breadcrumb's "Traces" back-link can restore exactly the view the
+  // user came from. The detail page ignores these params; they ride
+  // along purely as breadcrumb state.
+  navigateTo({ path: `/traces/${row.traceId}`, query: route.query })
 }
 </script>
 
