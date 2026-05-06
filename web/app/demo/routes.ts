@@ -4,6 +4,11 @@ import type {
   PagedResponse,
   WidgetLibraryDto
 } from '~/services/types'
+import {
+  SEVERITY_BUCKETS,
+  severityBucketFromNumber,
+  type SeverityBucket
+} from '~/types/filters'
 import { DEMO_LIBRARIES } from './data/libraries'
 import { DEMO_SERVICES } from './data/services'
 import {
@@ -146,27 +151,50 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const limit = numberParam(query, 'limit') ?? 25
     const service = optionalString(query, 'service')
+    // Cheap filters work on the summary; we want to fetch *more* than
+    // `limit` so post-filtering still has a chance of hitting the
+    // requested page size. The fudge factor is intentional — the demo
+    // is small-scale, refetching costs nothing.
+    const status = optionalString(query, 'status')
+    const minMs = numberParam(query, 'minMs')
+    const maxMs = numberParam(query, 'maxMs')
+    const spanNameContains = optionalString(query, 'spanNameContains')
+    const attrFilters = attrPairs(query)
+    const hasPostFilters = !!status || minMs != null || maxMs != null
+      || !!spanNameContains || attrFilters.length > 0
+    const fetchLimit = hasPostFilters ? Math.max(limit * 4, 100) : limit
     const result = generateTraceList({
       fromMs,
       toMs,
-      limit,
+      limit: fetchLimit,
       service,
       cursor: optionalString(query, 'cursor')
     })
-    // Attribute filter: applied in-memory by walking each summary's
-    // implied detail (the scenario sets `demo.scenario` on every span).
-    // The full backend implementation does this in SQL; the demo
-    // approximates by filtering the summary list to the scenarios
-    // whose root attributes match all requested pairs.
-    const filters = attrPairs(query)
-    if (filters.length > 0) {
+    if (status === 'ok' || status === 'error') {
+      const want = status === 'error' ? 'Error' : 'Ok'
+      result.items = result.items.filter(t => (t as { rootStatusCode: string }).rootStatusCode === want)
+    }
+    if (minMs != null) {
+      result.items = result.items.filter(t => (t as { durationMs: number }).durationMs >= minMs)
+    }
+    if (maxMs != null) {
+      result.items = result.items.filter(t => (t as { durationMs: number }).durationMs <= maxMs)
+    }
+    // Span-name search and attribute filters both need to walk the
+    // generated detail; combine them so we generate it at most once
+    // per surviving summary.
+    if (spanNameContains || attrFilters.length > 0) {
+      const needle = spanNameContains?.toLowerCase()
       result.items = result.items.filter(t => {
         const detail = generateTraceDetail((t as { traceId: string }).traceId)
-        return filters.every(f =>
-          detail.spans.some(s => String((s.attributes as Record<string, unknown>)[f.key] ?? '') === f.value)
-        )
+        if (needle && !detail.spans.some(s => s.name.toLowerCase().includes(needle))) return false
+        for (const f of attrFilters) {
+          if (!detail.spans.some(s => String((s.attributes as Record<string, unknown>)[f.key] ?? '') === f.value)) return false
+        }
+        return true
       })
     }
+    if (result.items.length > limit) result.items = result.items.slice(0, limit)
     return result as PagedResponse<unknown>
   }
   {
@@ -184,20 +212,32 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 15 * 60_000
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const limit = numberParam(query, 'limit') ?? 50
+    const severities = severityBuckets(query)
+    const bodyContains = optionalString(query, 'bodyContains')
+    const filters = attrPairs(query)
+    const hasPostFilters = severities.size > 0 || !!bodyContains || filters.length > 0
+    const fetchLimit = hasPostFilters ? Math.max(limit * 4, 200) : limit
     const result = generateLogList({
       fromMs,
       toMs,
-      limit,
+      limit: fetchLimit,
       service: optionalString(query, 'service'),
       minSeverity: numberParam(query, 'minSeverity'),
       traceIdFilter: optionalString(query, 'traceId')
     })
-    const filters = attrPairs(query)
+    if (severities.size > 0) {
+      result.items = result.items.filter(l => severities.has(severityBucketFromNumber(l.severityNumber)))
+    }
+    if (bodyContains) {
+      const needle = bodyContains.toLowerCase()
+      result.items = result.items.filter(l => (l.body ?? '').toLowerCase().includes(needle))
+    }
     if (filters.length > 0) {
       result.items = result.items.filter(l =>
         filters.every(f => String((l.attributes as Record<string, unknown>)[f.key] ?? '') === f.value)
       )
     }
+    if (result.items.length > limit) result.items = result.items.slice(0, limit)
     return result
   }
 
@@ -302,6 +342,29 @@ function attrPairs(query: Record<string, unknown>): Array<{ key: string; value: 
       const key = trimmed.slice(0, colon).trim()
       const value = trimmed.slice(colon + 1).trim()
       if (key && value) out.push({ key, value })
+    }
+  }
+  return out
+}
+
+/**
+ * Parse the `severities` query into a Set of recognized buckets. The
+ * frontend sends a comma-joined list (e.g. `warn,error,fatal`); the
+ * real backend also accepts repeated keys, so do both. Unknown tokens
+ * are silently dropped — same behaviour as the C# QueryValidation.
+ */
+function severityBuckets(query: Record<string, unknown>): Set<SeverityBucket> {
+  const raw = query['severities']
+  const entries: string[] = Array.isArray(raw)
+    ? (raw as unknown[]).filter((v): v is string => typeof v === 'string')
+    : typeof raw === 'string' ? [raw] : []
+  const out = new Set<SeverityBucket>()
+  for (const entry of entries) {
+    for (const part of entry.split(',')) {
+      const t = part.trim().toLowerCase()
+      if (t && (SEVERITY_BUCKETS as readonly string[]).includes(t)) {
+        out.add(t as SeverityBucket)
+      }
     }
   }
   return out
