@@ -339,7 +339,9 @@
       "ariaLabel": "Log volume histogram by severity over time",
       "total": "logs",
       "empty": "No log activity in the selected window.",
-      "truncated": "histogram covers the loaded entries — raise the page limit to see the full window"
+      "truncated": "histogram covers the loaded entries — raise the page limit to see the full window",
+      "hide": "Hide histogram",
+      "show": "Show histogram"
     }
   },
   "traces": {

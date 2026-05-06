@@ -36,7 +36,7 @@ const SEVERITY_COLOR: Record<SeverityBucket, string> = {
 // the panel; height is fixed in px because the chart is decorative
 // alongside the grid (we don't want it to dominate the layout).
 const VIEWBOX_WIDTH = 1000
-const PLOT_HEIGHT = 80
+const PLOT_HEIGHT = 44
 
 const maxCount = computed(() =>
   props.data.buckets.reduce((m, b) => (b.total > m ? b.total : m), 0)
@@ -156,31 +156,34 @@ const isEmpty = computed(() => maxCount.value === 0)
         </g>
       </svg>
 
-      <div class="vellum-log-histogram__axis" aria-hidden="true">
-        <span
-          v-for="tick in ticks"
-          :key="tick.xPx"
-          class="vellum-log-histogram__tick"
-          :style="{ left: `calc(${(tick.xPx / VIEWBOX_WIDTH) * 100}% )` }"
-        >{{ tick.label }}</span>
-      </div>
-
-      <div class="vellum-log-histogram__legend">
-        <span
-          v-for="sev in STACK_ORDER"
-          :key="sev"
-          class="vellum-log-histogram__legend-item"
-        >
+      <!-- Footer row: time ticks + inline legend share the same line so
+           the chart stays compact (≈ 60px total) and doesn't compete
+           with the data grid for vertical real estate. -->
+      <div class="vellum-log-histogram__footer">
+        <div class="vellum-log-histogram__axis" aria-hidden="true">
           <span
-            class="vellum-log-histogram__swatch"
-            :style="{ background: SEVERITY_COLOR[sev] }"
-          />
-          {{ t(`filter.severityBucket.${sev}`) }}
-        </span>
-
-        <span v-if="data.truncated" class="vellum-log-histogram__truncated">
-          {{ t('logs.histogram.truncated') }}
-        </span>
+            v-for="tick in ticks"
+            :key="tick.xPx"
+            class="vellum-log-histogram__tick"
+            :style="{ left: `calc(${(tick.xPx / VIEWBOX_WIDTH) * 100}% )` }"
+          >{{ tick.label }}</span>
+        </div>
+        <div class="vellum-log-histogram__legend">
+          <span
+            v-for="sev in STACK_ORDER"
+            :key="sev"
+            class="vellum-log-histogram__legend-item"
+          >
+            <span
+              class="vellum-log-histogram__swatch"
+              :style="{ background: SEVERITY_COLOR[sev] }"
+            />
+            {{ t(`filter.severityBucket.${sev}`) }}
+          </span>
+          <span v-if="data.truncated" class="vellum-log-histogram__truncated">
+            {{ t('logs.histogram.truncated') }}
+          </span>
+        </div>
       </div>
     </template>
   </div>
@@ -191,21 +194,29 @@ const isEmpty = computed(() => maxCount.value === 0)
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem 0.4rem;
+  gap: 2px;
+  padding: 4px 12px 6px;
   border-bottom: 1px solid var(--ui-border);
   background: var(--ui-bg);
 }
 .vellum-log-histogram__svg {
   width: 100%;
-  height: 80px;
+  height: 44px;
   display: block;
+}
+/* Footer row: ticks left, legend right. Single line keeps the
+   chart total height around ~60px including padding. */
+.vellum-log-histogram__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.62rem;
+  color: var(--ui-text-muted);
 }
 .vellum-log-histogram__axis {
   position: relative;
-  height: 12px;
-  font-size: 0.65rem;
-  color: var(--ui-text-muted);
+  flex: 1;
+  height: 10px;
   font-variant-numeric: tabular-nums;
 }
 .vellum-log-histogram__tick {
@@ -213,37 +224,34 @@ const isEmpty = computed(() => maxCount.value === 0)
   transform: translateX(-50%);
   white-space: nowrap;
 }
-/* Anchor the first / last labels to the chart edges so they don't
-   spill past the panel. */
+/* Anchor first / last labels to chart edges so they don't spill. */
 .vellum-log-histogram__tick:first-child { transform: translateX(0); }
 .vellum-log-histogram__tick:last-child  { transform: translateX(-100%); }
 .vellum-log-histogram__legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem 0.9rem;
+  flex-wrap: nowrap;
+  gap: 0.55rem;
   align-items: center;
-  font-size: 0.7rem;
-  color: var(--ui-text-muted);
+  flex: none;
 }
 .vellum-log-histogram__legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   text-transform: capitalize;
 }
 .vellum-log-histogram__swatch {
-  width: 0.6rem;
-  height: 0.6rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 1px;
   display: inline-block;
 }
 .vellum-log-histogram__truncated {
-  margin-left: auto;
   font-style: italic;
 }
 .vellum-log-histogram__empty {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--ui-text-muted);
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.75rem;
 }
 </style>
