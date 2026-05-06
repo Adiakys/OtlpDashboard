@@ -54,6 +54,13 @@ public sealed record TraceQuery(
     int Limit,
     CursorPosition? After,
     string? ServiceName = null,
+    /// <summary>When true, narrow to traces touching at least one
+    /// span whose Resource has no `service.name` (null OR empty
+    /// string). Mutually exclusive with <see cref="ServiceName"/>;
+    /// when both are set, this flag wins. Lets the service-map UI
+    /// drill into the "(unnamed)" node — there's no string identity
+    /// to pass through <c>service=...</c> for it.</summary>
+    bool MatchUnnamedService = false,
     TraceStatusFilter? StatusFilter = null,
     double? MinDurationMs = null,
     double? MaxDurationMs = null,
@@ -148,12 +155,21 @@ public sealed record ServiceMapQuery(
 ///    shape, but the host service is implicit (the parent end of the
 ///    edges that point to it).
 /// Counts include every span (or every client call for dependencies).
+///
+/// <see cref="AttributeKey"/> is set only on dependency nodes: the
+/// configured attribute (e.g. <c>db.system</c>) whose value produced
+/// this node. It lets the UI build a precise drill-down filter into
+/// /traces (search for spans where <c>AttributeKey = Service</c>).
+/// When more than one configured key contributed, the first one in
+/// configuration order wins — picking just one keeps the UI's
+/// "view traces" link a single click rather than a disambiguation.
 /// </summary>
 public sealed record ServiceMapNode(
     string Service,
     ServiceMapNodeKind Kind,
     long RequestCount,
-    long ErrorCount);
+    long ErrorCount,
+    string? AttributeKey = null);
 
 public enum ServiceMapNodeKind
 {

@@ -475,6 +475,9 @@
     "subtitle": "{nodeCount} servizi · {edgeCount} archi · {window}",
     "emptyTitle": "Nessun servizio nella finestra selezionata",
     "emptyDescription": "Modifica l'intervallo o invia trace con più servizi per vedere la topologia.",
+    "unnamedLabel": "(senza nome)",
+    "showUnnamed": "Mostra servizi senza nome",
+    "hideUnnamed": "Nascondi servizi senza nome",
     "detail": {
       "summary": "Sommario",
       "requests": "Richieste",
@@ -482,7 +485,11 @@
       "connections": "Connessioni",
       "calls": "chiamate",
       "topOperations": "Top operazioni",
-      "viewTraces": "Vedi le trace di questo servizio"
+      "viewTraces": "Vedi le trace di questo servizio",
+      "viewTracesDependency": "Vedi le trace che toccano questa dipendenza",
+      "viewTracesUnnamed": "Vedi le trace senza service.name",
+      "unnamedTitle": "Cos'è questo nodo?",
+      "unnamedExplainer": "Uno o più produttori di telemetria in questa finestra hanno emesso span senza impostare `service.name` sul resource. Sono raggruppati qui come un unico nodo anonimo. Per dargli un'identità, configura l'OTLP exporter del produttore (es. imposta OTEL_SERVICE_NAME o l'attributo resource service.name)."
     }
   }
 }

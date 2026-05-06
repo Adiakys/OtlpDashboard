@@ -100,7 +100,24 @@ public sealed class EfCoreTraceReader : ITraceReader
         // short-circuit at the first matching span per trace_id, which is
         // markedly faster on large windows because the typical trace touches
         // only a handful of services.
-        if (!string.IsNullOrEmpty(query.ServiceName))
+        // The two service-side filters are mutually exclusive — the
+        // unnamed flag wins when both are set. Same EXISTS-correlated
+        // shape so the planner stays on its existing fast path.
+        if (query.MatchUnnamedService)
+        {
+            var unnamedHashes = context.Resources
+                .AsNoTracking()
+                .Where(r => r.ServiceName == null || r.ServiceName == string.Empty)
+                .Select(r => r.Hash);
+            baseSpans = baseSpans.Where(s =>
+                context.Spans
+                    .AsNoTracking()
+                    .Any(s2 =>
+                        s2.TraceId == s.TraceId &&
+                        s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
+                        unnamedHashes.Contains(s2.ResourceHash)));
+        }
+        else if (!string.IsNullOrEmpty(query.ServiceName))
         {
             var service = query.ServiceName;
             var serviceHashes = context.Resources

@@ -119,18 +119,18 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     })
     const nodeMap = new Map<string, { service: string; requestCount: number; errorCount: number }>()
     const edgeMap = new Map<string, { fromService: string; toService: string; callCount: number; errorCount: number }>()
-    // A service that never originates a root span is treated as a
-    // synthesised dependency (matches the backend logic, which
-    // synthesises dependency nodes from kind=Client + db.system on
-    // host services). The SPA generators expose the same shape via
-    // the `serviceFromScope` mapping so postgresql/redis fall here.
-    const rootServices = new Set<string>()
+    // The demo data has no truly synthesised dependencies: postgresql /
+    // redis are emitted as real OTel services with their own resources
+    // (not inferred from `db.system` on a host's Client span). So we
+    // classify every node as `service` — the drill-down `service=name`
+    // filter works for all of them, matching how a user would expect
+    // the demo to behave. The real backend retains the synthesised-
+    // dependency distinction in <see cref="EfCoreServiceMapReader"/>.
     for (const summary of list.items) {
       const t = summary as { traceId: string; rootStatusCode: string; serviceName: string | null }
       const detail = generateTraceDetail(t.traceId)
       for (const span of detail.spans) {
         const svc = span.serviceName ?? 'unknown'
-        if (!span.parentSpanId) rootServices.add(svc)
         const node = nodeMap.get(svc) ?? { service: svc, requestCount: 0, errorCount: 0 }
         node.requestCount++
         if (span.statusCode === 'Error') node.errorCount++
@@ -161,7 +161,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     }
     let nodes = [...nodeMap.values()].map(n => ({
       ...n,
-      kind: rootServices.has(n.service) ? 'service' as const : 'dependency' as const
+      kind: 'service' as const
     }))
     let edges = [...edgeMap.values()]
     if (focus) {
@@ -223,6 +223,14 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const toMs = parseTimeParam(query.to) ?? Date.now()
     const limit = numberParam(query, 'limit') ?? 25
     const service = optionalString(query, 'service')
+    const noService = boolParam(query, 'noService')
+    // Demo dataset has no unnamed services — every generator-emitted
+    // span carries a real service.name. So the noService filter is
+    // honoured by returning an empty list, semantically matching the
+    // real backend's behaviour for a dataset without nameless rows.
+    if (noService) {
+      return { items: [], nextCursor: null }
+    }
     // Cheap filters work on the summary; we want to fetch *more* than
     // `limit` so post-filtering still has a chance of hitting the
     // requested page size. The fudge factor is intentional — the demo

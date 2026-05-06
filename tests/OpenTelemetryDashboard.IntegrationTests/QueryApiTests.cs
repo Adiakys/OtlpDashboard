@@ -381,14 +381,165 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
         response.ShouldNotBeNull();
         // Host service should be present as a normal `service` node.
-        response!.Nodes.ShouldContain(n => n.Service == hostService && n.Kind == "service");
+        response!.Nodes.ShouldContain(n => n.Service == hostService && n.Kind == "service" && n.AttributeKey == null);
         // Postgres + Redis as `dependency` nodes (synthesised from the
         // db.system attribute, not from a real OTel-emitting service).
-        response.Nodes.ShouldContain(n => n.Service == "postgresql" && n.Kind == "dependency");
-        response.Nodes.ShouldContain(n => n.Service == "redis" && n.Kind == "dependency");
+        // The attribute key is propagated so the SPA can build a
+        // precise drill-down filter.
+        response.Nodes.ShouldContain(n => n.Service == "postgresql" && n.Kind == "dependency" && n.AttributeKey == "db.system");
+        response.Nodes.ShouldContain(n => n.Service == "redis" && n.Kind == "dependency" && n.AttributeKey == "db.system");
         // Edges from the host into each dependency.
         response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "postgresql");
         response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "redis");
+    }
+
+    [Fact]
+    public async Task GetServiceMap_KeepsResourceWithEmptyServiceName()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 26, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var named = $"map-named-{suffix}";
+
+        var traceIdBytes = RandomBytes(16);
+        var rootSpanIdBytes = RandomBytes(8);
+        var childSpanIdBytes = RandomBytes(8);
+
+        // The producer set `service.name` but to the empty string. The
+        // OTLP translator returns "" (not null), so the row lands in
+        // the DB with `Resource.ServiceName = ""`. The reader's
+        // `r.ServiceName != null` filter is satisfied; we want to
+        // confirm the node shows up AND the cross-service edge to a
+        // properly-named child resolves.
+        await SeedSpanWithParentAsync(
+            client, service: string.Empty, anchor, traceIdBytes, rootSpanIdBytes,
+            parentSpanIdBytes: null, name: $"root.{suffix}");
+        await SeedSpanWithParentAsync(
+            client, named, anchor.AddSeconds(1), traceIdBytes, childSpanIdBytes,
+            parentSpanIdBytes: rootSpanIdBytes, name: $"child.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"root.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"child.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
+            new Uri($"/api/v1/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        response.ShouldNotBeNull();
+        // Empty-named node IS present.
+        response!.Nodes.ShouldContain(n => n.Service == string.Empty && n.Kind == "service");
+        response.Nodes.ShouldContain(n => n.Service == named);
+        // And the cross-service edge to the named child IS surfaced.
+        var edge = response.Edges.SingleOrDefault(e =>
+            e.FromService == string.Empty && e.ToService == named);
+        edge.ShouldNotBeNull();
+        edge!.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetServiceMap_DropsNamelessResources()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 25, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var named = $"map-named-{suffix}";
+
+        var traceIdBytes = RandomBytes(16);
+        var rootSpanIdBytes = RandomBytes(8);
+        var childSpanIdBytes = RandomBytes(8);
+
+        // Root span belongs to a Resource that has NO `service.name`
+        // attribute at all (the realistic case: an OTLP producer that
+        // didn't set OTEL_SERVICE_NAME). Child span lands on a
+        // properly-named service.
+        await SeedSpanOnNamelessResourceAsync(
+            client, anchor, traceIdBytes, rootSpanIdBytes, parentSpanIdBytes: null,
+            name: $"root.{suffix}");
+        await SeedSpanWithParentAsync(
+            client, named, anchor.AddSeconds(1), traceIdBytes, childSpanIdBytes,
+            parentSpanIdBytes: rootSpanIdBytes, name: $"child.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"root.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"child.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
+            new Uri($"/api/v1/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        response.ShouldNotBeNull();
+        // The named service is present.
+        response!.Nodes.ShouldContain(n => n.Service == named);
+        // The nameless resource produces no node — `r.ServiceName != null`
+        // filters it out before the GROUP BY, and there is no fallback
+        // identity to render.
+        response.Nodes.ShouldNotContain(n => string.IsNullOrEmpty(n.Service));
+        // Consequently the cross-service edge to/from it is not surfaced
+        // either: the SAME WHERE clause guards both ends of the join.
+        response.Edges.ShouldNotContain(e =>
+            string.IsNullOrEmpty(e.FromService) || string.IsNullOrEmpty(e.ToService));
+    }
+
+    [Fact]
+    public async Task GetTraces_NoServiceFlag_FiltersToUnnamedAndEmpty()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 27, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var named = $"trace-named-{suffix}";
+
+        // Three traces:
+        //  - one entirely on a properly-named service.
+        //  - one rooted on a Resource with NO `service.name` (DB null).
+        //  - one rooted on a Resource with `service.name=""` (DB empty).
+        var t1 = RandomBytes(16);
+        await SeedSpanWithParentAsync(client, named, anchor, t1, RandomBytes(8),
+            parentSpanIdBytes: null, name: $"named.{suffix}");
+
+        var t2 = RandomBytes(16);
+        await SeedSpanOnNamelessResourceAsync(client, anchor.AddSeconds(1), t2, RandomBytes(8),
+            parentSpanIdBytes: null, name: $"nameless.{suffix}");
+
+        var t3 = RandomBytes(16);
+        await SeedSpanWithParentAsync(client, service: string.Empty, anchor.AddSeconds(2), t3,
+            RandomBytes(8), parentSpanIdBytes: null, name: $"empty.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"named.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"nameless.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"empty.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // Without the flag: only the named trace shows because the
+        // existing `service` filter is absent and the unnamed traces
+        // pass through too. Sanity check.
+        var allResp = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+        allResp!.Items.Count(t => t.RootSpanName.EndsWith($".{suffix}", StringComparison.Ordinal)).ShouldBe(3);
+
+        // With noService=true: the named trace is filtered out; the
+        // two unnamed (null + empty) ones come through. This is the
+        // exact filter the SPA's "(unnamed)" drill-down link uses.
+        var unnamedResp = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&noService=true", UriKind.Relative),
+            JsonOptions);
+        var ours = unnamedResp!.Items.Where(t => t.RootSpanName.EndsWith($".{suffix}", StringComparison.Ordinal)).ToList();
+        ours.ShouldContain(t => t.RootSpanName == $"nameless.{suffix}");
+        ours.ShouldContain(t => t.RootSpanName == $"empty.{suffix}");
+        ours.ShouldNotContain(t => t.RootSpanName == $"named.{suffix}");
     }
 
     [Fact]
@@ -830,6 +981,45 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     /// the service-map test to build a precise two-span trace whose
     /// edges the reader can pick up.
     /// </summary>
+    /// <summary>
+    /// Seed a single span on a Resource with NO attributes at all, so
+    /// the OTLP translator sees no `service.name` and the persisted
+    /// row carries <see cref="Resource.ServiceName"/> = null. Used to
+    /// confirm the service-map's null-handling.
+    /// </summary>
+    private static async Task SeedSpanOnNamelessResourceAsync(
+        HttpClient client,
+        DateTimeOffset anchor,
+        byte[] traceIdBytes,
+        byte[] spanIdBytes,
+        byte[]? parentSpanIdBytes,
+        string name)
+    {
+        var request = new ExportTraceServiceRequest();
+        var resourceSpans = new ResourceSpans
+        {
+            Resource = new OtlpResource()  // intentionally no Attributes
+        };
+        var scopeSpans = new ScopeSpans { Scope = new InstrumentationScope { Name = "tests" } };
+        scopeSpans.Spans.Add(new OtlpSpan
+        {
+            TraceId = ByteString.CopyFrom(traceIdBytes),
+            SpanId = ByteString.CopyFrom(spanIdBytes),
+            ParentSpanId = parentSpanIdBytes is null
+                ? ByteString.Empty
+                : ByteString.CopyFrom(parentSpanIdBytes),
+            Name = name,
+            Kind = OtlpSpan.Types.SpanKind.Internal,
+            StartTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor),
+            EndTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMilliseconds(50))
+        });
+        resourceSpans.ScopeSpans.Add(scopeSpans);
+        request.ResourceSpans.Add(resourceSpans);
+
+        using var response = await PostProtobufAsync(client, "/v1/traces", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
     private static async Task SeedSpanWithParentAsync(
         HttpClient client,
         string service,
@@ -1256,7 +1446,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     private sealed record ServiceMapApiResponse(
         IReadOnlyList<ServiceMapApiNode> Nodes,
         IReadOnlyList<ServiceMapApiEdge> Edges);
-    private sealed record ServiceMapApiNode(string Service, string Kind, long RequestCount, long ErrorCount);
+    private sealed record ServiceMapApiNode(string Service, string Kind, long RequestCount, long ErrorCount, string? AttributeKey = null);
     private sealed record ServiceMapApiEdge(string FromService, string ToService, long CallCount, long ErrorCount);
 
     private sealed record InstrumentItem(

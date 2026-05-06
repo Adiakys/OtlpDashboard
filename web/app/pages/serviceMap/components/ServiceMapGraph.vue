@@ -24,6 +24,20 @@ const emit = defineEmits<{
   'select': [service: string]
 }>()
 
+const { t } = useI18n()
+
+// Fallback for nodes whose source emitted no `service.name`. Shown on
+// the canvas and inside <title> tooltips so empty circles aren't
+// silently nameless. Defensive against null even though the DTO type
+// is `string` — without it a single null in the API response crashes
+// the render function and the entire SVG goes blank.
+function displayName(service: string | null | undefined): string {
+  return service && service.trim().length > 0 ? service : t('serviceMap.unnamedLabel')
+}
+function isUnnamedNode(service: string | null | undefined): boolean {
+  return !service || service.trim().length === 0
+}
+
 // ---- Container size ------------------------------------------------------
 const svgRef = ref<SVGSVGElement | null>(null)
 const width = ref(800)
@@ -282,7 +296,7 @@ watch(() => props.data.nodes.length, () => {
             @click="onNodeClick(n)"
           >
             <title>
-              {{ n.service }} ({{ n.kind }}): {{ n.requestCount }} spans,
+              {{ displayName(n.service) }} ({{ n.kind }}): {{ n.requestCount }} spans,
               {{ n.errorCount }} errors
             </title>
 
@@ -336,7 +350,8 @@ watch(() => props.data.nodes.length, () => {
               text-anchor="middle"
               :y="nodeRadius(n) + 14"
               class="vellum-svc-map__label"
-            >{{ n.service }}</text>
+              :class="{ 'vellum-svc-map__label--unnamed': isUnnamedNode(n.service) }"
+            >{{ displayName(n.service) }}</text>
             <text
               text-anchor="middle"
               y="4"
@@ -385,6 +400,10 @@ watch(() => props.data.nodes.length, () => {
   font-size: 11px;
   fill: var(--ui-text);
   font-weight: 500;
+}
+.vellum-svc-map__label--unnamed {
+  fill: var(--ui-text-muted);
+  font-style: italic;
 }
 .vellum-svc-map__count {
   font-family: var(--font-mono);

@@ -11,6 +11,10 @@ const DEFAULT_LIMIT = 50
 export interface UseTracesPageOptions {
   initialRange?: TimeWindow
   initialService?: string | null
+  /** When true, restrict the listing to traces involving Resources
+   *  with no `service.name` (null or empty). Drives the service-map's
+   *  "(unnamed)" drill-down. Mutually exclusive with `initialService`. */
+  initialNoService?: boolean
   initialStatus?: TraceStatusFilter
   initialDuration?: DurationRange
   initialSearch?: string
@@ -29,6 +33,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
 
   const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
   const serviceFilter = ref<string | null>(options.initialService ?? null)
+  const noServiceFilter = ref<boolean>(options.initialNoService === true)
   const availableServices = ref<string[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<TraceSummaryDto[]>([])
@@ -54,7 +59,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         to: range.value.to,
         limit: limit.value,
         cursor: append ? cursor.value ?? undefined : undefined,
-        service: serviceFilter.value ?? undefined,
+        service: noServiceFilter.value ? undefined : (serviceFilter.value ?? undefined),
+        noService: noServiceFilter.value || undefined,
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
         maxMs: durationFilter.value.maxMs ?? undefined,
@@ -80,7 +86,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         from: anchorIso,
         to: now,
         limit: LIVE_DELTA_LIMIT,
-        service: serviceFilter.value ?? undefined,
+        service: noServiceFilter.value ? undefined : (serviceFilter.value ?? undefined),
+        noService: noServiceFilter.value || undefined,
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
         maxMs: durationFilter.value.maxMs ?? undefined,
@@ -152,6 +159,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() })
+  watch(noServiceFilter, () => { void reload() })
   watch(statusFilter, () => {
     if (!live.isLive.value) void reload()
   })
@@ -172,7 +180,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
       from: range.value.from,
       to: range.value.to
     }
-    if (serviceFilter.value) q.service = serviceFilter.value
+    if (noServiceFilter.value) q.noService = 'true'
+    else if (serviceFilter.value) q.service = serviceFilter.value
     if (statusFilter.value !== 'any') q.status = statusFilter.value
     if (durationFilter.value.minMs != null) q.minMs = String(durationFilter.value.minMs)
     if (durationFilter.value.maxMs != null) q.maxMs = String(durationFilter.value.maxMs)
@@ -190,6 +199,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     range,
     limit,
     service: serviceFilter,
+    noService: noServiceFilter,
     availableServices,
     items,
     hasMore,

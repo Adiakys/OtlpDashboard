@@ -53,6 +53,7 @@ const initialDuration = (minMsQ != null || maxMsQ != null)
 const page = useTracesPage($traceService, {
   initialRange,
   initialService: strFromQuery('service') ?? null,
+  initialNoService: strFromQuery('noService') === 'true',
   initialStatus,
   initialDuration,
   initialSearch: strFromQuery('spanNameContains'),

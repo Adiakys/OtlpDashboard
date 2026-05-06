@@ -19,6 +19,10 @@ internal sealed record TraceQueryParameters(
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
     [FromQuery(Name = "service")] string? Service = null,
+    // Drill-down for traces involving Resources without a `service.name`
+    // (the "(unnamed)" service-map node has no string identity to pass
+    // through `service`). When true, `service` is ignored.
+    [FromQuery(Name = "noService")] bool? NoService = null,
     [FromQuery(Name = "status")] string? Status = null,
     [FromQuery(Name = "minMs")] double? MinMs = null,
     [FromQuery(Name = "maxMs")] double? MaxMs = null,

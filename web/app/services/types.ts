@@ -95,6 +95,11 @@ export interface ServiceMapNodeDto {
   kind: 'service' | 'dependency'
   requestCount: number
   errorCount: number
+  /** Only populated for `kind === 'dependency'`: the attribute key
+   *  whose value matches `service` (e.g. `db.system`). The drawer
+   *  uses it to build a precise `attr=key:value` drill-down link
+   *  into /traces. */
+  attributeKey?: string | null
 }
 
 /** A directed call edge from one service to another. Self-loops are
@@ -123,6 +128,11 @@ export interface PageQuery extends TimeWindow {
   traceId?: string
   /** Optional filter: restrict to rows whose resource `service.name` matches. */
   service?: string
+  /** Optional trace filter: restrict to traces touching at least one
+   *  span whose Resource has no `service.name` (null or empty). Used
+   *  by the service-map "(unnamed)" drill-down. Mutually exclusive
+   *  with `service`. */
+  noService?: boolean
   /**
    * Optional log filter: drop records whose OTLP severity_number is below
    * this cutoff (inclusive). 0/undefined keeps everything. Indexed

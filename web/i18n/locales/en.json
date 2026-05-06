@@ -474,6 +474,9 @@
     "subtitle": "{nodeCount} services · {edgeCount} edges · {window}",
     "emptyTitle": "No services in the selected window",
     "emptyDescription": "Adjust the time range or send traces with multiple services to see the topology.",
+    "unnamedLabel": "(unnamed)",
+    "showUnnamed": "Show services without a name",
+    "hideUnnamed": "Hide services without a name",
     "detail": {
       "summary": "Summary",
       "requests": "Requests",
@@ -481,7 +484,11 @@
       "connections": "Connections",
       "calls": "calls",
       "topOperations": "Top operations",
-      "viewTraces": "View traces of this service"
+      "viewTraces": "View traces of this service",
+      "viewTracesDependency": "View traces touching this dependency",
+      "viewTracesUnnamed": "View traces from unnamed sources",
+      "unnamedTitle": "What is this?",
+      "unnamedExplainer": "One or more telemetry producers in this window emitted spans without setting `service.name` on the resource. They are grouped here as a single anonymous node. To give them an identity, configure the producer's OTLP exporter (e.g. set OTEL_SERVICE_NAME or the resource service.name attribute)."
     }
   }
 }

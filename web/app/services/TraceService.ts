@@ -29,6 +29,7 @@ export class TraceService {
       limit: query.limit,
       cursor: query.cursor,
       service: query.service,
+      noService: query.noService ? true : undefined,
       status: query.status,
       minMs: query.minMs,
       maxMs: query.maxMs,

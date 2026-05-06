@@ -89,13 +89,17 @@ export function useForceLayout(
 
     // Build/refresh nodes; preserve cached positions when the
     // service was already present, otherwise drop the node near the
-    // centre so the simulation pulls it out organically.
+    // centre so the simulation pulls it out organically. Coerce
+    // service to a string defensively — the DTO types it as `string`
+    // but a null in the wire payload would otherwise propagate into
+    // the render function (where `.trim()` on null wipes the SVG).
     const newNodes: PositionedNode[] = []
     const byService = new Map<string, PositionedNode>()
     for (const dto of data.value.nodes) {
-      const cached = positionCache.get(dto.service)
+      const service = typeof dto.service === 'string' ? dto.service : ''
+      const cached = positionCache.get(service)
       const node: PositionedNode = {
-        service: dto.service,
+        service,
         kind: dto.kind,
         requestCount: dto.requestCount,
         errorCount: dto.errorCount,
@@ -103,21 +107,27 @@ export function useForceLayout(
         y: cached?.y ?? h / 2 + (Math.random() - 0.5) * 40
       }
       newNodes.push(node)
-      byService.set(dto.service, node)
+      byService.set(service, node)
     }
 
     // Edges reference node objects (not strings) — d3-force expects
     // the actual datum once `forceLink.id(...)` resolves, but we
     // pre-resolve here so consumers get back ready-to-render edges
-    // without typing ambiguity.
+    // without typing ambiguity. Coerce the lookup keys to string
+    // (mirroring the node side): an empty `""` is a legitimate
+    // service identity in this app, and `byService.get(null)` would
+    // silently drop edges that should have resolved against the
+    // unnamed node.
     const newEdges: PositionedEdge[] = []
     for (const dto of data.value.edges) {
-      const source = byService.get(dto.fromService)
-      const target = byService.get(dto.toService)
+      const fromKey = typeof dto.fromService === 'string' ? dto.fromService : ''
+      const toKey = typeof dto.toService === 'string' ? dto.toService : ''
+      const source = byService.get(fromKey)
+      const target = byService.get(toKey)
       if (!source || !target) continue
       newEdges.push({
-        fromService: dto.fromService,
-        toService: dto.toService,
+        fromService: fromKey,
+        toService: toKey,
         callCount: dto.callCount,
         errorCount: dto.errorCount,
         source,

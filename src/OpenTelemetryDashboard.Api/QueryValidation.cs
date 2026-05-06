@@ -230,7 +230,9 @@ internal static class QueryValidation
         }
 
         query = new TraceQuery(
-            from, to, limit, cursor, service, status, parameters.MinMs, parameters.MaxMs,
+            from, to, limit, cursor, service,
+            MatchUnnamedService: parameters.NoService == true,
+            status, parameters.MinMs, parameters.MaxMs,
             spanName, traceAttrFilters);
         errors = null;
         return true;

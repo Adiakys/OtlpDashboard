@@ -105,7 +105,7 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
             ?.Distinct(StringComparer.Ordinal)
             ?.ToArray() ?? [];
 
-        var deps = new List<(string Host, string DepName, long Count, long ErrorCount)>();
+        var deps = new List<(string Host, string DepName, string AttributeKey, long Count, long ErrorCount)>();
         foreach (var key in depKeys)
         {
             // Closure-captured `key` is lifted by EF as a parameter,
@@ -133,21 +133,31 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
             var rows = await depQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
             foreach (var r in rows)
             {
-                deps.Add((r.Host, r.DepValue, r.Count, r.ErrorCount));
+                deps.Add((r.Host, r.DepValue, attributeKey, r.Count, r.ErrorCount));
             }
         }
 
         // Roll up dependency rows by value into a single node per
         // distinct kind (e.g. one `postgresql` node even when called
         // from multiple host services or matched by multiple keys),
-        // then create one edge per (host, value) pair.
+        // then create one edge per (host, value) pair. The chosen
+        // <see cref="ServiceMapNode.AttributeKey"/> is the first
+        // configured key (in <see cref="ServiceMapOptions.DependencyAttributes"/>
+        // order) that contributed any rows to this dep; the SPA
+        // uses it to build the drill-down filter.
         var dependencyNodes = deps
             .GroupBy(d => d.DepName, StringComparer.Ordinal)
-            .Select(g => new ServiceMapNode(
-                g.Key,
-                ServiceMapNodeKind.Dependency,
-                g.Sum(x => x.Count),
-                g.Sum(x => x.ErrorCount)))
+            .Select(g =>
+            {
+                var contributingKeys = g.Select(x => x.AttributeKey).ToHashSet(StringComparer.Ordinal);
+                var primaryKey = depKeys.FirstOrDefault(k => contributingKeys.Contains(k));
+                return new ServiceMapNode(
+                    g.Key,
+                    ServiceMapNodeKind.Dependency,
+                    g.Sum(x => x.Count),
+                    g.Sum(x => x.ErrorCount),
+                    AttributeKey: primaryKey);
+            })
             .ToList();
 
         var dependencyEdges = deps

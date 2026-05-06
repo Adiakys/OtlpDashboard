@@ -42,7 +42,8 @@ internal static class ServiceMapEndpoints
                 n.Service,
                 n.Kind == ServiceMapNodeKind.Dependency ? "dependency" : "service",
                 n.RequestCount,
-                n.ErrorCount))
+                n.ErrorCount,
+                n.AttributeKey))
             .ToList();
         var edges = result.Edges
             .Select(e => new ServiceMapEdgeDto(e.FromService, e.ToService, e.CallCount, e.ErrorCount))
