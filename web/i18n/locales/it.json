@@ -58,6 +58,10 @@
   "filter": {
     "applicationAll": "Tutte le applicazioni",
     "applicationSelect": "Seleziona un'applicazione",
+    "applicationCount": "{count} applicazioni",
+    "applicationEmpty": "Nessuna applicazione nella finestra selezionata",
+    "applicationMatchModeAny": "Match su qualunque span",
+    "applicationMatchModeHint": "Includi le tracce che toccano i servizi selezionati ovunque, non solo quelle che vi originano.",
     "limit": "Limite",
     "severity": "Severità",
     "severityAll": "Tutte le severità",
@@ -360,6 +364,9 @@
       "spans": "Span",
       "status": "Stato",
       "traceId": "Trace ID"
+    },
+    "serviceCell": {
+      "tooltipHeader": "Servizi coinvolti nella trace:"
     },
     "detail": {
       "back": "Torna alle tracce",

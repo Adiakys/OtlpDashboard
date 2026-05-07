@@ -53,12 +53,17 @@ services:
       postgres:
         condition: service_healthy
 
-  sample-server:
+  # Two replicas of the sample server, both reporting under the same
+  # service.name=sample-server but with distinct service.instance.id
+  # values (server-1, server-2). This is the canonical
+  # multi-instance shape the dashboard's metrics tree and trace
+  # service-cell ("(+N)" tooltip) are designed to surface.
+  sample-server-1:
     build:
       context: .
       dockerfile: demo/Server/Dockerfile
     image: oteldemo-sample-server:dev
-    container_name: oteldemo-sample-server
+    container_name: oteldemo-sample-server-1
     restart: unless-stopped
     ports:
       - "5050:8080"
@@ -67,6 +72,30 @@ services:
       ConnectionStrings__Redis: "redis:6379"
       Otel__Endpoint: "http://dashboard:4317"
       Otel__Headers: "Authorization=Bearer api_token"
+      Otel__ServiceInstanceId: "server-1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      dashboard:
+        condition: service_started
+
+  sample-server-2:
+    build:
+      context: .
+      dockerfile: demo/Server/Dockerfile
+    image: oteldemo-sample-server:dev
+    container_name: oteldemo-sample-server-2
+    restart: unless-stopped
+    ports:
+      - "5051:8080"
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Database=sampleapp;Username=otel;Password=otel"
+      ConnectionStrings__Redis: "redis:6379"
+      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Headers: "Authorization=Bearer api_token"
+      Otel__ServiceInstanceId: "server-2"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,12 +112,17 @@ services:
     container_name: oteldemo-sample-client
     restart: unless-stopped
     environment:
-      Server__BaseUrl: "http://sample-server:8080"
+      # CSV: the client round-robins each iteration across these
+      # endpoints, so traces split evenly between the two server
+      # instances.
+      Server__BaseUrls: "http://sample-server-1:8080,http://sample-server-2:8080"
       Loop__IntervalMs: "3000"
       Otel__Endpoint: "http://dashboard:4317"
       Otel__Headers: "Authorization=Bearer api_token"
     depends_on:
-      sample-server:
+      sample-server-1:
+        condition: service_started
+      sample-server-2:
         condition: service_started
 
   postgres:

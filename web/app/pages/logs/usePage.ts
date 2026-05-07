@@ -7,7 +7,7 @@ import type { SeverityBucket } from '~/types/filters'
 export interface UseLogsPageOptions {
   initialRange?: TimeWindow
   initialTraceId?: string
-  initialService?: string | null
+  initialServices?: string[]
   initialSeverity?: SeverityBucket[]
   initialBody?: string
   initialAttr?: string[]
@@ -41,7 +41,10 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
 
   const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
   const traceId = ref<string | undefined>(options.initialTraceId)
-  const serviceFilter = ref<string | null>(options.initialService ?? null)
+  // Multi-value allow-list for `service.name`. Empty array is the
+  // canonical "no filter" state — same convention used by the
+  // severity picker and the new `services=` URL param.
+  const serviceFilter = ref<string[]>(options.initialServices ?? [])
   const availableServices = ref<string[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<LogRecordDto[]>([])
@@ -76,7 +79,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         limit: limit.value,
         cursor: append ? cursor.value ?? undefined : undefined,
         traceId: traceId.value,
-        service: serviceFilter.value ?? undefined,
+        services: serviceFilter.value.length > 0 ? serviceFilter.value : undefined,
         severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
         bodyContains: bodyQuery.value.trim() || undefined,
         attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
@@ -111,7 +114,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
         to: now,
         limit: LIVE_DELTA_LIMIT,
         traceId: traceId.value,
-        service: serviceFilter.value ?? undefined,
+        services: serviceFilter.value.length > 0 ? serviceFilter.value : undefined,
         severities: severityFilter.value.length > 0 ? severityFilter.value : undefined,
         bodyContains: bodyQuery.value.trim() || undefined,
         attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
@@ -170,7 +173,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   watch(limit, () => {
     if (!live.isLive.value) void reload()
   })
-  watch(serviceFilter, () => { void reload() })
+  watch(serviceFilter, () => { void reload() }, { deep: true })
   watch(severityFilter, () => {
     if (!live.isLive.value) void reload()
   }, { deep: true })
@@ -195,7 +198,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
       to: range.value.to
     }
     if (traceId.value) q.traceId = traceId.value
-    if (serviceFilter.value) q.service = serviceFilter.value
+    if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
     if (severityFilter.value.length > 0) q.severities = severityFilter.value.join(',')
     const body = bodyQuery.value.trim()
     if (body) q.bodyContains = body

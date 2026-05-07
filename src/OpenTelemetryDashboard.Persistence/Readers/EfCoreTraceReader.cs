@@ -86,23 +86,15 @@ public sealed class EfCoreTraceReader : ITraceReader
             .AsNoTracking()
             .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano);
 
-        // Service-name filter: keep traces that contain at least one span whose
-        // resource's `service.name` matches. This is "any-service" matching,
-        // which is more useful for discovery (e.g. "show every trace that
-        // touches frontend") than root-only filtering. The summary column
-        // still shows the root's service so the UI stays consistent.
-        //
-        // Implementation: pre-compute the candidate resource hashes for the
-        // service (small set, fed by the indexed Resources.ServiceName), then
-        // emit an EXISTS-correlated `s2` lookup. The previous version went
-        // through a `SELECT DISTINCT trace_id IN (...)` semi-join which
-        // forced the planner to materialise the inner set; EXISTS lets it
-        // short-circuit at the first matching span per trace_id, which is
-        // markedly faster on large windows because the typical trace touches
-        // only a handful of services.
-        // The two service-side filters are mutually exclusive — the
-        // unnamed flag wins when both are set. Same EXISTS-correlated
-        // shape so the planner stays on its existing fast path.
+        // Service / unnamed filters share an EXISTS-correlated shape;
+        // <see cref="ServiceMatchMode"/> just decides whether the
+        // inner span has to be the root (default — matches the column
+        // display, "deselect X" hides rows whose service column read
+        // X) or any span in the trace ("any trace that touches X",
+        // discovery oriented). The closure-captured boolean lifts to
+        // a SQL parameter so the planner produces one parameterised
+        // plan per query shape, not two.
+        var rootOnly = query.ServiceMatch == ServiceMatchMode.Root;
         if (query.MatchUnnamedService)
         {
             var unnamedHashes = context.Resources
@@ -114,21 +106,26 @@ public sealed class EfCoreTraceReader : ITraceReader
                     .AsNoTracking()
                     .Any(s2 =>
                         s2.TraceId == s.TraceId &&
+                        (!rootOnly || s2.ParentSpanId == null) &&
                         s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
                         unnamedHashes.Contains(s2.ResourceHash)));
         }
-        else if (!string.IsNullOrEmpty(query.ServiceName))
+        else if (query.ServiceNames is { Count: > 0 } services)
         {
-            var service = query.ServiceName;
+            // EF translates the `Contains` over the in-memory list to
+            // `r.ServiceName IN (...)`; the indexed Resources.ServiceName
+            // feeds the inner hash-set, the EXISTS short-circuits per
+            // trace_id at the first matching span it finds.
             var serviceHashes = context.Resources
                 .AsNoTracking()
-                .Where(r => r.ServiceName == service)
+                .Where(r => r.ServiceName != null && services.Contains(r.ServiceName))
                 .Select(r => r.Hash);
             baseSpans = baseSpans.Where(s =>
                 context.Spans
                     .AsNoTracking()
                     .Any(s2 =>
                         s2.TraceId == s.TraceId &&
+                        (!rootOnly || s2.ParentSpanId == null) &&
                         s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
                         serviceHashes.Contains(s2.ResourceHash)));
         }
@@ -268,11 +265,57 @@ public sealed class EfCoreTraceReader : ITraceReader
             .ToDictionaryAsync(x => x.Hash, x => x.ServiceName, ByteArrayEqualityComparer.Instance, cancellationToken)
             .ConfigureAwait(false);
 
+        // Distinct (TraceId, ServiceName) pairs across every span in
+        // the listed traces — used to surface "root (+N other services)"
+        // in the list column. One round-trip; bounded by the page
+        // size × the number of services a trace touches (typically 1-3).
+        // Filtered on the same time window so the planner stays on the
+        // StartUnixNano index.
+        var servicesByTrace = await context.Spans
+            .AsNoTracking()
+            .Where(s => traceIds.Contains(s.TraceId)
+                && s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
+            .Join(
+                context.Resources.AsNoTracking(),
+                s => s.ResourceHash,
+                r => r.Hash,
+                (s, r) => new { s.TraceId, r.ServiceName })
+            .Where(x => x.ServiceName != null)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var allServicesByTrace = new Dictionary<TraceId, List<string>>();
+        foreach (var pair in servicesByTrace)
+        {
+            if (!allServicesByTrace.TryGetValue(pair.TraceId, out var list))
+            {
+                list = new List<string>();
+                allServicesByTrace[pair.TraceId] = list;
+            }
+            list.Add(pair.ServiceName!);
+        }
+
         foreach (var aggregate in aggregates)
         {
             if (!rootsByTrace.TryGetValue(aggregate.TraceId, out var root))
             {
                 continue;
+            }
+
+            serviceByHash.TryGetValue(root.ResourceHash, out var serviceName);
+
+            // Drop the root's service from the "other services" list so
+            // the UI never repeats it next to itself; sort to keep the
+            // tooltip ordering deterministic across reloads.
+            IReadOnlyList<string> otherServiceNames = [];
+            if (allServicesByTrace.TryGetValue(aggregate.TraceId, out var allServices))
+            {
+                var others = allServices
+                    .Where(s => !string.Equals(s, serviceName, StringComparison.Ordinal))
+                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .ToList();
+                if (others.Count > 0) otherServiceNames = others;
             }
 
             var summary = new TraceSummary
@@ -284,9 +327,9 @@ public sealed class EfCoreTraceReader : ITraceReader
                 EndUnixNano = aggregate.End,
                 SpanCount = aggregate.Count,
                 RootStatusCode = root.StatusCode,
+                OtherServiceNames = otherServiceNames,
             };
 
-            serviceByHash.TryGetValue(root.ResourceHash, out var serviceName);
             yield return (summary, aggregate.MinSpanId, serviceName);
         }
     }
@@ -312,12 +355,15 @@ public sealed class EfCoreTraceReader : ITraceReader
             .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
             .Where(s => s.ParentSpanId == null);
 
-        if (!string.IsNullOrEmpty(query.ServiceName))
+        if (query.ServiceNames is { Count: > 0 } services)
         {
-            var service = query.ServiceName;
+            // Aggregations apply the service filter to the root span
+            // only — top-N "operations" are root-named, so it matches
+            // the user's mental model of "which endpoints do these
+            // services expose".
             var serviceHashes = context.Resources
                 .AsNoTracking()
-                .Where(r => r.ServiceName == service)
+                .Where(r => r.ServiceName != null && services.Contains(r.ServiceName))
                 .Select(r => r.Hash);
             rootSpans = rootSpans.Where(s => serviceHashes.Contains(s.ResourceHash));
         }

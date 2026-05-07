@@ -66,6 +66,13 @@ export function generateTraceList(args: {
     const startMs = args.fromMs + Math.floor(rand() * Math.max(1, args.toMs - args.fromMs - 1))
     const traceId = makeTraceId(startMs, seed, i)
     const plan = planTrace(traceId)
+    // Surface the multi-service shape of the scenario in the same
+    // form the real backend ships: root's service excluded, others
+    // sorted for deterministic tooltips.
+    const rootService = plan.spans[0]?.service ?? 'sample-server'
+    const otherServiceNames = [...new Set(
+      plan.spans.map(s => s.service).filter(s => s && s !== rootService)
+    )].sort()
     items.push({
       traceId,
       rootSpanName: scenario.rootName,
@@ -74,8 +81,9 @@ export function generateTraceList(args: {
       durationMs: Math.round(plan.durationMs * 100) / 100,
       spanCount: plan.spans.length,
       rootStatusCode: plan.isError ? 'Error' : 'Ok',
-      resourceHash: `demo-sample-server`,
-      serviceName: 'sample-server'
+      resourceHash: `demo-${rootService}`,
+      serviceName: rootService,
+      otherServiceNames
     })
   }
   items.sort((a, b) => b.start.localeCompare(a.start))

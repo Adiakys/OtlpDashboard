@@ -31,7 +31,12 @@ public sealed record LogQuery(
     int Limit,
     CursorPosition? After,
     TraceId? TraceId = null,
-    string? ServiceName = null,
+    /// <summary>Allow-list of <c>service.name</c> values; logs whose
+    /// resource matches any of them pass. <c>null</c> or empty means
+    /// no service filter (every service shows). Single-name URL
+    /// (<c>?service=foo</c>) is collapsed to a one-element list at
+    /// validation time, so consumers only ever see this shape.</summary>
+    IReadOnlyList<string>? ServiceNames = null,
     int? MinSeverityNumber = null,
     IReadOnlyList<int>? SeverityNumbersIn = null,
     string? BodyContains = null,
@@ -53,19 +58,45 @@ public sealed record TraceQuery(
     DateTimeOffset To,
     int Limit,
     CursorPosition? After,
-    string? ServiceName = null,
+    /// <summary>Allow-list of <c>service.name</c> values; how the
+    /// match is anchored is governed by <see cref="ServiceMatch"/>.
+    /// <c>null</c> or empty disables the filter. See
+    /// <see cref="LogQuery.ServiceNames"/> for URL-shape rationale.</summary>
+    IReadOnlyList<string>? ServiceNames = null,
+    /// <summary>How <see cref="ServiceNames"/> (and
+    /// <see cref="MatchUnnamedService"/>) are evaluated against a
+    /// trace. Default is <see cref="ServiceMatchMode.Root"/> — the
+    /// trace passes when its root span lives on a matching resource
+    /// — which mirrors what the SPA's service column displays.
+    /// <see cref="ServiceMatchMode.AnySpan"/> is the discovery
+    /// alternative: any span anywhere in the trace can satisfy the
+    /// filter, useful for "show every trace that touches X".</summary>
+    ServiceMatchMode ServiceMatch = ServiceMatchMode.Root,
     /// <summary>When true, narrow to traces touching at least one
     /// span whose Resource has no `service.name` (null OR empty
-    /// string). Mutually exclusive with <see cref="ServiceName"/>;
-    /// when both are set, this flag wins. Lets the service-map UI
-    /// drill into the "(unnamed)" node — there's no string identity
-    /// to pass through <c>service=...</c> for it.</summary>
+    /// string). Mutually exclusive with <see cref="ServiceNames"/>;
+    /// when both are set, this flag wins. Honours
+    /// <see cref="ServiceMatch"/> the same way as the allow-list.</summary>
     bool MatchUnnamedService = false,
     TraceStatusFilter? StatusFilter = null,
     double? MinDurationMs = null,
     double? MaxDurationMs = null,
     string? SpanNameContains = null,
     IReadOnlyList<AttributeFilter>? AttributeFilters = null);
+
+/// <summary>
+/// Anchor point of the service-name filter on a trace. The default
+/// <see cref="Root"/> matches the trace-list column display ("rows
+/// whose service.name is X"), <see cref="AnySpan"/> is the discovery
+/// alternative ("rows whose trace touches X anywhere").
+/// </summary>
+public enum ServiceMatchMode
+{
+    /// <summary>Match the trace's root span only.</summary>
+    Root,
+    /// <summary>Match any span in the trace.</summary>
+    AnySpan,
+}
 
 /// <summary>
 /// Single key/value pair to require on a span's or log's attribute map.
@@ -101,7 +132,10 @@ public sealed record TraceAggregationQuery(
     DateTimeOffset To,
     int Limit,
     TraceAggregationMetric SortBy,
-    string? ServiceName = null,
+    /// <summary>Allow-list of <c>service.name</c> values; root spans
+    /// whose resource matches any of them are included. <c>null</c>
+    /// or empty disables the filter.</summary>
+    IReadOnlyList<string>? ServiceNames = null,
     IReadOnlyList<AttributeFilter>? AttributeFilters = null);
 
 /// <summary>

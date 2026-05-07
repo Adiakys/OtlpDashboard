@@ -10,11 +10,15 @@ const DEFAULT_LIMIT = 50
 
 export interface UseTracesPageOptions {
   initialRange?: TimeWindow
-  initialService?: string | null
+  initialServices?: string[]
   /** When true, restrict the listing to traces involving Resources
    *  with no `service.name` (null or empty). Drives the service-map's
    *  "(unnamed)" drill-down. Mutually exclusive with `initialService`. */
   initialNoService?: boolean
+  /** Initial service-match anchor. Defaults to `'root'` (the
+   *  intuitive UI default); pages restore `'any'` from the URL when
+   *  the user opted into the cross-service discovery semantics. */
+  initialServiceMatch?: 'root' | 'any'
   initialStatus?: TraceStatusFilter
   initialDuration?: DurationRange
   initialSearch?: string
@@ -32,7 +36,11 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   }
 
   const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
-  const serviceFilter = ref<string | null>(options.initialService ?? null)
+  // Multi-value allow-list for `service.name`. Empty array means
+  // "all applications" — the convention used by the picker and the
+  // server-side `services=` URL param.
+  const serviceFilter = ref<string[]>(options.initialServices ?? [])
+  const serviceMatch = ref<'root' | 'any'>(options.initialServiceMatch ?? 'root')
   const noServiceFilter = ref<boolean>(options.initialNoService === true)
   const availableServices = ref<string[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
@@ -59,7 +67,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         to: range.value.to,
         limit: limit.value,
         cursor: append ? cursor.value ?? undefined : undefined,
-        service: noServiceFilter.value ? undefined : (serviceFilter.value ?? undefined),
+        services: noServiceFilter.value
+          ? undefined
+          : (serviceFilter.value.length > 0 ? serviceFilter.value : undefined),
+        serviceMatch: serviceMatch.value === 'any' ? 'any' : undefined,
         noService: noServiceFilter.value || undefined,
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
@@ -86,7 +97,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         from: anchorIso,
         to: now,
         limit: LIVE_DELTA_LIMIT,
-        service: noServiceFilter.value ? undefined : (serviceFilter.value ?? undefined),
+        services: noServiceFilter.value
+          ? undefined
+          : (serviceFilter.value.length > 0 ? serviceFilter.value : undefined),
+        serviceMatch: serviceMatch.value === 'any' ? 'any' : undefined,
         noService: noServiceFilter.value || undefined,
         status: statusFilter.value === 'any' ? undefined : statusFilter.value,
         minMs: durationFilter.value.minMs ?? undefined,
@@ -158,8 +172,9 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   watch(limit, () => {
     if (!live.isLive.value) void reload()
   })
-  watch(serviceFilter, () => { void reload() })
+  watch(serviceFilter, () => { void reload() }, { deep: true })
   watch(noServiceFilter, () => { void reload() })
+  watch(serviceMatch, () => { void reload() })
   watch(statusFilter, () => {
     if (!live.isLive.value) void reload()
   })
@@ -181,7 +196,8 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
       to: range.value.to
     }
     if (noServiceFilter.value) q.noService = 'true'
-    else if (serviceFilter.value) q.service = serviceFilter.value
+    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
+    if (serviceMatch.value === 'any') q.serviceMatch = 'any'
     if (statusFilter.value !== 'any') q.status = statusFilter.value
     if (durationFilter.value.minMs != null) q.minMs = String(durationFilter.value.minMs)
     if (durationFilter.value.maxMs != null) q.maxMs = String(durationFilter.value.maxMs)
@@ -200,6 +216,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     limit,
     service: serviceFilter,
     noService: noServiceFilter,
+    serviceMatch,
     availableServices,
     items,
     hasMore,

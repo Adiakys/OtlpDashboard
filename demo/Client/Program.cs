@@ -17,8 +17,19 @@ const string meterName = "SampleClient";
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var serverBaseUrl = builder.Configuration["Server:BaseUrl"]
-    ?? "http://sample-server:8080";
+// Server endpoints — accepts either the CSV plural `Server:BaseUrls`
+// for the multi-instance demo (round-robin across them per iteration)
+// or the singular `Server:BaseUrl` for the legacy single-server case.
+// Both shapes are kept so older compose files / dev setups keep
+// working unchanged.
+var serverBaseUrls = (builder.Configuration["Server:BaseUrls"]
+        ?? builder.Configuration["Server:BaseUrl"]
+        ?? "http://sample-server:8080")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+if (serverBaseUrls.Length == 0)
+{
+    throw new InvalidOperationException("At least one Server:BaseUrl(s) entry is required.");
+}
 var otlpEndpoint = builder.Configuration["Otel:Endpoint"]
     ?? "http://localhost:4317";
 var otlpHeaders = builder.Configuration["Otel:Headers"]
@@ -30,11 +41,19 @@ var loopIntervalMs = builder.Configuration.GetValue("Loop:IntervalMs", 3000);
 var serviceInstanceId = builder.Configuration["Otel:ServiceInstanceId"]
     ?? "client-1";
 
-builder.Services.AddHttpClient("server", c =>
+// One named HttpClient per server URL. Names are zero-indexed
+// (`server-0`, `server-1`, …) so the ticker can round-robin by
+// modulo without parsing URLs back out. The shared 5s timeout
+// lives on every named client.
+for (var i = 0; i < serverBaseUrls.Length; i++)
 {
-    c.BaseAddress = new Uri(serverBaseUrl);
-    c.Timeout = TimeSpan.FromSeconds(5);
-});
+    var url = serverBaseUrls[i];
+    builder.Services.AddHttpClient($"server-{i}", c =>
+    {
+        c.BaseAddress = new Uri(url);
+        c.Timeout = TimeSpan.FromSeconds(5);
+    });
+}
 
 void ConfigureOtlp(OpenTelemetry.Exporter.OtlpExporterOptions opt)
 {
@@ -73,13 +92,13 @@ builder.Services.Configure<HostOptions>(opt =>
     opt.ShutdownTimeout = TimeSpan.FromSeconds(5);
 });
 
-builder.Services.AddSingleton(new TickerOptions(loopIntervalMs));
+builder.Services.AddSingleton(new TickerOptions(loopIntervalMs, serverBaseUrls));
 builder.Services.AddHostedService<TickerService>();
 
 var host = builder.Build();
 await host.RunAsync();
 
-internal sealed record TickerOptions(int IntervalMs);
+internal sealed record TickerOptions(int IntervalMs, string[] ServerBaseUrls);
 
 internal sealed class TickerService(
     IHttpClientFactory httpFactory,
@@ -96,26 +115,39 @@ internal sealed class TickerService(
         "sample_client.iteration_latency", unit: "ms",
         description: "End-to-end latency of one client iteration.");
 
+    private long _tick;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var http = httpFactory.CreateClient("server");
         var period = TimeSpan.FromMilliseconds(options.IntervalMs);
         using var timer = new PeriodicTimer(period);
 
-        await TryHealthCheck(http, stoppingToken);
+        // Health-check every configured server once at startup so the
+        // logs make it obvious all instances are up before the loop
+        // begins distributing iterations across them.
+        for (var i = 0; i < options.ServerBaseUrls.Length; i++)
+        {
+            await TryHealthCheck(httpFactory.CreateClient($"server-{i}"), options.ServerBaseUrls[i], stoppingToken);
+        }
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            await RunIteration(http, stoppingToken);
+            // Round-robin per iteration so successive ticks hit
+            // different instances; the modulo keeps the rotation
+            // stable across the lifetime of the process.
+            var index = (int)(Interlocked.Increment(ref _tick) % options.ServerBaseUrls.Length);
+            var http = httpFactory.CreateClient($"server-{index}");
+            await RunIteration(http, options.ServerBaseUrls[index], stoppingToken);
         }
     }
 
-    private async Task RunIteration(HttpClient http, CancellationToken ct)
+    private async Task RunIteration(HttpClient http, string serverUrl, CancellationToken ct)
     {
         using var act = Activity.StartActivity("client.iteration");
         var sw = Stopwatch.StartNew();
         var op = PickOp();
         act?.SetTag("op", op);
+        act?.SetTag("peer.url", serverUrl);
         try
         {
             switch (op)
@@ -168,16 +200,16 @@ internal sealed class TickerService(
         return "set";
     }
 
-    private async Task TryHealthCheck(HttpClient http, CancellationToken ct)
+    private async Task TryHealthCheck(HttpClient http, string serverUrl, CancellationToken ct)
     {
         try
         {
             using var resp = await http.GetAsync("/healthz", ct);
-            logger.LogInformation("healthz {Status}", resp.StatusCode);
+            logger.LogInformation("healthz {Url} {Status}", serverUrl, resp.StatusCode);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "healthz failed; will keep retrying via the loop.");
+            logger.LogWarning(ex, "healthz {Url} failed; will keep retrying via the loop.", serverUrl);
         }
     }
 

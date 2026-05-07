@@ -5,6 +5,7 @@ import AppToolbar from '~/components/shell/AppToolbar.vue'
 import AppDataGrid from '~/components/data/AppDataGrid.vue'
 import AppSearchInput from '~/components/form/AppSearchInput.vue'
 import TraceStatusBadgeCell from '~/components/data/cells/TraceStatusBadgeCell.vue'
+import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
 import type {
@@ -50,10 +51,18 @@ const initialDuration = (minMsQ != null || maxMsQ != null)
   ? { minMs: minMsQ ?? null, maxMs: maxMsQ ?? null }
   : undefined
 
+// `services=A,B,C` is the modern shape; we also accept the legacy
+// `service=foo` so deep-links shared from older builds still resolve
+// to the same filtered view.
+const initialServices = strArrayFromQuery('services').flatMap(s => s.split(',').map(t => t.trim()).filter(Boolean))
+const legacyService = strFromQuery('service')
+if (legacyService) initialServices.push(legacyService)
+
 const page = useTracesPage($traceService, {
   initialRange,
-  initialService: strFromQuery('service') ?? null,
+  initialServices,
   initialNoService: strFromQuery('noService') === 'true',
+  initialServiceMatch: strFromQuery('serviceMatch') === 'any' ? 'any' : 'root',
   initialStatus,
   initialDuration,
   initialSearch: strFromQuery('spanNameContains'),
@@ -85,7 +94,7 @@ function describeWindow(range: TimeWindow): string {
 const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useTracesPage) and the next live tick uses the new filter.
-  { kind: 'application', modelValue: page.service, options: page.availableServices, includeAll: true },
+  { kind: 'application', modelValue: page.service, options: page.availableServices, matchMode: page.serviceMatch },
   { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'status', modelValue: page.statusFilter },
   { kind: 'duration', modelValue: page.durationFilter },
@@ -127,10 +136,12 @@ const columnDefs = computed<ColDef<TraceSummaryDto>[]>(() => [
   {
     field: 'serviceName',
     headerName: t('traces.col.service'),
-    width: 130,
-    minWidth: 100,
-    cellClass: 'vellum-cell-mono',
-    valueFormatter: p => (p.value as string) ?? '·'
+    width: 150,
+    minWidth: 110,
+    // Custom renderer surfaces the "(+N other services)" badge when
+    // the trace is distributed; falls back to the bare name (or `·`)
+    // when it stays inside one service.
+    cellRenderer: TraceServiceCell
   },
   {
     field: 'rootSpanName',

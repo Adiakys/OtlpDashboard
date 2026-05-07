@@ -64,7 +64,7 @@ internal static class QueryValidation
             traceId = parsed;
         }
 
-        var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
+        var serviceNames = CollectServiceNames(parameters.Services);
 
         // OTLP severity_number is in [0, 24]; anything beyond is the caller's
         // mistake. 0/null disables the filter, so we only validate the upper
@@ -91,7 +91,7 @@ internal static class QueryValidation
         }
 
         query = new LogQuery(
-            from, to, limit, cursor, traceId, service, parameters.MinSeverity,
+            from, to, limit, cursor, traceId, serviceNames, parameters.MinSeverity,
             severityNumbers, bodyContains, logAttrFilters);
         errors = null;
         return true;
@@ -181,7 +181,25 @@ internal static class QueryValidation
             cursor = decoded;
         }
 
-        var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
+        var serviceNames = CollectServiceNames(parameters.Services);
+
+        var serviceMatch = ServiceMatchMode.Root;
+        if (!string.IsNullOrWhiteSpace(parameters.ServiceMatch))
+        {
+            var lowered = parameters.ServiceMatch.Trim().ToLowerInvariant();
+            serviceMatch = lowered switch
+            {
+                "root" => ServiceMatchMode.Root,
+                "any" or "anyspan" or "any-span" => ServiceMatchMode.AnySpan,
+                _ => (ServiceMatchMode)(-1),
+            };
+            if (serviceMatch == (ServiceMatchMode)(-1))
+            {
+                query = null;
+                errors = SingleError("serviceMatch", "'serviceMatch' must be 'root' or 'any'.");
+                return false;
+            }
+        }
 
         TraceStatusFilter? status = null;
         if (!string.IsNullOrWhiteSpace(parameters.Status))
@@ -230,12 +248,39 @@ internal static class QueryValidation
         }
 
         query = new TraceQuery(
-            from, to, limit, cursor, service,
+            from, to, limit, cursor, serviceNames,
+            ServiceMatch: serviceMatch,
             MatchUnnamedService: parameters.NoService == true,
             status, parameters.MinMs, parameters.MaxMs,
             spanName, traceAttrFilters);
         errors = null;
         return true;
+    }
+
+    /// <summary>
+    /// Flatten the <c>services=</c> array into a deduplicated allow-list.
+    /// Both repeated-key (<c>services=a&amp;services=b</c>) and CSV
+    /// (<c>services=a,b</c>) shapes are supported — ASP.NET binds repeated
+    /// keys to the array, the comma split is done here. Returns
+    /// <c>null</c> when nothing was supplied so the reader treats that
+    /// as "no service filter".
+    /// </summary>
+    internal static IReadOnlyList<string>? CollectServiceNames(string[]? services)
+    {
+        if (services is null || services.Length == 0) return null;
+        var list = new List<string>();
+        foreach (var entry in services)
+        {
+            if (entry is null) continue;
+            foreach (var part in entry.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (part.Length > 0 && !list.Contains(part, StringComparer.Ordinal))
+                {
+                    list.Add(part);
+                }
+            }
+        }
+        return list.Count == 0 ? null : list;
     }
 
     /// <summary>
@@ -366,7 +411,7 @@ internal static class QueryValidation
             }
         }
 
-        var service = string.IsNullOrWhiteSpace(parameters.Service) ? null : parameters.Service;
+        var serviceNames = CollectServiceNames(parameters.Services);
 
         if (!TryParseAttributeFilters(parameters.Attr, out var attrFilters, out errors))
         {
@@ -374,7 +419,7 @@ internal static class QueryValidation
             return false;
         }
 
-        query = new TraceAggregationQuery(from, to, limit, metric, service, attrFilters);
+        query = new TraceAggregationQuery(from, to, limit, metric, serviceNames, attrFilters);
         errors = null;
         return true;
     }

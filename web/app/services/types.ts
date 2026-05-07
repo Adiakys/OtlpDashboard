@@ -31,6 +31,11 @@ export interface TraceSummaryDto {
   rootStatusCode: string
   resourceHash: string
   serviceName: string | null
+  /** Distinct service.name values touched by spans of this trace
+   *  OTHER than the root's. Empty when the trace stays inside one
+   *  service. The list view renders the column as
+   *  `{serviceName} (+N)` with this list as the tooltip. */
+  otherServiceNames: string[]
 }
 
 export interface SpanEventDto {
@@ -127,13 +132,19 @@ export interface PageQuery extends TimeWindow {
   cursor?: string
   /** Optional log filter: restrict to records correlated with this trace. */
   traceId?: string
-  /** Optional filter: restrict to rows whose resource `service.name` matches. */
-  service?: string
+  /** Optional filter: restrict to rows whose resource `service.name`
+   *  is in this allow-list. Empty/undefined disables the filter. The
+   *  HTTP layer joins with commas as `services=A,B,C`. */
+  services?: string[]
   /** Optional trace filter: restrict to traces touching at least one
    *  span whose Resource has no `service.name` (null or empty). Used
    *  by the service-map "(unnamed)" drill-down. Mutually exclusive
    *  with `service`. */
   noService?: boolean
+  /** Service-match anchor for `services` and `noService`: `'root'`
+   *  (default) matches the trace's root span only; `'any'` matches
+   *  any span in the trace (cross-service discovery). */
+  serviceMatch?: 'root' | 'any'
   /**
    * Optional log filter: drop records whose OTLP severity_number is below
    * this cutoff (inclusive). 0/undefined keeps everything. Indexed

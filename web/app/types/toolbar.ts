@@ -20,9 +20,16 @@ export type FilterDescriptor =
 
 export interface ApplicationFilterDescriptor {
   kind: 'application'
-  modelValue: Ref<string | null>
+  /** Allow-list of `service.name` values; an empty array means "all
+   *  applications" (no filter). The component renders an "All" pseudo
+   *  option that resets to `[]`. */
+  modelValue: Ref<string[]>
   options: Ref<string[]>
-  includeAll?: boolean
+  /** Optional any-span match toggle. Bound only by pages that want
+   *  to expose the discovery alternative ("traces that touch X
+   *  anywhere"); when unset the picker hides the toggle and the
+   *  filter stays root-anchored. */
+  matchMode?: Ref<'root' | 'any'>
   disabled?: Ref<boolean>
 }
 

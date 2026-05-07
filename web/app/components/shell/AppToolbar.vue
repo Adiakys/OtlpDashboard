@@ -111,9 +111,10 @@ const { t } = useI18n()
           v-if="f.kind === 'application'"
           :model-value="f.modelValue.value"
           :options="f.options.value"
-          :include-all="f.includeAll ?? true"
+          :match-mode="f.matchMode?.value"
           :disabled="f.disabled?.value"
           @update:model-value="f.modelValue.value = $event"
+          @update:match-mode="f.matchMode ? (f.matchMode.value = $event) : undefined"
         />
         <AppDateTimeRangePicker
           v-else-if="f.kind === 'time-range'"

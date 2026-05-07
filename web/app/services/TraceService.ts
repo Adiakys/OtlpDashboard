@@ -12,7 +12,9 @@ import type {
 export interface TraceAggregationQuery extends TimeWindow {
   metric: TraceAggregationMetric
   limit?: number
-  service?: string | null
+  /** Allow-list of `service.name` values. Empty/undefined = no
+   *  service filter (top-N is computed across all services). */
+  services?: string[]
   attr?: string[]
 }
 
@@ -28,7 +30,8 @@ export class TraceService {
       to: query.to,
       limit: query.limit,
       cursor: query.cursor,
-      service: query.service,
+      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
+      serviceMatch: query.serviceMatch === 'any' ? 'any' : undefined,
       noService: query.noService ? true : undefined,
       status: query.status,
       minMs: query.minMs,
@@ -52,7 +55,7 @@ export class TraceService {
       to: query.to,
       metric: query.metric,
       limit: query.limit,
-      service: query.service ?? undefined,
+      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
       attr: query.attr && query.attr.length > 0 ? query.attr : undefined
     })
   }

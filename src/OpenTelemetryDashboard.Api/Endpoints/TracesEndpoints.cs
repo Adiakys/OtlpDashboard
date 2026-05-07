@@ -18,10 +18,19 @@ internal sealed record TraceQueryParameters(
     [FromQuery(Name = "to")] DateTimeOffset? To,
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
-    [FromQuery(Name = "service")] string? Service = null,
+    // Multi-value service allow-list. Accepts repeated keys
+    // (`services=A&services=B`) and CSV (`services=A,B`). Empty / absent
+    // disables the filter.
+    [FromQuery(Name = "services")] string[]? Services = null,
+    // Match anchor for `services` and `noService`. Default `root` —
+    // the trace's root span must be on the matching resource — keeps
+    // the result intuitive ("rows where service column reads X").
+    // `any` opts into the discovery semantics ("rows whose trace
+    // touches X anywhere"). Unknown values are rejected at validation.
+    [FromQuery(Name = "serviceMatch")] string? ServiceMatch = null,
     // Drill-down for traces involving Resources without a `service.name`
     // (the "(unnamed)" service-map node has no string identity to pass
-    // through `service`). When true, `service` is ignored.
+    // through `services`). When true, the service allow-list is ignored.
     [FromQuery(Name = "noService")] bool? NoService = null,
     [FromQuery(Name = "status")] string? Status = null,
     [FromQuery(Name = "minMs")] double? MinMs = null,
@@ -39,7 +48,7 @@ internal sealed record TraceAggregationParameters(
     [FromQuery(Name = "to")] DateTimeOffset? To,
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "metric")] string? Metric = null,
-    [FromQuery(Name = "service")] string? Service = null,
+    [FromQuery(Name = "services")] string[]? Services = null,
     [FromQuery(Name = "attr")] string[]? Attr = null);
 
 /// <summary>

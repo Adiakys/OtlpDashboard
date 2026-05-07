@@ -22,32 +22,28 @@ describe('TraceService', () => {
       limit: 25
     })
 
-    expect(http.get).toHaveBeenCalledWith('/v1/traces', {
+    expect(http.get).toHaveBeenCalledWith('/v1/traces', expect.objectContaining({
       from: '2030-01-01T00:00:00Z',
       to: '2030-01-01T01:00:00Z',
       limit: 25,
       cursor: undefined,
-      service: undefined
-    })
+      services: undefined
+    }))
   })
 
-  it('listTraces forwards the service filter when set', async () => {
+  it('listTraces forwards the services allow-list as CSV', async () => {
     const http = stubHttp()
     const service = new TraceService(http)
 
     await service.listTraces({
       from: '2030-01-01T00:00:00Z',
       to: '2030-01-01T01:00:00Z',
-      service: 'api'
+      services: ['api', 'auth']
     })
 
-    expect(http.get).toHaveBeenCalledWith('/v1/traces', {
-      from: '2030-01-01T00:00:00Z',
-      to: '2030-01-01T01:00:00Z',
-      limit: undefined,
-      cursor: undefined,
-      service: 'api'
-    })
+    expect(http.get).toHaveBeenCalledWith('/v1/traces', expect.objectContaining({
+      services: 'api,auth'
+    }))
   })
 
   it('getTrace calls GET /v1/traces/{id}', async () => {

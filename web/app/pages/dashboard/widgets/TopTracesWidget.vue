@@ -54,7 +54,7 @@ async function load() {
       to: window.to,
       metric: metric.value,
       limit: limit.value,
-      service: props.config.service ?? null
+      services: props.config.service ? [props.config.service] : undefined
     })
     if (ticket !== inFlight) return
     rows.value = response.items
@@ -100,7 +100,7 @@ function openRow(row: TraceAggregationItemDto) {
     to: window.to,
     spanNameContains: row.key
   }
-  if (props.config.service) query.service = props.config.service
+  if (props.config.service) query.services = props.config.service
   void router.push({ path: '/traces', query })
 }
 

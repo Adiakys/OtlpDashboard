@@ -29,7 +29,8 @@ internal static class TraceMappings
             SpanCount: summary.SpanCount,
             RootStatusCode: summary.RootStatusCode.ToString(),
             ResourceHash: Convert.ToHexStringLower(summary.ResourceHash),
-            ServiceName: serviceName);
+            ServiceName: serviceName,
+            OtherServiceNames: summary.OtherServiceNames);
     }
 
     public static SpanDto ToDto(this Span span, string? serviceName)

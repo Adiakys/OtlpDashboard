@@ -43,7 +43,7 @@ async function load() {
       to: window.to,
       // Fetch enough to sort client-side without paging through.
       limit: Math.min(200, limit.value * 3),
-      service: props.config.service ?? undefined
+      services: props.config.service ? [props.config.service] : undefined
     })
     if (ticket !== inFlight) return
     traces.value = response.items

@@ -17,7 +17,8 @@ internal sealed record LogQueryParameters(
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
     [FromQuery(Name = "traceId")] string? TraceId = null,
-    [FromQuery(Name = "service")] string? Service = null,
+    // See <see cref="TraceQueryParameters.Services"/>.
+    [FromQuery(Name = "services")] string[]? Services = null,
     [FromQuery(Name = "minSeverity")] int? MinSeverity = null,
     // Comma-separated bucket names (`trace,debug,info,warn,error,fatal`).
     // Multi-value query strings (`?severities=info&severities=warn`) also

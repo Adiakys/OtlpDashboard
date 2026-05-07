@@ -493,6 +493,189 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetTraces_ServicesFilter_AcceptsMultiValueAllowList()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 28, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var serviceA = $"trace-a-{suffix}";
+        var serviceB = $"trace-b-{suffix}";
+        var serviceC = $"trace-c-{suffix}";
+
+        await SeedSpanWithParentAsync(client, serviceA, anchor, RandomBytes(16),
+            RandomBytes(8), parentSpanIdBytes: null, name: $"a.{suffix}");
+        await SeedSpanWithParentAsync(client, serviceB, anchor.AddSeconds(1), RandomBytes(16),
+            RandomBytes(8), parentSpanIdBytes: null, name: $"b.{suffix}");
+        await SeedSpanWithParentAsync(client, serviceC, anchor.AddSeconds(2), RandomBytes(16),
+            RandomBytes(8), parentSpanIdBytes: null, name: $"c.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"a.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"b.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"c.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // CSV form: services=A,B → only A and B come back, C excluded.
+        var csvResp = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={serviceA},{serviceB}", UriKind.Relative),
+            JsonOptions);
+        var csvNames = csvResp!.Items
+            .Where(t => t.RootSpanName.EndsWith($".{suffix}", StringComparison.Ordinal))
+            .Select(t => t.ServiceName)
+            .ToList();
+        csvNames.ShouldContain(serviceA);
+        csvNames.ShouldContain(serviceB);
+        csvNames.ShouldNotContain(serviceC);
+
+        // Repeated-key form: same semantics (any-of). All three values
+        // contribute to the allow-list, so all three traces come through.
+        var mixedResp = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={serviceA}&services={serviceB}&services={serviceC}", UriKind.Relative),
+            JsonOptions);
+        var mixedNames = mixedResp!.Items
+            .Where(t => t.RootSpanName.EndsWith($".{suffix}", StringComparison.Ordinal))
+            .Select(t => t.ServiceName)
+            .ToList();
+        mixedNames.ShouldContain(serviceA);
+        mixedNames.ShouldContain(serviceB);
+        mixedNames.ShouldContain(serviceC);
+    }
+
+    [Fact]
+    public async Task GetTraces_ListSummary_ExposesOtherServicesTouched()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 30, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var rootService = $"root-{suffix}";
+        var dbService = $"db-{suffix}";
+        var cacheService = $"cache-{suffix}";
+
+        // Distributed trace: root → child on db → child on cache.
+        // The summary should expose `dbService` and `cacheService`
+        // under OtherServiceNames (root excluded), so the SPA can show
+        // "{rootService} (+2)" with the full list as a tooltip.
+        var traceId = RandomBytes(16);
+        var rootSpanId = RandomBytes(8);
+        var dbSpanId = RandomBytes(8);
+        await SeedSpanWithParentAsync(client, rootService, anchor, traceId, rootSpanId,
+            parentSpanIdBytes: null, name: $"root.{suffix}");
+        await SeedSpanWithParentAsync(client, dbService, anchor.AddSeconds(1), traceId, dbSpanId,
+            parentSpanIdBytes: rootSpanId, name: $"db.{suffix}");
+        await SeedSpanWithParentAsync(client, cacheService, anchor.AddSeconds(2), traceId,
+            RandomBytes(8), parentSpanIdBytes: dbSpanId, name: $"cache.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"root.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"db.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"cache.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+        var item = response!.Items.SingleOrDefault(t => t.RootSpanName == $"root.{suffix}");
+        item.ShouldNotBeNull();
+        item!.ServiceName.ShouldBe(rootService);
+        // Root excluded; ordering deterministic (alphabetical).
+        item.OtherServiceNames.ShouldNotBeNull();
+        item.OtherServiceNames!.ShouldBe([cacheService, dbService]);
+    }
+
+    [Fact]
+    public async Task GetTraces_ServicesFilter_AnchorsOnRootSpan()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 29, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var clientService = $"client-{suffix}";
+        var serverService = $"server-{suffix}";
+
+        // One distributed trace: root on the client, one child on the
+        // server. Without the root-anchored filter the trace would
+        // surface for both `services=client-…` (root match, expected)
+        // and `services=server-…` (any-span match, the bug the user
+        // hit). Anchoring on the root span makes "deselect client" and
+        // "select only server" intuitive again.
+        var traceId = RandomBytes(16);
+        var rootSpanId = RandomBytes(8);
+        await SeedSpanWithParentAsync(client, clientService, anchor, traceId, rootSpanId,
+            parentSpanIdBytes: null, name: $"client-root.{suffix}");
+        await SeedSpanWithParentAsync(client, serverService, anchor.AddSeconds(1), traceId,
+            RandomBytes(8), parentSpanIdBytes: rootSpanId, name: $"server-child.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"client-root.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"server-child.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // Filtering by the client (root) surfaces the trace.
+        var byRoot = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={clientService}", UriKind.Relative),
+            JsonOptions);
+        byRoot!.Items.Any(t => t.RootSpanName == $"client-root.{suffix}").ShouldBeTrue();
+
+        // Filtering by the server (a non-root touch-point of the same
+        // trace) MUST NOT surface it — the column would otherwise
+        // display the client service for a row the user "selected
+        // server" to see, which is the very confusion the user reported.
+        var byTouch = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={serverService}", UriKind.Relative),
+            JsonOptions);
+        byTouch!.Items.Any(t => t.RootSpanName == $"client-root.{suffix}").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetTraces_ServiceMatchAny_OptsBackIntoTouchSemantics()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 10, 1, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var clientService = $"any-client-{suffix}";
+        var serverService = $"any-server-{suffix}";
+
+        // Same shape as the root-anchor regression test: client → server.
+        // Default match (root) drops the trace under `services=server-…`;
+        // `serviceMatch=any` opts back into the discovery semantics where
+        // a non-root touch counts.
+        var traceId = RandomBytes(16);
+        var rootSpanId = RandomBytes(8);
+        await SeedSpanWithParentAsync(client, clientService, anchor, traceId, rootSpanId,
+            parentSpanIdBytes: null, name: $"any-client-root.{suffix}");
+        await SeedSpanWithParentAsync(client, serverService, anchor.AddSeconds(1), traceId,
+            RandomBytes(8), parentSpanIdBytes: rootSpanId, name: $"any-server-child.{suffix}");
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"any-client-root.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"any-server-child.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        // Default (root): server-touch only is hidden.
+        var byRoot = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={serverService}", UriKind.Relative),
+            JsonOptions);
+        byRoot!.Items.Any(t => t.RootSpanName == $"any-client-root.{suffix}").ShouldBeFalse();
+
+        // Opt-in: serviceMatch=any surfaces it.
+        var byAny = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={serverService}&serviceMatch=any", UriKind.Relative),
+            JsonOptions);
+        byAny!.Items.Any(t => t.RootSpanName == $"any-client-root.{suffix}").ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task GetTraces_NoServiceFlag_FiltersToUnnamedAndEmpty()
     {
         using var client = _fixture.CreateClient();
@@ -585,7 +768,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
         // Sorted by count: hot (3) then cold (1).
         var byCount = await client.GetFromJsonAsync<TraceAggregationsResponse>(
-            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&service={service}&metric=count&limit=10", UriKind.Relative),
+            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&services={service}&metric=count&limit=10", UriKind.Relative),
             JsonOptions);
         byCount.ShouldNotBeNull();
         byCount!.Items.Select(i => i.Key).ShouldBe([rootHot, rootCold]);
@@ -594,7 +777,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
         // Sorted by errorRate: hot (1/3 ≈ 0.33) ahead of cold (0).
         var byErrRate = await client.GetFromJsonAsync<TraceAggregationsResponse>(
-            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&service={service}&metric=errorRate&limit=10", UriKind.Relative),
+            new Uri($"/api/v1/traces/aggregations?from={Iso(from)}&to={Iso(to)}&services={service}&metric=errorRate&limit=10", UriKind.Relative),
             JsonOptions);
         byErrRate.ShouldNotBeNull();
         byErrRate!.Items[0]!.Key.ShouldBe(rootHot);
@@ -659,7 +842,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var to = anchor.AddMinutes(5);
 
         var first = await client.GetFromJsonAsync<PagedTracesResponse>(
-            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&service={service}", UriKind.Relative),
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&services={service}", UriKind.Relative),
             JsonOptions);
         first.ShouldNotBeNull();
         first!.Items.Count.ShouldBe(2);
@@ -667,7 +850,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
 
         var second = await client.GetFromJsonAsync<PagedTracesResponse>(
             new Uri(
-                $"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&service={service}&cursor={Uri.EscapeDataString(first.NextCursor!)}",
+                $"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&limit=2&services={service}&cursor={Uri.EscapeDataString(first.NextCursor!)}",
                 UriKind.Relative),
             JsonOptions);
         second.ShouldNotBeNull();
@@ -1262,7 +1445,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var to = anchor.AddMinutes(5);
 
         var filtered = await client.GetFromJsonAsync<PagedLogsResponse>(
-            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&service={Uri.EscapeDataString($"logs-{markerA}")}&limit=100", UriKind.Relative),
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString($"logs-{markerA}")}&limit=100", UriKind.Relative),
             JsonOptions);
 
         filtered.ShouldNotBeNull();
@@ -1325,7 +1508,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var to = anchor.AddMinutes(5);
 
         var filtered = await client.GetFromJsonAsync<PagedTracesResponse>(
-            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&service={Uri.EscapeDataString(serviceA)}", UriKind.Relative),
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString(serviceA)}", UriKind.Relative),
             JsonOptions);
 
         filtered.ShouldNotBeNull();
@@ -1438,7 +1621,12 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     private sealed record LogItem(DateTimeOffset Time, string? Body, string? SeverityText, string? ServiceName);
 
     private sealed record PagedTracesResponse(IReadOnlyList<TraceItem> Items, string? NextCursor);
-    private sealed record TraceItem(string TraceId, string RootSpanName, int SpanCount, string? ServiceName);
+    private sealed record TraceItem(
+        string TraceId,
+        string RootSpanName,
+        int SpanCount,
+        string? ServiceName,
+        IReadOnlyList<string>? OtherServiceNames = null);
 
     private sealed record TraceDetailResponse(string TraceId, IReadOnlyList<SpanItem> Spans);
     private sealed record SpanItem(string SpanId, string Name, string? ServiceName);

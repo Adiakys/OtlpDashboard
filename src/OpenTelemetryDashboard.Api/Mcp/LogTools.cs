@@ -32,7 +32,10 @@ internal sealed class LogTools
         [Description("Filter by service.name (exact match).")] string? service = null,
         [Description("Filter records with severity_number >= this value (OTLP 0-24).")] int? minSeverity = null)
     {
-        var parameters = new LogQueryParameters(from, to, limit, cursor, traceId, service, minSeverity);
+        var parameters = new LogQueryParameters(
+            from, to, limit, cursor, traceId,
+            Services: service is null ? null : [service],
+            MinSeverity: minSeverity);
         if (!QueryValidation.TryBuildLogQuery(parameters, options.Value, out var query, out var errors))
         {
             throw new McpException(FormatValidationErrors(errors));

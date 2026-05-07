@@ -29,7 +29,7 @@ describe('LogsService', () => {
       limit: 50,
       cursor: 'abc',
       traceId: undefined,
-      service: undefined
+      services: undefined
     })
   })
 
@@ -48,7 +48,7 @@ describe('LogsService', () => {
       limit: undefined,
       cursor: undefined,
       traceId: undefined,
-      service: undefined
+      services: undefined
     })
   })
 
@@ -72,14 +72,14 @@ describe('LogsService', () => {
     })
   })
 
-  it('forwards service filter when set', async () => {
+  it('forwards services allow-list joined as CSV', async () => {
     const http = stubHttp()
     const service = new LogsService(http)
 
     await service.listLogs({
       from: '2030-01-01T00:00:00Z',
       to: '2030-01-01T01:00:00Z',
-      service: 'frontend'
+      services: ['frontend', 'auth']
     })
 
     expect(http.get).toHaveBeenCalledWith('/v1/logs', {
@@ -88,8 +88,23 @@ describe('LogsService', () => {
       limit: undefined,
       cursor: undefined,
       traceId: undefined,
-      service: 'frontend'
+      services: 'frontend,auth'
     })
+  })
+
+  it('omits services when the allow-list is empty', async () => {
+    const http = stubHttp()
+    const service = new LogsService(http)
+
+    await service.listLogs({
+      from: '2030-01-01T00:00:00Z',
+      to: '2030-01-01T01:00:00Z',
+      services: []
+    })
+
+    expect(http.get).toHaveBeenCalledWith('/v1/logs', expect.objectContaining({
+      services: undefined
+    }))
   })
 
   it('listServices GETs /v1/logs/services with the window', async () => {

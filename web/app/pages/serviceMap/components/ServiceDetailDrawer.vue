@@ -84,7 +84,7 @@ watch(() => [targetService.value, node.value?.kind, props.range.from, props.rang
       to: props.range.to,
       metric: 'count',
       limit: 5,
-      service: targetService.value
+      services: [targetService.value]
     })
     if (ticket !== inFlight) return
     topOps.value = response.items
@@ -141,7 +141,7 @@ const drillDownTarget = computed<{ path: string; query: Record<string, string> }
   const kind = node.value?.kind ?? 'service'
   if (kind === 'service') {
     if (targetService.value.length > 0) {
-      baseQuery.service = targetService.value
+      baseQuery.services = targetService.value
       return { path: '/traces', query: baseQuery }
     }
     return null

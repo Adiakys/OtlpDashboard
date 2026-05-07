@@ -58,6 +58,10 @@
   "filter": {
     "applicationAll": "All applications",
     "applicationSelect": "Select an application",
+    "applicationCount": "{count} applications",
+    "applicationEmpty": "No applications in the selected window",
+    "applicationMatchModeAny": "Match any span",
+    "applicationMatchModeHint": "Include traces that touch the selected services anywhere — not only those rooted on them.",
     "limit": "Limit",
     "severity": "Severity",
     "severityAll": "All severities",
@@ -359,6 +363,9 @@
       "spans": "Spans",
       "status": "Status",
       "traceId": "Trace ID"
+    },
+    "serviceCell": {
+      "tooltipHeader": "Services touched by this trace:"
     },
     "detail": {
       "back": "Back to traces",

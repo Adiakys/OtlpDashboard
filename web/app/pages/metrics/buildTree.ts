@@ -28,23 +28,46 @@ export function instrumentKey(i: InstrumentDto): string {
 }
 
 /**
- * Group instruments first by `serviceName` (the application that emitted
- * them) — and, when present, by `serviceName / serviceInstanceId`, so two
- * instruments coming from different resources under the same logical
- * service (e.g. one collector scraping multiple databases under
- * `service.name=postgresql`) split into distinct branches. Within a
- * branch the layout follows `scopeName` dot segments. Instruments
- * without a service land under `(unknown)`; those without a scope land
+ * Group instruments first by `serviceName` (the application that
+ * emitted them), then — only when a service is observed under TWO
+ * OR MORE distinct `serviceInstanceId` values — by instance as a
+ * dedicated nested level. A service with a single instance (or
+ * none at all) hangs the scope directly off the service node, so
+ * trivial single-process apps don't pay for an extra collapsable
+ * level the user gains nothing from. Within an instance / service
+ * the layout follows `scopeName` dot segments. Instruments without
+ * a service land under `(unknown)`; those without a scope land
  * under `(root)`. Branches sort before leaves within a parent.
  */
 export function buildTree(instruments: InstrumentDto[]): MetricTreeNode[] {
-  const root: MetricTreeBranch = { kind: 'branch', label: '', path: '', children: [] }
-
+  // First pass: count distinct non-null instance ids per service.
+  // The instance segment is inserted in the second pass only for
+  // services where this count is ≥ 2; everywhere else we flatten,
+  // including the mixed case (some instruments with an instance,
+  // some without) — there's still a single identity in play, so
+  // the extra level adds noise.
+  const instancesByService = new Map<string, Set<string>>()
   for (const instrument of instruments) {
     const service = instrument.serviceName?.trim() || UNKNOWN_SERVICE
     const instance = instrument.serviceInstanceId?.trim()
-    const serviceLabel = instance ? `${service} / ${instance}` : service
-    const segments = [serviceLabel, ...splitScope(instrument.scopeName)]
+    if (!instance) continue
+    let set = instancesByService.get(service)
+    if (!set) {
+      set = new Set<string>()
+      instancesByService.set(service, set)
+    }
+    set.add(instance)
+  }
+
+  const root: MetricTreeBranch = { kind: 'branch', label: '', path: '', children: [] }
+  for (const instrument of instruments) {
+    const service = instrument.serviceName?.trim() || UNKNOWN_SERVICE
+    const instance = instrument.serviceInstanceId?.trim()
+    const showInstance = instance != null && instance.length > 0
+      && (instancesByService.get(service)?.size ?? 0) >= 2
+    const segments = showInstance
+      ? [service, instance!, ...splitScope(instrument.scopeName)]
+      : [service, ...splitScope(instrument.scopeName)]
     const parent = ensureBranch(root, segments)
     parent.children.push({
       kind: 'leaf',

@@ -29,7 +29,9 @@ internal sealed class TraceTools
         [Description("Opaque continuation token from a previous call.")] string? cursor = null,
         [Description("Filter by service.name (exact match on root span's resource).")] string? service = null)
     {
-        var parameters = new TraceQueryParameters(from, to, limit, cursor, service);
+        var parameters = new TraceQueryParameters(
+            from, to, limit, cursor,
+            Services: service is null ? null : [service]);
         if (!QueryValidation.TryBuildTraceQuery(parameters, options.Value, out var query, out var errors))
         {
             throw new McpException(LogTools.FormatValidationErrors(errors));

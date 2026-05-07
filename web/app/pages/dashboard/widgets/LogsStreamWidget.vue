@@ -51,7 +51,7 @@ async function load() {
       from: window.from,
       to: window.to,
       limit: limit.value,
-      service: props.config.service ?? undefined,
+      services: props.config.service ? [props.config.service] : undefined,
       // Server-side severity filter: the column is indexed, so cutting at
       // Warn / Error here avoids streaming the noisy Info tail. Zero means
       // "no cutoff", which the server treats as a no-op.

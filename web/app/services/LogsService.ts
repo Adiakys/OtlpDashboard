@@ -15,7 +15,7 @@ export class LogsService {
       limit: query.limit,
       cursor: query.cursor,
       traceId: query.traceId,
-      service: query.service,
+      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
       minSeverity: query.minSeverity,
       // Comma-separated list — the server accepts both repeated keys and a
       // single comma-joined string. The single string keeps the URL short

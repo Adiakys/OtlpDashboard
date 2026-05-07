@@ -114,10 +114,13 @@ public sealed class EfCoreLogReader : ILogReader
                 ServiceName = r.ServiceName
             });
 
-        if (!string.IsNullOrEmpty(query.ServiceName))
+        if (query.ServiceNames is { Count: > 0 } services)
         {
-            var service = query.ServiceName;
-            joined = joined.Where(x => x.ServiceName == service);
+            // Allow-list the rows whose resource service.name is one
+            // of the requested values. EF translates `Contains` over
+            // a small in-memory list to a parameterised `IN (...)`,
+            // which the planner serves from the indexed ServiceName.
+            joined = joined.Where(x => services.Contains(x.ServiceName!));
         }
 
         var projected = joined
