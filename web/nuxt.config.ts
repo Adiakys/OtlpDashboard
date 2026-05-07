@@ -14,6 +14,17 @@ export default defineNuxtConfig({
   // ASP.NET host from wwwroot/.
   ssr: false,
 
+  // Disable sourcemaps in production builds: they ~30% the bundle, leak
+  // source structure to anyone with devtools, and are the trigger for
+  // the `@tailwindcss/vite` "sourcemap is likely to be incorrect"
+  // warnings (the plugin doesn't emit maps for its transforms). Dev
+  // keeps full maps via Vite's defaults — this only affects `nuxi build`
+  // / `nuxi generate`.
+  sourcemap: {
+    client: false,
+    server: false
+  },
+
   devtools: { enabled: true },
 
   css: ['~/assets/css/main.css'],
