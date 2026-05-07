@@ -149,20 +149,22 @@ public sealed record ServiceMapQuery(
 ///  - <see cref="ServiceMapNodeKind.Service"/> — an OTel-emitting
 ///    service (has its own resource and `service.name`).
 ///  - <see cref="ServiceMapNodeKind.Dependency"/> — a synthesised
-///    external entity (e.g. <c>postgresql</c>, <c>redis</c>) inferred
-///    from <c>kind=Client</c> spans with attributes like
-///    <c>db.system</c> on the host service. Same look-and-feel data
-///    shape, but the host service is implicit (the parent end of the
-///    edges that point to it).
+///    external entity (e.g. <c>postgresql</c>, <c>billing</c>) inferred
+///    from <c>kind=Client</c> spans with the OTel "peer service"
+///    attribute (<c>peer.service</c> / <c>service.peer.name</c>) on
+///    the host service. Same look-and-feel data shape, but the host
+///    service is implicit (the parent end of the edges that point
+///    to it).
 /// Counts include every span (or every client call for dependencies).
 ///
 /// <see cref="AttributeKey"/> is set only on dependency nodes: the
-/// configured attribute (e.g. <c>db.system</c>) whose value produced
-/// this node. It lets the UI build a precise drill-down filter into
-/// /traces (search for spans where <c>AttributeKey = Service</c>).
-/// When more than one configured key contributed, the first one in
-/// configuration order wins — picking just one keeps the UI's
-/// "view traces" link a single click rather than a disambiguation.
+/// configured attribute (e.g. <c>peer.service</c>) whose value
+/// produced this node. It lets the UI build a precise drill-down
+/// filter into /traces (search for spans where
+/// <c>AttributeKey = Service</c>). When more than one configured
+/// key contributed, the first one in configuration order wins —
+/// picking just one keeps the UI's "view traces" link a single
+/// click rather than a disambiguation.
 /// </summary>
 public sealed record ServiceMapNode(
     string Service,

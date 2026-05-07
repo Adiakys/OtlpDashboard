@@ -354,23 +354,26 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var anchor = new DateTimeOffset(2030, 9, 15, 9, 0, 0, TimeSpan.Zero);
         var suffix = Guid.NewGuid().ToString("N");
         var hostService = $"map-host-{suffix}";
+        var legacyDep = $"AuthTokenCache-{suffix}";
+        var modernDep = $"billing-{suffix}";
 
-        // Two client spans on the host service: one tagged db.system=postgresql,
-        // one tagged db.system=redis. The reader should synthesize two
-        // virtual `dependency` nodes (postgresql, redis) plus one host
-        // `service` node, with edges from host to each dependency.
+        // Two client spans on the host service: one tagged with the
+        // legacy `peer.service` attribute, one with the current
+        // `service.peer.name` (semconv ≥ 1.36 replacement). The reader
+        // should synthesise one `dependency` node per peer value plus
+        // one host `service` node, with edges from host to each dep.
         await SeedClientSpanWithAttributesAsync(
             client, hostService, anchor, RandomBytes(16), RandomBytes(8),
-            name: $"pg.query.{suffix}",
-            attributes: [new KeyValuePair<string, AnyValue>("db.system", new AnyValue { StringValue = "postgresql" })]);
+            name: $"redis.get.{suffix}",
+            attributes: [new KeyValuePair<string, AnyValue>("peer.service", new AnyValue { StringValue = legacyDep })]);
         await SeedClientSpanWithAttributesAsync(
             client, hostService, anchor.AddSeconds(1), RandomBytes(16), RandomBytes(8),
-            name: $"redis.get.{suffix}",
-            attributes: [new KeyValuePair<string, AnyValue>("db.system", new AnyValue { StringValue = "redis" })]);
+            name: $"http.post.{suffix}",
+            attributes: [new KeyValuePair<string, AnyValue>("service.peer.name", new AnyValue { StringValue = modernDep })]);
 
         await WaitForAsync(async ctx =>
-            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"pg.query.{suffix}")) == 1 &&
-            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"redis.get.{suffix}")) == 1);
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"redis.get.{suffix}")) == 1 &&
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"http.post.{suffix}")) == 1);
 
         var from = anchor.AddMinutes(-5);
         var to = anchor.AddMinutes(5);
@@ -380,17 +383,17 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
             JsonOptions);
 
         response.ShouldNotBeNull();
-        // Host service should be present as a normal `service` node.
+        // Host service is present as a normal `service` node, with no
+        // attribute key on it (only deps carry that field).
         response!.Nodes.ShouldContain(n => n.Service == hostService && n.Kind == "service" && n.AttributeKey == null);
-        // Postgres + Redis as `dependency` nodes (synthesised from the
-        // db.system attribute, not from a real OTel-emitting service).
-        // The attribute key is propagated so the SPA can build a
-        // precise drill-down filter.
-        response.Nodes.ShouldContain(n => n.Service == "postgresql" && n.Kind == "dependency" && n.AttributeKey == "db.system");
-        response.Nodes.ShouldContain(n => n.Service == "redis" && n.Kind == "dependency" && n.AttributeKey == "db.system");
+        // Legacy + modern peers materialise as separate `dependency`
+        // nodes; each carries the attribute key that produced it so
+        // the SPA can build a precise drill-down filter into /traces.
+        response.Nodes.ShouldContain(n => n.Service == legacyDep && n.Kind == "dependency" && n.AttributeKey == "peer.service");
+        response.Nodes.ShouldContain(n => n.Service == modernDep && n.Kind == "dependency" && n.AttributeKey == "service.peer.name");
         // Edges from the host into each dependency.
-        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "postgresql");
-        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == "redis");
+        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == legacyDep);
+        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == modernDep);
     }
 
     [Fact]

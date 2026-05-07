@@ -121,7 +121,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const edgeMap = new Map<string, { fromService: string; toService: string; callCount: number; errorCount: number }>()
     // The demo data has no truly synthesised dependencies: postgresql /
     // redis are emitted as real OTel services with their own resources
-    // (not inferred from `db.system` on a host's Client span). So we
+    // (not inferred from `peer.service` on a host's Client span). So we
     // classify every node as `service` — the drill-down `service=name`
     // filter works for all of them, matching how a user would expect
     // the demo to behave. The real backend retains the synthesised-

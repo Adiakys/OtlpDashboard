@@ -86,20 +86,22 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
 
         var serviceEdges = await edgeQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        // External-dependency synthesis: a Postgres or Redis instance
-        // typically doesn't run an OTel SDK, so it never emits spans of
-        // its own. The instrumentation libs (Npgsql, StackExchange.Redis,
-        // ...) inside the *calling* service produce kind=Client spans
-        // tagged with attributes like `db.system` or `messaging.system`.
-        // We synthesise one virtual node per distinct attribute value
-        // (e.g. one `postgresql` node) — mirrors what Datadog/Honeycomb
-        // show as "dependencies" — and one edge per (host, value) pair.
+        // External-dependency synthesis: a remote endpoint that doesn't
+        // run an OTel SDK never emits spans of its own. The
+        // instrumentation libs inside the *calling* service produce
+        // kind=Client spans tagged with the OTel-semconv "peer service"
+        // attribute (`peer.service`, replaced by `service.peer.name`
+        // in semconv ≥ 1.36). The value is the logical name of the
+        // remote service; we synthesise one virtual node per distinct
+        // value and one edge per (host, value) pair — same shape as
+        // what Datadog/Honeycomb call "dependencies".
         //
         // Which attribute keys count as "dependency markers" is a
         // configuration concern (`ServiceMapOptions.DependencyAttributes`)
-        // so operators can extend it to their own conventions without
-        // touching code. One query per key — the keys are typically 2-3
-        // and each query is GROUP-BY indexed on StartUnixNano.
+        // so operators can extend it to their own conventions
+        // (e.g. `db.system`, `messaging.system`, `rpc.system`) without
+        // touching code. One query per key — the keys are typically a
+        // handful, and each query is GROUP-BY indexed on StartUnixNano.
         var depKeys = _serviceMapOptions.CurrentValue.DependencyAttributes
             ?.Where(k => !string.IsNullOrEmpty(k))
             ?.Distinct(StringComparer.Ordinal)

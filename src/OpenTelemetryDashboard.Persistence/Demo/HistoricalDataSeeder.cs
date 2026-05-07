@@ -365,7 +365,12 @@ public sealed class HistoricalDataSeeder
         // scopes are emitted by sample-server, not by the database
         // itself — so they share the same `service.name` as the host.
         // The service map's dependency-synthesis logic picks them up
-        // via the `db.system` attribute we set below.
+        // via the `peer.service` attribute we set below — that's the
+        // OTel semconv slot for "logical name of the service on the
+        // other side of the connection" (replaced by
+        // `service.peer.name` in newer SDKs; the seeder uses the
+        // legacy key because most existing instrumentations still
+        // emit it).
         var resource = BuildSampleServerResource();
         var resourceHash = resource.Hash;
 
@@ -563,9 +568,9 @@ public sealed class HistoricalDataSeeder
     /// <summary>
     /// Per-span attribute map for child spans. When the scope belongs
     /// to a known external dependency instrumentation library, attach
-    /// the OTel-standard <c>db.system</c> attribute — that's what the
-    /// service-map's dependency synthesis groups on, so the demo data
-    /// matches what real instrumentation libraries emit.
+    /// the OTel-standard <c>peer.service</c> attribute — that's what
+    /// the service-map's dependency synthesis groups on, so the demo
+    /// data matches what real instrumentation libraries emit.
     /// </summary>
     private static Dictionary<string, object?> ChildSpanAttributes(Scenario scenario, string scope)
     {
@@ -576,11 +581,11 @@ public sealed class HistoricalDataSeeder
         };
         if (scope.StartsWith("Npgsql", StringComparison.Ordinal))
         {
-            attrs["db.system"] = "postgresql";
+            attrs["peer.service"] = "postgresql";
         }
         else if (scope.StartsWith("StackExchange.Redis", StringComparison.Ordinal))
         {
-            attrs["db.system"] = "redis";
+            attrs["peer.service"] = "redis";
         }
         return attrs;
     }

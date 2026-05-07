@@ -88,15 +88,16 @@ export type TraceAggregationMetric = 'count' | 'errorRate' | 'avgMs' | 'maxMs'
 /** One node in the service-map: a service touched in the window
  *  with its total span count and error count. `kind` is `service`
  *  for OTel-emitting services and `dependency` for synthesised
- *  external entities (databases, caches) inferred from kind=Client
- *  spans with `db.system`-like attributes. */
+ *  external entities (downstream services that don't emit telemetry
+ *  of their own) inferred from kind=Client spans tagged with a
+ *  peer-service attribute (`peer.service` or `service.peer.name`). */
 export interface ServiceMapNodeDto {
   service: string
   kind: 'service' | 'dependency'
   requestCount: number
   errorCount: number
   /** Only populated for `kind === 'dependency'`: the attribute key
-   *  whose value matches `service` (e.g. `db.system`). The drawer
+   *  whose value matches `service` (e.g. `peer.service`). The drawer
    *  uses it to build a precise `attr=key:value` drill-down link
    *  into /traces. */
   attributeKey?: string | null
