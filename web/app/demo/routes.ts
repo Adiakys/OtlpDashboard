@@ -1,6 +1,7 @@
 import type {
   DashboardInfoDto,
   InstrumentDto,
+  PackDto,
   PagedResponse,
   WidgetLibraryDto
 } from '~/services/types'
@@ -9,7 +10,7 @@ import {
   severityBucketFromNumber,
   type SeverityBucket
 } from '~/types/filters'
-import { DEMO_LIBRARIES } from './data/libraries'
+import { DEMO_LIBRARIES, DEMO_PACKS } from './data/libraries'
 import { DEMO_SERVICES } from './data/services'
 import {
   INSTRUMENT_CATALOG,
@@ -387,14 +388,20 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const out: WidgetLibraryDto[] = DEMO_LIBRARIES
     return out
   }
-  if (method === 'POST' && path === '/v1/widgets/libraries/reload') {
+
+  // ------------- /v1/packs ----------------------------------------
+  if (method === 'GET' && path === '/v1/packs') {
+    const out: PackDto[] = DEMO_PACKS
+    return out
+  }
+  if (method === 'POST' && path === '/v1/packs/reload') {
     return undefined
   }
-  if (path.startsWith('/v1/widgets/libraries/')) {
+  if (path.startsWith('/v1/packs')) {
     // install / update / uninstall — git-side actions don't make sense in
     // a static demo. Return a friendly 400 so the SPA's error toast shows
     // a meaningful reason if a user clicks one of these affordances.
-    throw demoError(400, 'Library install/update/uninstall is disabled in the demo build')
+    throw demoError(400, 'Pack install/update/uninstall is disabled in the demo build')
   }
 
   throw demoError(404, `Demo: no handler for ${method} ${path}`)

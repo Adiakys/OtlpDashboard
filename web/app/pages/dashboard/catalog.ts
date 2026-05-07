@@ -12,6 +12,7 @@ import {
 } from './types'
 import type { ParameterDecl } from '~/lib/htmlEngine/types'
 import type {
+  PackDto,
   WidgetDefinitionDto,
   WidgetEngine as WidgetEngineWire,
   WidgetLibraryDto
@@ -298,11 +299,18 @@ export function dtoToDefinition(dto: WidgetDefinitionDto): WidgetDefinition {
 export interface DashboardWidgetCatalog extends WidgetCatalog {
   /** Reload custom definitions from the server and update the catalog. */
   refreshCustom: () => Promise<void>
-  /** Reload library definitions from the server (iter 3+). */
+  /** Reload libraries + packs from the server. The two are loaded in
+   *  parallel and the catalog stays consistent: every library surfaced
+   *  by the picker has a known parent pack. */
   refreshLibraries: () => Promise<void>
-  /** Look up the source library's metadata (e.g. `removable`) by id.
-   *  Returns null when the catalog hasn't seen the library yet. */
+  /** Look up a library DTO by id. Returns null when the catalog hasn't
+   *  seen the library yet. */
   libraryById: (id: string) => WidgetLibraryDto | null
+  /** Look up the parent pack of a given library id — the management UI
+   *  uses this to drive install/update/uninstall buttons rendered on
+   *  the library section header. Returns null when the catalog hasn't
+   *  seen the owning pack yet. */
+  packForLibrary: (libraryId: string) => PackDto | null
   /** Quick check: is the catalog hydrated? Useful for skeleton states. */
   hydrated: ComputedRef<boolean>
 }
@@ -311,6 +319,7 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
   const customDefs = useState<WidgetDefinition[]>('widget-catalog:custom', () => [])
   const libraryDefs = useState<WidgetDefinition[]>('widget-catalog:library', () => [])
   const libraryDtos = useState<WidgetLibraryDto[]>('widget-catalog:libraryDtos', () => [])
+  const packDtos = useState<PackDto[]>('widget-catalog:packDtos', () => [])
   const hydratedFlag = useState<boolean>('widget-catalog:hydrated', () => false)
 
   const catalog = buildWidgetCatalog(customDefs, libraryDefs)
@@ -324,15 +333,25 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
 
   async function refreshLibraries() {
     const { $widgetService } = useNuxtApp()
-    const libs = await $widgetService.listLibraries()
+    const [libs, packs] = await Promise.all([
+      $widgetService.listLibraries(),
+      $widgetService.listPacks()
+    ])
     const flattened: WidgetDefinition[] = []
     for (const lib of libs) flattened.push(...libraryDtoToDefinitions(lib))
     libraryDefs.value = flattened
     libraryDtos.value = libs
+    packDtos.value = packs
   }
 
   function libraryById(id: string): WidgetLibraryDto | null {
     return libraryDtos.value.find(l => l.id === id) ?? null
+  }
+
+  function packForLibrary(libraryId: string): PackDto | null {
+    const lib = libraryDtos.value.find(l => l.id === libraryId)
+    if (!lib) return null
+    return packDtos.value.find(p => p.id === lib.packId) ?? null
   }
 
   const hydrated = computed(() => hydratedFlag.value)
@@ -342,6 +361,7 @@ export function useWidgetCatalog(): DashboardWidgetCatalog {
     refreshCustom,
     refreshLibraries,
     libraryById,
+    packForLibrary,
     hydrated
   }
 }

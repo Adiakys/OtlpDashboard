@@ -191,10 +191,8 @@
     {
       "id": "dotnet",
       "name": ".NET runtime",
-      "version": "1.0.0",
-      "author": "OpenTelemetryDashboard",
-      "license": "MIT",
       "description": "Widgets for the .NET runtime metrics emitted by OpenTelemetry.Instrumentation.Runtime (process.runtime.dotnet.*). GC, threads, exceptions, JIT.",
+      "icon": null,
       "widgets": [
         {
           "slug": "assembly-count",
@@ -756,15 +754,14 @@
             "calc": "last"
           }
         }
-      ]
+      ],
+      "packId": "default"
     },
     {
       "id": "postgres",
       "name": "PostgreSQL",
-      "version": "1.0.0",
-      "author": "OpenTelemetryDashboard",
-      "license": "MIT",
       "description": "Widgets for PostgreSQL metrics scraped by the OTel Collector postgresqlreceiver. Connections, transactions, cache hit, vacuum health, WAL — plus a few graphical 'wow' widgets.",
+      "icon": null,
       "widgets": [
         {
           "slug": "active-connections",
@@ -1766,7 +1763,8 @@
             ]
           }
         }
-      ]
+      ],
+      "packId": "default"
     }
   ]
 }

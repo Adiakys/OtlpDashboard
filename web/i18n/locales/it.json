@@ -443,6 +443,8 @@
       "installRefLabel": "Ref (tag, branch o commit SHA)",
       "installRefHint": "I tag fissano una release immutabile. I commit SHA danno il pinning più stretto.",
       "installRefBranchWarning": "I branch cambiano nel tempo — pinning debole. In produzione, preferisci un tag.",
+      "installPathLabel": "Sotto-cartella (opzionale)",
+      "installPathHint": "Lascia vuoto se il pack è alla radice del repo. Imposta per monorepo che spediscono più pack affiancati (es. 'packs/team-otel').",
       "installSubmit": "Installa",
       "updateLibrary": "Aggiorna libreria"
     },

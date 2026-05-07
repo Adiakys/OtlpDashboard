@@ -1,39 +1,40 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Dashboards.Domain;
+using OpenTelemetryDashboard.Dashboards.Library;
 using OpenTelemetryDashboard.Dashboards.Storage;
 
 namespace OpenTelemetryDashboard.Dashboards.Seeding;
 
 /// <summary>
-/// Default <see cref="IBuiltinDashboardSeeder"/>. Walks the configured
-/// scan paths in order, parses each <c>.json</c> file with
-/// <see cref="DashboardSeedParser"/>, and emits an
-/// <see cref="IDashboardStore.AddAsync"/> per file whose resolved id is
-/// not yet in the store. Special-cases <see cref="Dashboard.DefaultId"/>:
-/// when no file claims that id and no row with that id exists, an empty
-/// default is added so the SPA always has a starting point.
+/// Default <see cref="IBuiltinDashboardSeeder"/>. Walks the pack
+/// registry, picks every <see cref="PackDashboard"/> marked
+/// <c>builtin: true</c>, parses each with <see cref="DashboardSeedParser"/>,
+/// and emits an <see cref="IDashboardStore.AddAsync"/> per file whose
+/// resolved id is not yet in the store. Special-cases
+/// <see cref="Dashboard.DefaultId"/>: when no file claims that id and
+/// no row with that id exists, an empty default is added so the SPA
+/// always has a starting point.
 /// </summary>
 public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
 {
-    private const string DefaultFileName = "default.json";
+    private const string DefaultDashboardId = "default";
 
     private readonly IDashboardStore _store;
-    private readonly DashboardsOptions _options;
+    private readonly IPackRegistry _packs;
     private readonly ILogger<BuiltinDashboardSeeder> _logger;
 
     public BuiltinDashboardSeeder(
         IDashboardStore store,
-        IOptions<DashboardsOptions> options,
+        IPackRegistry packs,
         ILogger<BuiltinDashboardSeeder> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(packs);
         ArgumentNullException.ThrowIfNull(logger);
         _store = store;
-        _options = options.Value;
+        _packs = packs;
         _logger = logger;
     }
 
@@ -42,16 +43,16 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
         var existing = (await _store.GetAllIdsAsync(cancellationToken).ConfigureAwait(false))
             .ToHashSet();
 
-        var resolved = ResolveFiles();
+        var resolved = await ResolveFilesAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var entry in resolved)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             // Default gets dedicated handling: when the historic migration
-            // has already inserted an empty default row, replace it with the
-            // file's content (pristine-upsert). User-modified defaults are
-            // left alone. A missing default falls through to AddAsync below.
+            // has already inserted an empty default row, replace it with
+            // the file's content (pristine-upsert). User-modified defaults
+            // are left alone. A missing default falls through to AddAsync.
             if (entry.Id == Dashboard.DefaultId)
             {
                 if (existing.Contains(entry.Id))
@@ -78,9 +79,9 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
             _logger.SeedAdded(entry.Id, entry.SourcePath);
         }
 
-        // Guarantee an empty default if neither the seeder nor the historic
-        // migration produced one. Covers fresh installs where the migration
-        // was skipped (e.g. tests) plus a rolled-back db.
+        // Guarantee an empty default if neither the seeder nor the
+        // historic migration produced one. Covers fresh installs where
+        // the migration was skipped (e.g. tests) plus a rolled-back db.
         if (!existing.Contains(Dashboard.DefaultId))
         {
             await _store.AddAsync(EmptyDefault(), cancellationToken).ConfigureAwait(false);
@@ -88,62 +89,37 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
         }
     }
 
-    /// <summary>Walks every scan path, parses files in lexicographic order,
-    /// and dedupes by resolved id (first-wins). Invalid files are skipped
-    /// with a warning so one broken file doesn't poison the rest.</summary>
-    private List<ResolvedSeed> ResolveFiles()
+    /// <summary>Walk packs in registry order, expand the
+    /// <c>builtin: true</c> dashboards, parse each with strict shape
+    /// validation, and dedupe by resolved id. Invalid files are skipped
+    /// with a warning — one broken pack-shipped dashboard doesn't
+    /// poison the rest.</summary>
+    private async Task<List<ResolvedSeed>> ResolveFilesAsync(CancellationToken cancellationToken)
     {
         var resolved = new List<ResolvedSeed>();
         var seen = new HashSet<Guid>();
 
-        foreach (var rawPath in _options.BuiltinPaths)
+        var packs = await _packs.ListAsync(cancellationToken).ConfigureAwait(false);
+        foreach (var pack in packs)
         {
-            if (string.IsNullOrWhiteSpace(rawPath)) continue;
-            var root = Path.GetFullPath(rawPath);
-            if (!Directory.Exists(root))
+            foreach (var dash in pack.Dashboards)
             {
-                _logger.SeedPathMissing(root);
-                continue;
-            }
+                if (!dash.Builtin) continue;
 
-            var files = Directory.EnumerateFiles(root, "*.json", SearchOption.TopDirectoryOnly)
-                .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
-                .ToArray();
-
-            foreach (var file in files)
-            {
-                var info = new FileInfo(file);
-                if (info.LinkTarget is not null)
+                if (!DashboardSeedParser.TryParse(dash.RawJson, out var parsed, out var error))
                 {
-                    _logger.SeedSymlinkSkipped(file);
+                    _logger.SeedRejected(dash.SourcePath, error);
                     continue;
                 }
 
-                string content;
-                try
-                {
-                    content = File.ReadAllText(file);
-                }
-                catch (IOException ex)
-                {
-                    _logger.SeedReadFailed(ex, file);
-                    continue;
-                }
-
-                if (!DashboardSeedParser.TryParse(content, out var parsed, out var error))
-                {
-                    _logger.SeedRejected(file, error);
-                    continue;
-                }
-
-                var id = ResolveId(parsed.Id, Path.GetFileName(file));
+                var id = ResolveId(parsed.Id, pack.Id, dash.Id);
                 if (!seen.Add(id))
                 {
-                    _logger.SeedShadowed(id, file);
+                    _logger.SeedShadowed(id, dash.SourcePath);
                     continue;
                 }
 
-                resolved.Add(new ResolvedSeed(id, parsed, file));
+                resolved.Add(new ResolvedSeed(id, parsed, dash.SourcePath));
             }
         }
 
@@ -151,33 +127,29 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
     }
 
     /// <summary>Resolves the dashboard id with the documented precedence:
-    /// explicit <c>id</c> in the JSON > <c>default.json</c> filename
-    /// convention > deterministic SHA-1 of the filename.</summary>
-    private static Guid ResolveId(Guid? explicitId, string filename)
+    /// explicit <c>id</c> in the dashboard JSON wins; the well-known
+    /// "default" id maps to <see cref="Dashboard.DefaultId"/>; otherwise
+    /// a deterministic Guid derived from <c>&lt;packId&gt;/&lt;dashId&gt;</c>
+    /// keeps the same dashboard stable across reloads.</summary>
+    private static Guid ResolveId(Guid? explicitId, string packId, string dashId)
     {
         if (explicitId is { } id) return id;
-        if (string.Equals(filename, DefaultFileName, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(dashId, DefaultDashboardId, StringComparison.Ordinal))
         {
             return Dashboard.DefaultId;
         }
-        return DeterministicGuidFrom(filename);
+        return DeterministicGuidFrom($"{packId}/{dashId}");
     }
 
-    /// <summary>Deterministic Guid derivation from a filename using
-    /// SHA-256 truncated to 16 bytes, with version/variant nibbles set to
-    /// match the RFC 4122 v8 (custom) shape. Stable across processes and
-    /// platforms — the same filename always yields the same Guid. SHA-256
-    /// is used in place of SHA-1 (RFC 4122 §4.3 v5) only to satisfy the
-    /// project's cryptography lint; the security model here is "stable
-    /// id from a non-adversarial input", not a digest of secrets.</summary>
-    private static Guid DeterministicGuidFrom(string filename)
+    /// <summary>Deterministic Guid derivation using SHA-256 truncated
+    /// to 16 bytes, with version/variant nibbles set to match the RFC
+    /// 4122 v8 (custom) shape. Stable across processes and platforms.</summary>
+    private static Guid DeterministicGuidFrom(string seed)
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(filename));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
         var bytes = new byte[16];
         Array.Copy(hash, bytes, 16);
-        // Version 8 marker (custom name-based Guid per RFC 9562).
         bytes[6] = (byte)((bytes[6] & 0x0F) | 0x80);
-        // RFC 4122 variant marker (top two bits of byte 8).
         bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
         return new Guid(bytes);
     }
@@ -188,8 +160,8 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
         if (existing is null) return false;
 
         // "Pristine" = the migration's empty insert that no human has
-        // touched. Any save through the API increments RowVersion or adds
-        // widgets, so either signal is enough to back off.
+        // touched. Any save through the API increments RowVersion or
+        // adds widgets, so either signal is enough to back off.
         if (existing.Widgets.Count > 0 || existing.RowVersion > 0)
         {
             _logger.SeedSkippedExisting(entry.Id, entry.SourcePath);
@@ -204,8 +176,6 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
         }
         catch (DashboardConcurrencyException)
         {
-            // Someone wrote to the row between our read and update — treat
-            // exactly like "user has touched it" and back off.
             _logger.SeedSkippedExisting(entry.Id, entry.SourcePath);
         }
         return true;
@@ -258,18 +228,6 @@ public sealed partial class BuiltinDashboardSeeder : IBuiltinDashboardSeeder
 
 internal static partial class BuiltinDashboardSeederLogs
 {
-    [LoggerMessage(EventId = 1, Level = LogLevel.Information,
-        Message = "Built-in dashboard scan path {Path} does not exist; skipping.")]
-    public static partial void SeedPathMissing(this ILogger logger, string path);
-
-    [LoggerMessage(EventId = 2, Level = LogLevel.Warning,
-        Message = "Skipping {Path}: top-level symlinks are not allowed.")]
-    public static partial void SeedSymlinkSkipped(this ILogger logger, string path);
-
-    [LoggerMessage(EventId = 3, Level = LogLevel.Warning,
-        Message = "Skipping {Path}: failed to read.")]
-    public static partial void SeedReadFailed(this ILogger logger, Exception ex, string path);
-
     [LoggerMessage(EventId = 4, Level = LogLevel.Warning,
         Message = "Skipping {Path}: {Error}")]
     public static partial void SeedRejected(this ILogger logger, string path, string? error);
@@ -291,6 +249,6 @@ internal static partial class BuiltinDashboardSeederLogs
     public static partial void SeedDefaultUpserted(this ILogger logger, string path);
 
     [LoggerMessage(EventId = 9, Level = LogLevel.Information,
-        Message = "No built-in default file present; seeded an empty default dashboard.")]
+        Message = "No built-in default dashboard present; seeded an empty default dashboard.")]
     public static partial void SeedDefaultEmpty(this ILogger logger);
 }

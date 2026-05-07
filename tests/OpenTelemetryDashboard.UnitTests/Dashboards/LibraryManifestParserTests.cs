@@ -10,30 +10,26 @@ public sealed class LibraryManifestParserTests
     {
         const string json = """
         {
-          "id": "team-pack",
-          "name": "Team Pack",
-          "version": "1.2.0",
-          "author": "team@example.com",
-          "license": "MIT",
-          "description": "Curated widgets"
+          "id": "core",
+          "name": "Core",
+          "description": "Curated widgets",
+          "icon": "i-ph-stack"
         }
         """;
 
-        var ok = LibraryManifestParser.TryParseManifest(json, "team-pack", out var header, out var error);
+        var ok = LibraryManifestParser.TryParseManifest(json, "core", out var header, out var error);
 
         ok.ShouldBeTrue(error);
-        header!.Id.ShouldBe("team-pack");
-        header.Name.ShouldBe("Team Pack");
-        header.Version.ShouldBe("1.2.0");
-        header.Author.ShouldBe("team@example.com");
-        header.License.ShouldBe("MIT");
+        header!.Id.ShouldBe("core");
+        header.Name.ShouldBe("Core");
         header.Description.ShouldBe("Curated widgets");
+        header.Icon.ShouldBe("i-ph-stack");
     }
 
     [Fact]
     public void Manifest_Rejects_Id_Mismatch_With_Directory()
     {
-        const string json = """{"id":"foo","name":"X","version":"1.0.0"}""";
+        const string json = """{"id":"foo","name":"X"}""";
 
         var ok = LibraryManifestParser.TryParseManifest(json, "bar", out _, out var error);
 
@@ -44,7 +40,7 @@ public sealed class LibraryManifestParserTests
     [Fact]
     public void Manifest_Rejects_Path_Traversal_Id()
     {
-        const string json = """{"id":"../etc","name":"X","version":"1.0.0"}""";
+        const string json = """{"id":"../etc","name":"X"}""";
 
         var ok = LibraryManifestParser.TryParseManifest(json, "../etc", out _, out var error);
 

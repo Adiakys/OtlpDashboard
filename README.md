@@ -30,9 +30,9 @@ docker compose up --build
 ```
 
 Sources for the demo workload live under [`demo/`](demo/) — sample app
-(Server / Client), built-in dashboards (`demo/dashboards`), widget
-libraries (`demo/widget-libraries/{dotnet,postgres}`), and the Collector
-config. To run only the dashboard against an external Postgres / SQL Server,
+(Server / Client), the built-in pack (`demo/packs/default/` — bundles the
+.NET runtime and PostgreSQL widget libraries plus a starter dashboard), and
+the Collector config. To run only the dashboard against an external Postgres / SQL Server,
 strip the demo services from your override file and point
 `Dashboard__Storage__Provider` + `ConnectionStrings__*` at your DB.
 
@@ -190,21 +190,19 @@ Notes:
 - Existing dashboard instances of a deleted custom widget render a
   placeholder, not a crash.
 
-### Widget libraries
+### Packs (widget libraries + dashboards)
 
-A widget library is a directory containing one or more widget definitions.
-The dashboard scans every entry in `Dashboard:Widgets:LibrariesPaths` (in
-order) and surfaces valid libraries in the picker grouped by source. The
-default is a single path `./data/widget-libraries`, which in Docker
-resolves to `/app/data/widget-libraries` — already inside the
-`dashboard-data` named volume, so drag-and-drop / git installs persist
-across container restarts.
+Everything that can ship with the dashboard — widget libraries, built-in
+dashboards, and any future asset type — is distributed as a **pack**: a
+single directory with `pack.json` at its root. The dashboard scans every
+entry in `Dashboard:Packs:Paths` (in order) and surfaces every pack's
+contents in the picker (libraries) and dashboard list (built-ins).
 
 The shipped image already configures **two paths** in scan order:
 
-1. `/app/data/widget-libraries` — runtime-managed (volume, git installs,
+1. `/app/data/packs` — runtime-managed (volume, git installs,
    drag-and-drop)
-2. `/app/builtin-libraries` — baked into the image layer (no volume
+2. `/app/builtin-packs` — baked into the image layer (no volume
    shadowing on rebuild)
 
 Derived images don't need to set any environment variable — just `COPY`
@@ -212,51 +210,56 @@ into the second path:
 
 ```dockerfile
 FROM opentelemetrydashboard:latest
-COPY my-libs/ /app/builtin-libraries/
+COPY my-pack/ /app/builtin-packs/my-pack/
 ```
 
-When two paths expose libraries with the same `manifest.id`, the first
-in scan order wins and the rest are skipped with a warning — so a
-runtime install can override a baked-in default by sharing its id.
+When two paths expose packs with the same `pack.json#id`, the first in
+scan order wins and the rest are skipped with a warning — so a runtime
+install can override a baked-in default by sharing its id.
 
-Two sample libraries live under `demo/widget-libraries/` (`dotnet` for
-.NET runtime metrics, `postgres` for Postgres server metrics) and are
-bind-mounted by `docker-compose.yml`, so `docker compose up --build`
-shows them in the picker out of the box.
+A sample pack lives at `demo/packs/default/` and is bind-mounted by
+`docker-compose.yml`, so `docker compose up --build` shows the .NET and
+PostgreSQL libraries plus the starter dashboard out of the box.
 
 Install one of two ways:
 
-1. **Drop a folder.** Copy the library into the libraries path
-   (volume-mount, Ansible, etc.). Click the refresh icon in the widget
-   picker (or `POST /api/v1/widgets/libraries/reload`) to re-scan.
+1. **Drop a folder.** Copy the pack into the packs path (volume-mount,
+   Ansible, etc.). Click the refresh icon in the widget picker (or
+   `POST /api/v1/packs/reload`) to re-scan.
 2. **Install from a Git repo.** Click the git-branch icon in the picker
-   header (or `POST /api/v1/widgets/libraries/install` with
-   `{ url, ref }`). The server runs a shallow clone via LibGit2Sharp,
-   parses `manifest.json`, resolves HEAD to a commit SHA, and atomically
-   moves the directory into the runtime-managed root. Allowed hosts are
-   `Dashboard:Widgets:AllowedGitHosts` (default `github.com, gitlab.com`).
+   header (or `POST /api/v1/packs/install` with `{ url, ref, path? }`).
+   The server runs a shallow clone via LibGit2Sharp, parses `pack.json`,
+   resolves HEAD to a commit SHA, and atomically moves the directory
+   into the runtime-managed root. Allowed hosts are
+   `Dashboard:Packs:AllowedGitHosts` (default `github.com, gitlab.com`).
    Use a tag for stable pinning; branches work but get a UI warning.
-   Updates: "Update" button on git-installed library headers re-pulls
-   the same ref (`fetch && reset --hard`).
+   The optional `path` parameter re-roots the install on a sub-directory,
+   useful for monorepos that ship multiple packs side by side. Updates:
+   the "Update" button on git-installed packs re-pulls the same ref
+   (`fetch && reset --hard`).
 
-#### Repository / folder layout
+#### Pack layout
 
 ```
-my-widget-pack/
-├── manifest.json
-├── README.md           (optional — surfaced in the UI)
-├── LICENSE             (optional)
-└── widgets/
-    ├── sla-tracker/
-    │   └── widget.json
-    ├── trace-heatmap/
-    │   ├── widget.json
-    │   └── icon.svg    (optional Phosphor override)
-    └── error-budget/
-        └── widget.json
+my-pack/
+├── pack.json
+├── README.md            (optional — surfaced in the UI)
+├── LICENSE              (optional)
+├── libraries/
+│   ├── core/
+│   │   ├── manifest.json
+│   │   └── widgets/
+│   │       ├── sla-tracker/widget.json
+│   │       └── trace-heatmap/widget.json
+│   └── extras/
+│       ├── manifest.json
+│       └── widgets/…
+└── dashboards/
+    ├── default.json
+    └── ops-overview.json
 ```
 
-`manifest.json`:
+`pack.json`:
 
 ```json
 {
@@ -265,11 +268,24 @@ my-widget-pack/
   "version": "1.2.0",
   "author": "platform@example.com",
   "license": "MIT",
-  "description": "Curated widgets for service ownership reviews"
+  "description": "Curated widgets and dashboards for service ownership reviews",
+  "homepage": "https://github.com/example/team-otel-pack",
+  "libraries": [
+    { "id": "core",   "path": "libraries/core" },
+    { "id": "extras", "path": "libraries/extras" }
+  ],
+  "dashboards": [
+    { "id": "default",      "path": "dashboards/default.json", "builtin": true },
+    { "id": "ops-overview", "path": "dashboards/ops-overview.json" }
+  ]
 }
 ```
 
-`id` must match the directory name.
+`id` must match the directory name. Each library entry's
+`manifest.json` carries only `id`, `name`, `description?`, `icon?` —
+shipping metadata (version, author, license) lives at pack level.
+Dashboards flagged `builtin: true` are seeded into the dashboard store
+on first boot; the rest are installable templates.
 
 #### Writing a widget
 
@@ -375,7 +391,7 @@ Field rules enforced by the loader (`engine: spec`):
 Invalid widgets are skipped (logged) and don't break the rest of the
 library.
 
-The bundled `demo/widget-libraries/postgres/` pack ships
+The bundled `demo/packs/default/libraries/postgres/` library ships
 `postgres-server-card` and `db-scoreboard` — two `engine: spec` widgets
 that double as live examples for authors of the `spec` engine.
 
@@ -383,24 +399,10 @@ that double as live examples for authors of the `spec` engine.
 
 ## Built-in dashboards
 
-Dashboards can be shipped to a deployment as JSON files, scanned at boot
-by the `BuiltinDashboardSeeder`. The format matches the one the SPA
-emits via "Export JSON" — drop an exported file in the scan path and
-it's persisted on the next start.
-
-The shipped image configures **two paths** in scan order:
-
-1. `/app/data/dashboards` — runtime-managed (volume), drop files here
-2. `/app/builtin-dashboards` — baked into the image layer (no volume
-   shadowing on rebuild)
-
-Derived images don't need any env-var override — just `COPY` JSONs into
-the second path:
-
-```dockerfile
-FROM opentelemetrydashboard:latest
-COPY my-dashboards/ /app/builtin-dashboards/
-```
+Dashboards ship inside packs — list them in `pack.json#dashboards` with
+`builtin: true` and the `BuiltinDashboardSeeder` folds each into the
+dashboard store on the first boot after install. The format matches the
+one the SPA emits via "Export JSON".
 
 ### File format
 
@@ -439,8 +441,9 @@ the seeder back off.
 
 To re-apply a built-in file, delete the dashboard via the UI first.
 
-A demo lives at `demo/dashboards/`, mounted by `docker-compose.yml`
-as `/app/builtin-dashboards`.
+A demo lives at `demo/packs/default/dashboards/default.json` (referenced
+from the bundled pack with `builtin: true`), mounted by
+`docker-compose.yml` as `/app/builtin-packs/default`.
 
 ---
 
@@ -453,13 +456,14 @@ as `/app/builtin-dashboards`.
 | GET    | `/api/v1/traces`, `/logs`, `/metrics` | Query API (paginated)         |
 | GET/POST/PUT/DELETE | `/api/v1/dashboards`     | Dashboards CRUD               |
 | GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
-| GET    | `/api/v1/widgets/libraries`           | Discovered widget libraries   |
-| POST   | `/api/v1/widgets/libraries/reload`    | Re-scan the libraries path    |
+| GET    | `/api/v1/widgets/libraries`           | Flat library list for the picker |
+| GET    | `/api/v1/packs`                       | Installed packs (libraries + dashboards) |
+| POST   | `/api/v1/packs/reload`                | Re-scan the packs paths       |
+| POST   | `/api/v1/packs/install`               | Clone from git (`{url,ref,path?}`) |
+| POST   | `/api/v1/packs/{id}/update`           | Re-pull a git-installed pack  |
+| DELETE | `/api/v1/packs/{id}`                  | Uninstall a pack              |
 | POST/GET/DELETE | `/mcp`                       | MCP server (when `Dashboard:Mcp:Enabled`) |
-| (boot) | seed dashboards from JSON             | Built-in dashboards loaded after migrations, idempotent |
-| POST   | `/api/v1/widgets/libraries/install`   | Clone from git (`{url,ref}`)  |
-| POST   | `/api/v1/widgets/libraries/{id}/update` | Re-pull a git-installed lib |
-| DELETE | `/api/v1/widgets/libraries/{id}`      | Uninstall a library           |
+| (boot) | seed dashboards from packs            | `builtin: true` dashboards loaded after migrations, idempotent |
 
 The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
 

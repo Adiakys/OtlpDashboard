@@ -1,0 +1,16 @@
+{
+  "id": "default",
+  "name": "OpenTelemetry Dashboard — default pack",
+  "version": "1.0.0",
+  "author": "OpenTelemetryDashboard",
+  "license": "MIT",
+  "description": "Built-in pack shipped with the dashboard image: .NET runtime + PostgreSQL widget libraries plus a starter dashboard pre-bound to the demo compose stack.",
+  "homepage": "https://github.com/Adiakys/OtlpDashboard",
+  "libraries": [
+    { "id": "dotnet", "path": "libraries/dotnet" },
+    { "id": "postgres", "path": "libraries/postgres" }
+  ],
+  "dashboards": [
+    { "id": "default", "path": "dashboards/default.json", "builtin": true }
+  ]
+}

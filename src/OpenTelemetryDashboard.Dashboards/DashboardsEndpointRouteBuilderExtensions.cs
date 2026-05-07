@@ -39,17 +39,18 @@ public static class DashboardsEndpointRouteBuilderExtensions
     }
 
     /// <summary>
-    /// Mounts the user-saved widget definitions CRUD under
-    /// <c>/api/v1/widgets</c>:
+    /// Mounts the user-saved widget definitions CRUD plus the read-only
+    /// library picker under <c>/api/v1/widgets</c>:
     /// <list type="bullet">
-    ///   <item><c>GET    /api/v1/widgets/definitions</c> — list all custom</item>
+    ///   <item><c>GET    /api/v1/widgets/definitions</c> — list custom</item>
     ///   <item><c>GET    /api/v1/widgets/definitions/{id}</c> — get by id</item>
     ///   <item><c>POST   /api/v1/widgets/definitions</c> — create</item>
-    ///   <item><c>PUT    /api/v1/widgets/definitions/{id}</c> — update (optimistic concurrency)</item>
+    ///   <item><c>PUT    /api/v1/widgets/definitions/{id}</c> — update</item>
     ///   <item><c>DELETE /api/v1/widgets/definitions/{id}</c> — delete</item>
+    ///   <item><c>GET    /api/v1/widgets/libraries</c> — flat library catalog</item>
     /// </list>
-    /// Library endpoints (<c>GET /libraries</c>, <c>POST /libraries/install</c>,
-    /// …) are wired in iter 3+ on the same group.
+    /// Pack-level operations (install/update/uninstall) live under
+    /// <c>/api/v1/packs</c> via <see cref="MapPacks"/>.
     /// </summary>
     public static RouteGroupBuilder MapWidgets(this IEndpointRouteBuilder endpoints)
     {
@@ -68,16 +69,33 @@ public static class DashboardsEndpointRouteBuilderExtensions
         group.MapDelete("/definitions/{id}", WidgetEndpoints.DeleteDefinitionAsync)
             .WithName("DeleteWidgetDefinition");
 
-        group.MapGet("/libraries", LibraryEndpoints.GetLibrariesAsync)
+        group.MapGet("/libraries", WidgetLibraryEndpoints.GetLibrariesAsync)
             .WithName("GetWidgetLibraries");
-        group.MapPost("/libraries/reload", LibraryEndpoints.ReloadLibrariesAsync)
-            .WithName("ReloadWidgetLibraries");
-        group.MapPost("/libraries/install", LibraryEndpoints.InstallLibraryAsync)
-            .WithName("InstallWidgetLibrary");
-        group.MapPost("/libraries/{id}/update", LibraryEndpoints.UpdateLibraryAsync)
-            .WithName("UpdateWidgetLibrary");
-        group.MapDelete("/libraries/{id}", LibraryEndpoints.UninstallLibraryAsync)
-            .WithName("UninstallWidgetLibrary");
+
+        return group;
+    }
+
+    /// <summary>
+    /// Mounts the pack management surface under <c>/api/v1/packs</c>:
+    /// <list type="bullet">
+    ///   <item><c>GET    /api/v1/packs</c> — list installed packs</item>
+    ///   <item><c>POST   /api/v1/packs/reload</c> — refresh registry cache</item>
+    ///   <item><c>POST   /api/v1/packs/install</c> — clone + register a pack</item>
+    ///   <item><c>POST   /api/v1/packs/{id}/update</c> — fetch + reset a git-installed pack</item>
+    ///   <item><c>DELETE /api/v1/packs/{id}</c> — uninstall a pack from the runtime root</item>
+    /// </list>
+    /// </summary>
+    public static RouteGroupBuilder MapPacks(this IEndpointRouteBuilder endpoints)
+    {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
+        var group = endpoints.MapGroup("/api/v1/packs").WithTags("Packs");
+
+        group.MapGet(string.Empty, PackEndpoints.GetPacksAsync).WithName("GetPacks");
+        group.MapPost("/reload", PackEndpoints.ReloadPacksAsync).WithName("ReloadPacks");
+        group.MapPost("/install", PackEndpoints.InstallPackAsync).WithName("InstallPack");
+        group.MapPost("/{id}/update", PackEndpoints.UpdatePackAsync).WithName("UpdatePack");
+        group.MapDelete("/{id}", PackEndpoints.UninstallPackAsync).WithName("UninstallPack");
 
         return group;
     }

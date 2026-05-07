@@ -1,46 +1,73 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using OpenTelemetryDashboard.Dashboards;
 using OpenTelemetryDashboard.Dashboards.Domain;
+using OpenTelemetryDashboard.Dashboards.Library;
 using OpenTelemetryDashboard.Dashboards.Seeding;
 using OpenTelemetryDashboard.Dashboards.Storage;
 
 namespace OpenTelemetryDashboard.UnitTests.Dashboards;
 
-public sealed class BuiltinDashboardSeederTests : IDisposable
+public sealed class BuiltinDashboardSeederTests
 {
-    private readonly string _root;
-
-    public BuiltinDashboardSeederTests()
-    {
-        _root = Path.Combine(Path.GetTempPath(), $"otel-seed-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_root);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
-    }
-
     [Fact]
-    public async Task Seeds_File_Without_Existing_Id()
+    public async Task Seeds_Builtin_Dashboard_With_Explicit_Id()
     {
-        WriteFile("team.json", new SeedJson { Name = "Team", Id = "11111111-1111-1111-1111-111111111111" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "team-overview",
+                RawJson = """
+                    {"version":1,"id":"11111111-1111-1111-1111-111111111111","name":"Team","widgets":[]}
+                    """,
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         await seeder.SeedAsync(CancellationToken.None);
 
-        store.Added.Count.ShouldBe(2); // file + empty default
+        store.Added.Count.ShouldBe(2); // pack-supplied + empty default
         store.Added.ShouldContain(d => d.Id == new Guid("11111111-1111-1111-1111-111111111111") && d.Name == "Team");
         store.Added.ShouldContain(d => d.Id == Dashboard.DefaultId);
     }
 
     [Fact]
+    public async Task Skips_Non_Builtin_Dashboards()
+    {
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "ops",
+                RawJson = """
+                    {"version":1,"id":"22222222-2222-2222-2222-222222222222","name":"Ops","widgets":[]}
+                    """,
+                Builtin = false
+            }
+        ]);
+
+        var (seeder, store) = NewSeeder([pack]);
+        await seeder.SeedAsync(CancellationToken.None);
+
+        store.Added.ShouldNotContain(d => d.Id == new Guid("22222222-2222-2222-2222-222222222222"));
+        // Empty default still seeded.
+        store.Added.Count.ShouldBe(1);
+        store.Added[0].Id.ShouldBe(Dashboard.DefaultId);
+    }
+
+    [Fact]
     public async Task Skips_Silently_When_Id_Already_Present()
     {
-        WriteFile("team.json", new SeedJson { Name = "Team", Id = "11111111-1111-1111-1111-111111111111" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "team",
+                RawJson = """
+                    {"version":1,"id":"11111111-1111-1111-1111-111111111111","name":"Team","widgets":[]}
+                    """,
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         store.SeedExisting(new Guid("11111111-1111-1111-1111-111111111111"));
         store.SeedExisting(Dashboard.DefaultId);
 
@@ -50,11 +77,18 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task Default_File_Maps_To_DefaultId()
+    public async Task Default_Id_Maps_From_DashId_Equals_Default()
     {
-        WriteFile("default.json", new SeedJson { Name = "Welcome" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "default",
+                RawJson = """{"version":1,"name":"Welcome","widgets":[]}""",
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         await seeder.SeedAsync(CancellationToken.None);
 
         store.Added.Count.ShouldBe(1);
@@ -63,18 +97,24 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task Filename_Without_Id_Generates_Deterministic_Id()
+    public async Task DashId_Without_Explicit_Guid_Generates_Deterministic_Id()
     {
-        WriteFile("alpha.json", new SeedJson { Name = "Alpha" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "alpha",
+                RawJson = """{"version":1,"name":"Alpha","widgets":[]}""",
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
-        await seeder.SeedAsync(CancellationToken.None);
+        var (seeder1, store1) = NewSeeder([pack]);
+        await seeder1.SeedAsync(CancellationToken.None);
+        var first = store1.Added.Single(d => d.Name == "Alpha").Id;
 
-        var first = store.Added.Single(d => d.Name == "Alpha").Id;
-
-        // Run again into a fresh store: the same filename must yield the
+        // Re-seed into a fresh store: same packId/dashId must yield the
         // same Guid, otherwise idempotency breaks.
-        var (seeder2, store2) = NewSeeder();
+        var (seeder2, store2) = NewSeeder([pack]);
         await seeder2.SeedAsync(CancellationToken.None);
         var second = store2.Added.Single(d => d.Name == "Alpha").Id;
 
@@ -82,9 +122,9 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task Empty_Default_Created_When_No_Default_File()
+    public async Task Empty_Default_Created_When_No_Pack_Ships_One()
     {
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([]);
         await seeder.SeedAsync(CancellationToken.None);
 
         store.Added.Count.ShouldBe(1);
@@ -96,9 +136,16 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     [Fact]
     public async Task Default_File_Upserts_Pristine_Default()
     {
-        WriteFile("default.json", new SeedJson { Name = "Welcome" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "default",
+                RawJson = """{"version":1,"name":"Welcome","widgets":[]}""",
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         store.SeedExisting(new Dashboard
         {
             Id = Dashboard.DefaultId,
@@ -119,9 +166,16 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     [Fact]
     public async Task Default_File_Skipped_If_User_Modified()
     {
-        WriteFile("default.json", new SeedJson { Name = "Welcome" });
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "default",
+                RawJson = """{"version":1,"name":"Welcome","widgets":[]}""",
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         store.SeedExisting(new Dashboard
         {
             Id = Dashboard.DefaultId,
@@ -138,15 +192,28 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task First_Path_Wins_On_Id_Collision()
+    public async Task First_Pack_Wins_On_Id_Collision()
     {
-        var primary = Path.Combine(_root, "primary");
-        var secondary = Path.Combine(_root, "secondary");
-        Directory.CreateDirectory(primary);
-        Directory.CreateDirectory(secondary);
-
-        WriteFileAt(primary, "shared.json", new SeedJson { Id = "44444444-4444-4444-4444-444444444444", Name = "Primary wins" });
-        WriteFileAt(secondary, "shared.json", new SeedJson { Id = "44444444-4444-4444-4444-444444444444", Name = "Secondary loses" });
+        var primary = MakePack("primary", [
+            new PackDashboard
+            {
+                Id = "shared",
+                RawJson = """
+                    {"version":1,"id":"44444444-4444-4444-4444-444444444444","name":"Primary wins","widgets":[]}
+                    """,
+                Builtin = true
+            }
+        ]);
+        var secondary = MakePack("secondary", [
+            new PackDashboard
+            {
+                Id = "shared",
+                RawJson = """
+                    {"version":1,"id":"44444444-4444-4444-4444-444444444444","name":"Secondary loses","widgets":[]}
+                    """,
+                Builtin = true
+            }
+        ]);
 
         var (seeder, store) = NewSeeder([primary, secondary]);
         await seeder.SeedAsync(CancellationToken.None);
@@ -156,48 +223,60 @@ public sealed class BuiltinDashboardSeederTests : IDisposable
     }
 
     [Fact]
-    public async Task Invalid_File_Is_Skipped_Without_Killing_Others()
+    public async Task Invalid_Dashboard_Is_Skipped_Without_Killing_Others()
     {
-        WriteFile("good.json", new SeedJson { Name = "Good", Id = "55555555-5555-5555-5555-555555555555" });
-        File.WriteAllText(Path.Combine(_root, "bad.json"), "{ totally not valid }");
+        var pack = MakePack("team", [
+            new PackDashboard
+            {
+                Id = "good",
+                RawJson = """
+                    {"version":1,"id":"55555555-5555-5555-5555-555555555555","name":"Good","widgets":[]}
+                    """,
+                Builtin = true
+            },
+            new PackDashboard
+            {
+                Id = "bad",
+                RawJson = "{ totally not valid }",
+                Builtin = true
+            }
+        ]);
 
-        var (seeder, store) = NewSeeder();
+        var (seeder, store) = NewSeeder([pack]);
         await seeder.SeedAsync(CancellationToken.None);
 
         store.Added.ShouldContain(d => d.Id == new Guid("55555555-5555-5555-5555-555555555555"));
     }
 
-    private (BuiltinDashboardSeeder Seeder, FakeDashboardStore Store) NewSeeder(IEnumerable<string>? paths = null)
+    // --------------------------------------------------------------
+
+    private static (BuiltinDashboardSeeder Seeder, FakeDashboardStore Store) NewSeeder(IReadOnlyList<Pack> packs)
     {
-        var opts = Options.Create(new DashboardsOptions
-        {
-            BuiltinPaths = paths?.ToList() ?? [_root]
-        });
         var store = new FakeDashboardStore();
-        var seeder = new BuiltinDashboardSeeder(store, opts, NullLogger<BuiltinDashboardSeeder>.Instance);
+        var registry = new FakePackRegistry(packs);
+        var seeder = new BuiltinDashboardSeeder(store, registry, NullLogger<BuiltinDashboardSeeder>.Instance);
         return (seeder, store);
     }
 
-    private void WriteFile(string filename, SeedJson contents) => WriteFileAt(_root, filename, contents);
-
-    private static void WriteFileAt(string dir, string filename, SeedJson contents)
-    {
-        var idLine = contents.Id is null ? string.Empty : $"\"id\": \"{contents.Id}\",";
-        var json = $$"""
+    private static Pack MakePack(string id, IReadOnlyList<PackDashboard> dashboards) =>
+        new()
         {
-          "version": 1,
-          {{idLine}}
-          "name": "{{contents.Name}}",
-          "widgets": []
-        }
-        """;
-        File.WriteAllText(Path.Combine(dir, filename), json);
-    }
+            Id = id,
+            Name = id,
+            Version = "1.0.0",
+            Dashboards = dashboards,
+            Libraries = []
+        };
 
-    private sealed class SeedJson
+    private sealed class FakePackRegistry(IReadOnlyList<Pack> packs) : IPackRegistry
     {
-        public string? Id { get; init; }
-        public required string Name { get; init; }
+        public Task<IReadOnlyList<Pack>> ListAsync(CancellationToken cancellationToken)
+            => Task.FromResult(packs);
+
+        public Task ReloadAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UninstallAsync(string packId, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 
     private sealed class FakeDashboardStore : IDashboardStore

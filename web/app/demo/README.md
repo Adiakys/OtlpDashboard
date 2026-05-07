@@ -57,9 +57,9 @@ pnpm sync-demo-fixtures
 ```
 
 That script (`web/scripts/sync-demo-fixtures.mjs`) walks
-`demo/dashboards/*.json` and `demo/widget-libraries/**/widget.json` at
-the repo root and emits a deterministic JSON. Re-run after you add or
-edit a demo dashboard / library widget.
+`demo/packs/*/pack.json` at the repo root and emits a deterministic JSON
+containing each pack's libraries (and their widgets) plus its dashboards.
+Re-run after you add or edit a demo pack asset.
 
 `pnpm generate:demo` runs sync first, so CI is always current.
 

@@ -442,6 +442,8 @@
       "installRefLabel": "Ref (tag, branch, or commit SHA)",
       "installRefHint": "Tags pin you to an immutable release. Use commit SHAs for the strongest pinning.",
       "installRefBranchWarning": "Branch refs move over time — pinning is weak. Prefer a tag for production.",
+      "installPathLabel": "Sub-path (optional)",
+      "installPathHint": "Leave empty for repos whose pack lives at the root. Set for monorepos that ship multiple packs side by side (e.g. 'packs/team-otel').",
       "installSubmit": "Install",
       "updateLibrary": "Update library"
     },

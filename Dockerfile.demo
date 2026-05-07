@@ -32,11 +32,11 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 
 # Copy what the demo build actually reads:
 #   - web/ → the SPA source
-#   - demo/dashboards/ + demo/widget-libraries/ → consumed by
-#     scripts/sync-demo-fixtures.mjs to produce _bundled.json
+#   - demo/packs/ → consumed by scripts/sync-demo-fixtures.mjs to
+#     produce _bundled.json (each pack contributes its libraries[]
+#     and dashboards[]).
 COPY web/ ./web/
-COPY demo/dashboards/        ./demo/dashboards/
-COPY demo/widget-libraries/  ./demo/widget-libraries/
+COPY demo/packs/ ./demo/packs/
 
 ENV VITE_DEMO_MODE=true
 ENV NUXT_APP_BASE_URL=${NUXT_APP_BASE_URL}

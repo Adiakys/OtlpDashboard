@@ -197,6 +197,7 @@ app.MapOtlpHttpEndpoints()
 app.MapQueryApi().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboards().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapWidgets().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
+app.MapPacks().RequireAuthorization(AuthServiceCollectionExtensions.ReadApiPolicy);
 app.MapDashboardInfo();
 
 var mcpEnabled = app.Configuration.GetValue<bool>(

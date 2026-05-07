@@ -15,6 +15,7 @@ const { $widgetService } = useNuxtApp()
 
 const url = ref('')
 const gitRef = ref('')
+const subPath = ref('')
 const error = ref<string | null>(null)
 const isSubmitting = ref(false)
 
@@ -24,6 +25,7 @@ watch(() => props.open, (isOpen) => {
   if (isOpen) {
     url.value = ''
     gitRef.value = ''
+    subPath.value = ''
     error.value = null
     isSubmitting.value = false
   }
@@ -45,9 +47,11 @@ async function submit() {
   isSubmitting.value = true
   error.value = null
   try {
-    await $widgetService.installLibrary({
+    const trimmedPath = subPath.value.trim()
+    await $widgetService.installPack({
       url: url.value.trim(),
-      ref: gitRef.value.trim()
+      ref: gitRef.value.trim(),
+      ...(trimmedPath ? { path: trimmedPath } : {})
     })
     emit('installed')
     emit('update:open', false)
@@ -147,6 +151,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               style="color: var(--color-amber-700);"
             >
               {{ t('widgets.picker.installRefBranchWarning') }}
+            </span>
+          </label>
+
+          <label class="flex flex-col gap-1.5">
+            <span class="text-caption">{{ t('widgets.picker.installPathLabel') }}</span>
+            <UInput
+              v-model="subPath"
+              size="sm"
+              placeholder="packs/team-otel"
+              :disabled="isSubmitting"
+            />
+            <span class="text-mono-sm" style="color: var(--color-graphite-500);">
+              {{ t('widgets.picker.installPathHint') }}
             </span>
           </label>
 

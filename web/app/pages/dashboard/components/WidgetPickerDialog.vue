@@ -220,7 +220,7 @@ function customId(kind: FQKind): string {
   return parseKind(kind).id
 }
 
-// ----- Reload libraries -----
+// ----- Reload packs -----
 
 const isReloadingLibraries = ref(false)
 
@@ -229,7 +229,7 @@ async function reloadLibraries() {
   isReloadingLibraries.value = true
   error.value = null
   try {
-    await $widgetService.reloadLibraries()
+    await $widgetService.reloadPacks()
     await catalog.refreshLibraries()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -238,17 +238,20 @@ async function reloadLibraries() {
   }
 }
 
-// ----- Uninstall library -----
+// ----- Uninstall pack (button rendered next to a library that
+//        belongs to a removable, runtime-managed pack) -----
 
 const isUninstalling = ref<string | null>(null)
 
-async function uninstallLibrary(libId: string) {
+async function uninstallPackForLibrary(libId: string) {
+  const pack = catalog.packForLibrary(libId)
+  if (!pack) return
   if (isUninstalling.value) return
-  if (!confirm(t('widgets.picker.uninstallLibraryConfirm', { id: libId }))) return
-  isUninstalling.value = libId
+  if (!confirm(t('widgets.picker.uninstallLibraryConfirm', { id: pack.id }))) return
+  isUninstalling.value = pack.id
   error.value = null
   try {
-    await $widgetService.uninstallLibrary(libId)
+    await $widgetService.uninstallPack(pack.id)
     await catalog.refreshLibraries()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -264,17 +267,19 @@ const isUpdating = ref<string | null>(null)
 
 async function onInstalled() {
   // The install endpoint returned 201; still hit refreshLibraries() so
-  // the picker reflects the freshly registered DTO (including
+  // the picker reflects the freshly registered pack (including
   // `installSource: 'Git'` which gates the Update button).
   await catalog.refreshLibraries()
 }
 
-async function updateLibrary(libId: string) {
+async function updatePackForLibrary(libId: string) {
+  const pack = catalog.packForLibrary(libId)
+  if (!pack) return
   if (isUpdating.value) return
-  isUpdating.value = libId
+  isUpdating.value = pack.id
   error.value = null
   try {
-    await $widgetService.updateLibrary(libId)
+    await $widgetService.updatePack(pack.id)
     await catalog.refreshLibraries()
   } catch (err) {
     const detail = (err as { data?: { detail?: unknown } } | undefined)?.data?.detail
@@ -472,28 +477,28 @@ async function updateLibrary(libId: string) {
                   {{ lib.widgets.length }}
                 </span>
                 <UButton
-                  v-if="catalog.libraryById(lib.id)?.installSource === 'Git'"
+                  v-if="catalog.packForLibrary(lib.id)?.installSource === 'Git'"
                   color="neutral"
                   variant="ghost"
                   size="xs"
                   icon="i-ph-arrow-clockwise"
                   square
-                  :loading="isUpdating === lib.id"
+                  :loading="isUpdating === catalog.packForLibrary(lib.id)?.id"
                   :disabled="isUpdating !== null"
                   :aria-label="t('widgets.picker.updateLibrary')"
-                  @click="updateLibrary(lib.id)"
+                  @click="updatePackForLibrary(lib.id)"
                 />
                 <UButton
-                  v-if="catalog.libraryById(lib.id)?.removable"
+                  v-if="catalog.packForLibrary(lib.id)?.removable"
                   color="error"
                   variant="ghost"
                   size="xs"
                   icon="i-ph-trash"
                   square
-                  :loading="isUninstalling === lib.id"
+                  :loading="isUninstalling === catalog.packForLibrary(lib.id)?.id"
                   :disabled="isUninstalling !== null"
                   :aria-label="t('widgets.picker.uninstallLibrary')"
-                  @click="uninstallLibrary(lib.id)"
+                  @click="uninstallPackForLibrary(lib.id)"
                 />
               </span>
             </header>

@@ -1,5 +1,6 @@
 import type {
   LibraryWidgetDto,
+  PackDto,
   WidgetEngine,
   WidgetLibraryDto
 } from '~/services/types'
@@ -8,6 +9,8 @@ import {
   type RawBundledLibrary,
   type RawBundledWidget
 } from './bundle'
+
+const DEMO_PACK_ID = 'default'
 
 function engineToWire(engine: string): WidgetEngine {
   switch (engine.toLowerCase()) {
@@ -38,24 +41,45 @@ function libraryFromBundle(raw: RawBundledLibrary): WidgetLibraryDto {
   return {
     id: raw.id,
     name: raw.name,
-    version: raw.version,
-    author: raw.author ?? null,
-    license: raw.license ?? null,
     description: raw.description ?? null,
-    installSource: 'Filesystem',
-    gitUrl: null,
-    gitRef: null,
-    gitRefResolved: null,
-    installedAt: null,
-    removable: false,
+    icon: raw.icon ?? null,
+    packId: raw.packId ?? DEMO_PACK_ID,
     widgets: raw.widgets.map(widgetFromBundle)
   }
 }
 
 /**
  * Static snapshot of every widget library the demo exposes through
- * `/v1/widgets/libraries`. Library install/uninstall in demo mode is a
+ * `/v1/widgets/libraries`. Pack install/uninstall in demo mode is a
  * no-op (returns 400) — this list is the entire universe.
  */
 export const DEMO_LIBRARIES: WidgetLibraryDto[] =
   DEMO_BUNDLE.libraries.map(libraryFromBundle)
+
+/**
+ * Static snapshot of the synthetic pack the demo surfaces through
+ * `/v1/packs`. The demo is bundled as a single pack containing every
+ * library; install/update/uninstall are no-ops. The `removable: false`
+ * + `installSource: 'Filesystem'` flags hide the management buttons in
+ * the picker — there's nothing meaningful to act on in a static demo.
+ */
+export const DEMO_PACKS: PackDto[] = [
+  {
+    id: DEMO_PACK_ID,
+    name: 'OpenTelemetry Dashboard — demo pack',
+    version: 'demo',
+    author: 'OpenTelemetryDashboard',
+    license: 'MIT',
+    description: 'Bundled demo pack: every widget library plus the starter dashboard.',
+    homepage: 'https://github.com/Adiakys/OtlpDashboard',
+    installSource: 'Filesystem',
+    gitUrl: null,
+    gitRef: null,
+    gitRefResolved: null,
+    gitSubPath: null,
+    installedAt: null,
+    removable: false,
+    libraries: DEMO_LIBRARIES,
+    dashboards: DEMO_BUNDLE.dashboards.map(d => ({ id: d.name, builtin: true }))
+  }
+]

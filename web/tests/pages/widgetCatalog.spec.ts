@@ -134,16 +134,9 @@ describe('libraryDtoToDefinitions', () => {
     return {
       id: 'team-pack',
       name: 'Team Pack',
-      version: '1.2.0',
-      author: null,
-      license: null,
       description: null,
-      installSource: 'Filesystem',
-      gitUrl: null,
-      gitRef: null,
-      gitRefResolved: null,
-      installedAt: null,
-      removable: true,
+      icon: null,
+      packId: 'team-pack',
       widgets: [
         {
           kindId: 'sla-tracker',

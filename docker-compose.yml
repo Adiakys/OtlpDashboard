@@ -46,9 +46,7 @@ services:
       - "4318:4318"  # OTLP HTTP/Protobuf + /healthz
     volumes:
       - dashboard-data:/app/data
-      - ./demo/widget-libraries/dotnet:/app/data/widget-libraries/dotnet:ro
-      - ./demo/widget-libraries/postgres:/app/data/widget-libraries/postgres:ro
-      - ./demo/dashboards:/app/builtin-dashboards:ro
+      - ./demo/packs/default:/app/builtin-packs/default:ro
     depends_on:
       postgres:
         condition: service_healthy

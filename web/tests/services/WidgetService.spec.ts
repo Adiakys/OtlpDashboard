@@ -95,40 +95,63 @@ describe('WidgetService', () => {
     expect(http.get).toHaveBeenCalledWith('/v1/widgets/libraries')
   })
 
-  it('reloads libraries via POST /v1/widgets/libraries/reload', async () => {
+  it('reloads packs via POST /v1/packs/reload', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)
 
-    await service.reloadLibraries()
+    await service.reloadPacks()
 
-    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/reload')
+    expect(http.post).toHaveBeenCalledWith('/v1/packs/reload')
   })
 
-  it('installs a library via POST /v1/widgets/libraries/install', async () => {
+  it('installs a pack via POST /v1/packs/install (no path)', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)
 
-    await service.installLibrary({ url: 'https://github.com/org/pack', ref: 'v1.2.0' })
+    await service.installPack({ url: 'https://github.com/org/pack', ref: 'v1.2.0' })
 
-    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/install',
+    expect(http.post).toHaveBeenCalledWith('/v1/packs/install',
       { url: 'https://github.com/org/pack', ref: 'v1.2.0' })
   })
 
-  it('updates a library via POST .../update, id encoded', async () => {
+  it('installs a pack via POST /v1/packs/install (with sub-path)', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)
 
-    await service.updateLibrary('team-pack')
+    await service.installPack({
+      url: 'https://github.com/org/monorepo',
+      ref: 'v1.2.0',
+      path: 'packs/team'
+    })
 
-    expect(http.post).toHaveBeenCalledWith('/v1/widgets/libraries/team-pack/update')
+    expect(http.post).toHaveBeenCalledWith('/v1/packs/install',
+      { url: 'https://github.com/org/monorepo', ref: 'v1.2.0', path: 'packs/team' })
   })
 
-  it('uninstalls a library via DELETE, id encoded', async () => {
+  it('updates a pack via POST .../update, id encoded', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)
 
-    await service.uninstallLibrary('team pack')
+    await service.updatePack('team-pack')
 
-    expect(http.delete).toHaveBeenCalledWith('/v1/widgets/libraries/team%20pack')
+    expect(http.post).toHaveBeenCalledWith('/v1/packs/team-pack/update')
+  })
+
+  it('uninstalls a pack via DELETE, id encoded', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.uninstallPack('team pack')
+
+    expect(http.delete).toHaveBeenCalledWith('/v1/packs/team%20pack')
+  })
+
+  it('lists packs via GET /v1/packs', async () => {
+    const http = stubHttp()
+    const service = new WidgetService(http)
+
+    await service.listPacks()
+
+    expect(http.get).toHaveBeenCalledWith('/v1/packs')
   })
 })

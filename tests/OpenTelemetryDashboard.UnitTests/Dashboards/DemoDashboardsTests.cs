@@ -3,10 +3,12 @@ using OpenTelemetryDashboard.Dashboards.Seeding;
 namespace OpenTelemetryDashboard.UnitTests.Dashboards;
 
 /// <summary>
-/// Smoke test for the in-repo sample dashboards at
-/// <c>demo/dashboards/</c>. The folder is bind-mounted by docker-compose
-/// as <c>/app/builtin-dashboards</c>, so a regression that breaks one of
-/// the sample envelopes would only show up after deploy without this guard.
+/// Smoke test for the in-repo sample dashboards shipped inside the
+/// bundled pack at <c>demo/packs/default/dashboards/</c>. The pack is
+/// bind-mounted by docker-compose as
+/// <c>/app/builtin-packs/default</c>, so a regression that breaks one
+/// of the sample envelopes would only show up after deploy without
+/// this guard.
 /// </summary>
 public sealed class DemoDashboardsTests
 {
@@ -45,7 +47,7 @@ public sealed class DemoDashboardsTests
         {
             if (File.Exists(Path.Combine(dir, "OpenTelemetryDashboard.slnx")))
             {
-                return Path.Combine(dir, "demo", "dashboards");
+                return Path.Combine(dir, "demo", "packs", "default", "dashboards");
             }
             var parent = Directory.GetParent(dir);
             if (parent is null) break;

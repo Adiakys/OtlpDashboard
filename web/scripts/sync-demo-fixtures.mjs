@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Pre-build step for the GitHub Pages demo bundle.
 //
-// Reads `demo/dashboards/*.json` and `demo/widget-libraries/**` from the
-// repo root and rolls them into one deterministic JSON file checked into
-// `web/app/demo/data/_bundled.json`. The demo module imports the JSON; the
-// real app never loads it (dead-code-eliminated when VITE_DEMO_MODE is
-// unset).
+// Walks `demo/packs/*/pack.json` from the repo root and rolls each
+// referenced library + dashboard into one deterministic JSON file
+// checked into `web/app/demo/data/_bundled.json`. The demo module
+// imports the JSON; the real app never loads it (dead-code-eliminated
+// when VITE_DEMO_MODE is unset).
 //
-// Run via `pnpm sync-demo-fixtures` (also chained from `pnpm generate:demo`).
+// Run via `pnpm sync-demo-fixtures` (also chained from
+// `pnpm generate:demo`).
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
-const DEMO_DIR = path.join(REPO_ROOT, 'demo')
+const PACKS_DIR = path.join(REPO_ROOT, 'demo', 'packs')
 const OUT_DIR = path.join(__dirname, '..', 'app', 'demo', 'data')
 const OUT_FILE = path.join(OUT_DIR, '_bundled.json')
 
@@ -31,40 +32,55 @@ function listDirs(p) {
     .sort()
 }
 
-function listJsonFiles(p) {
-  return fs
-    .readdirSync(p)
-    .filter((f) => f.endsWith('.json'))
-    .sort()
-}
-
-const bundle = { dashboards: [], libraries: [] }
-
-const dashboardsDir = path.join(DEMO_DIR, 'dashboards')
-if (fs.existsSync(dashboardsDir)) {
-  for (const f of listJsonFiles(dashboardsDir)) {
-    bundle.dashboards.push(readJson(path.join(dashboardsDir, f)))
+function loadLibrary(libRoot) {
+  const manifestPath = path.join(libRoot, 'manifest.json')
+  if (!fs.existsSync(manifestPath)) return null
+  const manifest = readJson(manifestPath)
+  const widgets = []
+  const widgetsDir = path.join(libRoot, 'widgets')
+  if (fs.existsSync(widgetsDir)) {
+    for (const slug of listDirs(widgetsDir)) {
+      const widgetJson = path.join(widgetsDir, slug, 'widget.json')
+      if (fs.existsSync(widgetJson)) {
+        widgets.push({ slug, ...readJson(widgetJson) })
+      }
+    }
+  }
+  // Whitelist what the bundle exposes — pack-level fields like
+  // `version`/`author`/`license` are no longer part of the manifest.
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    description: manifest.description ?? null,
+    icon: manifest.icon ?? null,
+    widgets
   }
 }
 
-const librariesRoot = path.join(DEMO_DIR, 'widget-libraries')
-if (fs.existsSync(librariesRoot)) {
-  for (const libDirName of listDirs(librariesRoot)) {
-    const libPath = path.join(librariesRoot, libDirName)
-    const manifestPath = path.join(libPath, 'manifest.json')
-    if (!fs.existsSync(manifestPath)) continue
-    const manifest = readJson(manifestPath)
-    const widgets = []
-    const widgetsDir = path.join(libPath, 'widgets')
-    if (fs.existsSync(widgetsDir)) {
-      for (const slug of listDirs(widgetsDir)) {
-        const widgetJson = path.join(widgetsDir, slug, 'widget.json')
-        if (fs.existsSync(widgetJson)) {
-          widgets.push({ slug, ...readJson(widgetJson) })
-        }
-      }
+const bundle = { dashboards: [], libraries: [] }
+const seenLibIds = new Set()
+
+if (fs.existsSync(PACKS_DIR)) {
+  for (const packDir of listDirs(PACKS_DIR)) {
+    const packRoot = path.join(PACKS_DIR, packDir)
+    const packJsonPath = path.join(packRoot, 'pack.json')
+    if (!fs.existsSync(packJsonPath)) continue
+    const pack = readJson(packJsonPath)
+
+    for (const libRef of pack.libraries ?? []) {
+      const libRoot = path.join(packRoot, libRef.path)
+      const lib = loadLibrary(libRoot)
+      if (!lib) continue
+      if (seenLibIds.has(lib.id)) continue
+      seenLibIds.add(lib.id)
+      bundle.libraries.push({ ...lib, packId: pack.id })
     }
-    bundle.libraries.push({ ...manifest, widgets })
+
+    for (const dashRef of pack.dashboards ?? []) {
+      const dashPath = path.join(packRoot, dashRef.path)
+      if (!fs.existsSync(dashPath)) continue
+      bundle.dashboards.push(readJson(dashPath))
+    }
   }
 }
 

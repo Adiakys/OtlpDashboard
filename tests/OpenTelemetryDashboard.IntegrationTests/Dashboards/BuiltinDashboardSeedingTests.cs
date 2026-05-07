@@ -13,8 +13,9 @@ namespace OpenTelemetryDashboard.IntegrationTests.Dashboards;
 
 /// <summary>
 /// Drives <c>BuiltinDashboardSeeder</c> through a real host. The fixture
-/// pre-populates a temp directory with seed JSON before the host boots,
-/// so the seeder runs against the same configured path the host reads.
+/// pre-populates a temp packs root with a pack containing built-in
+/// dashboards before the host boots, so the seeder runs against the
+/// same configured path the host reads.
 /// </summary>
 public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboardSeedingTests.SeedingTestHost>
 {
@@ -39,13 +40,13 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
     }
 
     [Fact]
-    public async Task Filename_Default_Json_Maps_To_DefaultId_Even_Without_Explicit_Id()
+    public async Task DashId_Default_Maps_To_DefaultId()
     {
-        // The fixture's `default.json` declares an explicit id matching
-        // `Dashboard.DefaultId` — this test pins the same outcome through
-        // the API contract: GET on the well-known id returns the seeded
-        // content. (A separate unit test in BuiltinDashboardSeederTests
-        // covers the filename-only case.)
+        // The fixture's pack declares a dashboard with id "default" plus
+        // an explicit Guid matching `Dashboard.DefaultId`. This pins the
+        // outcome through the API contract: GET on the well-known id
+        // returns the seeded content. The unit-test layer covers the
+        // dashId-only-default → DefaultId resolution branch.
         using var client = _host.CreateClient();
         var dto = await client.GetFromJsonAsync<DashboardDto>(
             new Uri($"/api/v1/dashboards/{Dashboard.DefaultId}", UriKind.Relative), JsonOptions);
@@ -54,7 +55,7 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
     }
 
     [Fact]
-    public async Task Non_Default_File_Is_Available_In_List()
+    public async Task Non_Default_Builtin_Is_Available_In_List()
     {
         using var client = _host.CreateClient();
         var list = await client.GetFromJsonAsync<DashboardDto[]>(
@@ -65,17 +66,17 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
     }
 
     /// <summary>
-    /// Bootstraps a host with a temp seed dir + isolated SQLite. The temp
-    /// dir is populated *before* the host boots so the seeder picks up
-    /// the files on its single startup pass.
+    /// Bootstraps a host with a temp packs root + isolated SQLite. The
+    /// temp pack is populated *before* the host boots so the seeder
+    /// picks up the dashboards on its single startup pass.
     /// </summary>
     public sealed class SeedingTestHost : WebApplicationFactory<Program>, IAsyncLifetime
     {
         public string DatabasePath { get; } =
             Path.Combine(Path.GetTempPath(), $"oteldash-seedtest-{Guid.NewGuid():N}.db");
 
-        public string SeedDir { get; } =
-            Path.Combine(Path.GetTempPath(), $"oteldash-seedtest-dashboards-{Guid.NewGuid():N}");
+        public string PacksRoot { get; } =
+            Path.Combine(Path.GetTempPath(), $"oteldash-seedtest-packs-{Guid.NewGuid():N}");
 
         public string ConnectionString => $"Data Source={DatabasePath}";
 
@@ -83,8 +84,23 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
         {
             ArgumentNullException.ThrowIfNull(builder);
 
-            Directory.CreateDirectory(SeedDir);
-            File.WriteAllText(Path.Combine(SeedDir, "default.json"), $$"""
+            var packDir = Path.Combine(PacksRoot, "seed");
+            var dashboardsDir = Path.Combine(packDir, "dashboards");
+            Directory.CreateDirectory(dashboardsDir);
+
+            File.WriteAllText(Path.Combine(packDir, "pack.json"), """
+            {
+              "id": "seed",
+              "name": "Seed pack",
+              "version": "1.0.0",
+              "libraries": [],
+              "dashboards": [
+                { "id": "default", "path": "dashboards/default.json", "builtin": true },
+                { "id": "team",    "path": "dashboards/team.json",    "builtin": true }
+              ]
+            }
+            """);
+            File.WriteAllText(Path.Combine(dashboardsDir, "default.json"), $$"""
             {
               "version": 1,
               "id": "{{Dashboard.DefaultId}}",
@@ -99,7 +115,7 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
               ]
             }
             """);
-            File.WriteAllText(Path.Combine(SeedDir, "team.json"), """
+            File.WriteAllText(Path.Combine(dashboardsDir, "team.json"), """
             {
               "version": 1,
               "name": "Team overview from seed",
@@ -117,7 +133,7 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
                     ["Dashboard:Ingestion:Channel:Capacity"] = "1000",
                     ["Dashboard:Ingestion:Channel:MaxBatchSize"] = "64",
                     ["Dashboard:Ingestion:Channel:FlushIntervalMs"] = "50",
-                    ["Dashboard:Dashboards:BuiltinPaths:0"] = SeedDir,
+                    ["Dashboard:Packs:Paths:0"] = PacksRoot,
                 });
             });
         }
@@ -135,7 +151,7 @@ public sealed class BuiltinDashboardSeedingTests : IClassFixture<BuiltinDashboar
         {
             await base.DisposeAsync();
             TryDeleteFile(DatabasePath);
-            TryDeleteDirectory(SeedDir);
+            TryDeleteDirectory(PacksRoot);
         }
 
         Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();

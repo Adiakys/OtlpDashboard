@@ -26,10 +26,11 @@ export interface RawBundledWidget {
 export interface RawBundledLibrary {
   id: string
   name: string
-  version: string
-  author?: string | null
-  license?: string | null
   description?: string | null
+  icon?: string | null
+  /** Set by the sync script to the parent pack's id so the demo can
+   *  hand out the same `packId` the real backend would. */
+  packId?: string
   widgets: RawBundledWidget[]
 }
 

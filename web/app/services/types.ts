@@ -347,10 +347,10 @@ export interface SaveWidgetDefinitionRequest {
 // Widget libraries (filesystem-discovered packs)
 // =============================================================
 
-/** Origin of a library directory. Drives the SPA's "Update" affordance —
- *  filesystem-installed libraries are managed externally; git-installed
- *  ones can be re-pulled in place (iter 4). */
-export type LibraryInstallSource = 'Filesystem' | 'Git'
+/** Origin of a pack directory. Drives the SPA's "Update" affordance —
+ *  filesystem-installed packs are managed externally; git-installed
+ *  ones can be re-pulled in place. */
+export type PackInstallSource = 'Filesystem' | 'Git'
 
 export interface LibraryWidgetDto {
   kindId: string
@@ -370,22 +370,50 @@ export interface LibraryWidgetDto {
   defaultH: number
 }
 
+/**
+ * Wire shape for a library inside a pack. The picker calls
+ * `GET /v1/widgets/libraries` for the flat list and groups by `packId`
+ * when it needs to surface the parent pack's install/update affordance.
+ */
 export interface WidgetLibraryDto {
+  id: string
+  name: string
+  description: string | null
+  icon: string | null
+  /** Id of the parent pack — the management UI joins on this to find
+   *  the install/uninstall row to act on. */
+  packId: string
+  widgets: LibraryWidgetDto[]
+}
+
+/** Sub-entry of {@link PackDto} listing a dashboard the pack ships.
+ *  `builtin: true` entries are seeded into the dashboards store on
+ *  first boot; the rest are installable templates. */
+export interface PackDashboardDto {
+  id: string
+  builtin: boolean
+}
+
+/** Wire shape for an installed pack. Returned by `GET /v1/packs` and
+ *  by the install endpoint. */
+export interface PackDto {
   id: string
   name: string
   version: string
   author: string | null
   license: string | null
   description: string | null
-  installSource: LibraryInstallSource
-  /** Git origin URL — null for filesystem-installed libraries. */
+  homepage: string | null
+  installSource: PackInstallSource
   gitUrl: string | null
   gitRef: string | null
   gitRefResolved: string | null
+  gitSubPath: string | null
   installedAt: string | null
-  /** True only when the library lives in the runtime-managed root (the
+  /** True only when the pack lives in the runtime-managed root (the
    *  first configured path). Drives the visibility of the uninstall
-   *  button — baked-in libraries from image layers are read-only. */
+   *  button — baked-in packs from image layers are read-only. */
   removable: boolean
-  widgets: LibraryWidgetDto[]
+  libraries: WidgetLibraryDto[]
+  dashboards: PackDashboardDto[]
 }

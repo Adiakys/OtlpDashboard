@@ -8,11 +8,12 @@ using OpenTelemetryDashboard.Dashboards.Domain;
 namespace OpenTelemetryDashboard.Dashboards.Library;
 
 /// <summary>
-/// Strict JSON parser for <c>manifest.json</c> and per-widget
-/// <c>widget.json</c> files. The parser never executes user code and never
-/// trusts inputs blindly: every string is bounded, every payload is size-
-/// capped, and unknown shapes are rejected with a human-readable diagnostic
-/// the registry surfaces in the logs.
+/// Strict JSON parser for the three on-disk manifests that make up a pack:
+/// <c>pack.json</c> at the pack root, <c>manifest.json</c> at each library
+/// root, and per-widget <c>widget.json</c>. The parser never executes user
+/// code and never trusts inputs blindly: every string is bounded, every
+/// payload is size-capped, and unknown shapes are rejected with a
+/// human-readable diagnostic the registry surfaces in the logs.
 /// </summary>
 public static class LibraryManifestParser
 {
@@ -44,6 +45,10 @@ public static class LibraryManifestParser
     private const int MaxDescriptionLength = 280;
     private const int MaxIconLength = 64;
     private const int MaxBaseKindLength = 64;
+    private const int MaxHomepageLength = 256;
+    private const int MaxRelativePathLength = 256;
+    private const int MaxLibrariesPerPack = 64;
+    private const int MaxDashboardsPerPack = 64;
 
     /// <summary>Per-widget config payload size cap. Aligns with the
     /// custom-widget DB constraint so libraries and DB-backed customs share a
@@ -62,21 +67,127 @@ public static class LibraryManifestParser
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Parsed manifest header. Drives the picker section name in the SPA;
-    /// widgets come in via <see cref="TryParseWidget"/>.
+    /// Parsed <c>pack.json</c>. Pack metadata + the fixed asset slots
+    /// (libraries, dashboards). Future asset types arrive as new top-level
+    /// arrays — we deliberately don't expose a generic dispatcher here
+    /// because typed slots make the schema self-documenting.
     /// </summary>
-    public sealed record ManifestHeader(
+    public sealed record PackManifest(
         string Id,
         string Name,
         string Version,
         string? Author,
         string? License,
-        string? Description);
+        string? Description,
+        string? Homepage,
+        IReadOnlyList<PackLibraryRef> Libraries,
+        IReadOnlyList<PackDashboardRef> Dashboards);
+
+    /// <summary>Library entry inside a <see cref="PackManifest"/>.
+    /// <see cref="Id"/> matches the in-pack directory's manifest id;
+    /// <see cref="RelativePath"/> is forward-slash relative, validated
+    /// to stay inside the pack root.</summary>
+    public sealed record PackLibraryRef(string Id, string RelativePath);
+
+    /// <summary>Dashboard entry inside a <see cref="PackManifest"/>.
+    /// <see cref="Builtin"/> requests the seeder treat the dashboard
+    /// as a built-in (idempotent first-boot insert + pristine-upsert
+    /// for the default dashboard). Without it the dashboard is just an
+    /// installable template.</summary>
+    public sealed record PackDashboardRef(string Id, string RelativePath, bool Builtin);
 
     /// <summary>
-    /// Parse a <c>manifest.json</c> payload. The expected directory name is
-    /// passed in so the caller can verify <c>id</c> matches the on-disk name
-    /// (a security requirement before the value is used as a path component).
+    /// Library-level header. <see cref="Icon"/> drives the picker
+    /// section glyph; pack-level metadata (version, author, license)
+    /// lives in <see cref="PackManifest"/> instead — a library inside a
+    /// pack inherits those concerns from its parent.
+    /// </summary>
+    public sealed record ManifestHeader(
+        string Id,
+        string Name,
+        string? Description,
+        string? Icon);
+
+    /// <summary>
+    /// Parse a <c>pack.json</c> payload. <paramref name="expectedId"/> is the
+    /// on-disk pack directory name — same id-must-match-folder rule as
+    /// libraries, so the value can never be used to redirect the loader to
+    /// an arbitrary path. Library / dashboard relative paths are validated
+    /// against <c>..</c>, absolute prefixes, drive letters; the caller still
+    /// re-checks the resolved absolute path against the pack root before
+    /// touching the filesystem.
+    /// </summary>
+    public static bool TryParsePack(
+        string json,
+        string expectedId,
+        [NotNullWhen(true)] out PackManifest? pack,
+        [NotNullWhen(false)] out string? error)
+    {
+        pack = null;
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            error = $"pack.json is not valid JSON: {ex.Message}";
+            return false;
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                error = "pack.json must be a JSON object.";
+                return false;
+            }
+
+            if (!TryRequiredString(root, "id", MaxIdLength, out var id, out error)) return false;
+            if (!IdRegex.IsMatch(id))
+            {
+                error = "pack.json: 'id' must match [a-z0-9-] (lowercase, no slashes, no dots).";
+                return false;
+            }
+            if (!string.Equals(id, expectedId, StringComparison.Ordinal))
+            {
+                error = $"pack.json: 'id' ('{id}') does not match the directory name ('{expectedId}').";
+                return false;
+            }
+
+            if (!TryRequiredString(root, "name", MaxNameLength, out var name, out error)) return false;
+            if (!TryRequiredString(root, "version", MaxVersionLength, out var version, out error)) return false;
+            if (!TryOptionalString(root, "author", MaxAuthorLength, out var author, out error)) return false;
+            if (!TryOptionalString(root, "license", MaxLicenseLength, out var license, out error)) return false;
+            if (!TryOptionalString(root, "description", MaxDescriptionLength, out var description, out error)) return false;
+            if (!TryOptionalString(root, "homepage", MaxHomepageLength, out var homepage, out error)) return false;
+            if (homepage is not null && !IsHttpsUrl(homepage))
+            {
+                error = "pack.json: 'homepage' must be an https URL.";
+                return false;
+            }
+
+            if (!TryParseLibraryRefs(root, out var libs, out error)) return false;
+            if (!TryParseDashboardRefs(root, out var dashes, out error)) return false;
+
+            if (libs.Count == 0 && dashes.Count == 0)
+            {
+                error = "pack.json: a pack must declare at least one entry under 'libraries' or 'dashboards'.";
+                return false;
+            }
+
+            pack = new PackManifest(id, name, version, author, license, description, homepage, libs, dashes);
+            error = null;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Parse a library <c>manifest.json</c>. <paramref name="expectedId"/> is
+    /// the on-disk directory name; the parser enforces that <c>id</c>
+    /// matches it before the value is used as a path component anywhere.
     /// </summary>
     public static bool TryParseManifest(
         string json,
@@ -119,13 +230,15 @@ public static class LibraryManifestParser
             }
 
             if (!TryRequiredString(root, "name", MaxNameLength, out var name, out error)) return false;
-            if (!TryRequiredString(root, "version", MaxVersionLength, out var version, out error)) return false;
-
-            if (!TryOptionalString(root, "author", MaxAuthorLength, out var author, out error)) return false;
-            if (!TryOptionalString(root, "license", MaxLicenseLength, out var license, out error)) return false;
             if (!TryOptionalString(root, "description", MaxDescriptionLength, out var description, out error)) return false;
+            if (!TryOptionalString(root, "icon", MaxIconLength, out var icon, out error)) return false;
+            if (icon is not null && !IconRegex.IsMatch(icon))
+            {
+                error = "manifest.json: 'icon' must match the pattern 'i-ph-<name>' or 'i-lucide-<name>'.";
+                return false;
+            }
 
-            header = new ManifestHeader(id, name, version, author, license, description);
+            header = new ManifestHeader(id, name, description, icon);
             error = null;
             return true;
         }
@@ -256,6 +369,165 @@ public static class LibraryManifestParser
         }
     }
 
+    private static bool TryParseLibraryRefs(
+        JsonElement root,
+        out IReadOnlyList<PackLibraryRef> refs,
+        [NotNullWhen(false)] out string? error)
+    {
+        refs = [];
+        if (!root.TryGetProperty("libraries", out var arr))
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind == JsonValueKind.Null)
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+        {
+            error = "pack.json: 'libraries' must be a JSON array.";
+            return false;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var list = new List<PackLibraryRef>();
+        foreach (var entry in arr.EnumerateArray())
+        {
+            if (list.Count >= MaxLibrariesPerPack)
+            {
+                error = $"pack.json: 'libraries' may declare at most {MaxLibrariesPerPack} entries.";
+                return false;
+            }
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                error = "pack.json: each entry in 'libraries' must be an object.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "id", MaxIdLength, out var libId, out error)) return false;
+            if (!IdRegex.IsMatch(libId))
+            {
+                error = $"pack.json: library 'id' '{libId}' must match [a-z0-9-].";
+                return false;
+            }
+            if (!seen.Add(libId))
+            {
+                error = $"pack.json: duplicate library id '{libId}'.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "path", MaxRelativePathLength, out var path, out error)) return false;
+            if (!IsSafeRelativePath(path))
+            {
+                error = $"pack.json: library '{libId}' has an unsafe path '{path}'.";
+                return false;
+            }
+            list.Add(new PackLibraryRef(libId, path));
+        }
+
+        refs = list;
+        error = null;
+        return true;
+    }
+
+    private static bool TryParseDashboardRefs(
+        JsonElement root,
+        out IReadOnlyList<PackDashboardRef> refs,
+        [NotNullWhen(false)] out string? error)
+    {
+        refs = [];
+        if (!root.TryGetProperty("dashboards", out var arr))
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind == JsonValueKind.Null)
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+        {
+            error = "pack.json: 'dashboards' must be a JSON array.";
+            return false;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var list = new List<PackDashboardRef>();
+        foreach (var entry in arr.EnumerateArray())
+        {
+            if (list.Count >= MaxDashboardsPerPack)
+            {
+                error = $"pack.json: 'dashboards' may declare at most {MaxDashboardsPerPack} entries.";
+                return false;
+            }
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                error = "pack.json: each entry in 'dashboards' must be an object.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "id", MaxIdLength, out var dashId, out error)) return false;
+            if (!IdRegex.IsMatch(dashId))
+            {
+                error = $"pack.json: dashboard 'id' '{dashId}' must match [a-z0-9-].";
+                return false;
+            }
+            if (!seen.Add(dashId))
+            {
+                error = $"pack.json: duplicate dashboard id '{dashId}'.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "path", MaxRelativePathLength, out var path, out error)) return false;
+            if (!IsSafeRelativePath(path))
+            {
+                error = $"pack.json: dashboard '{dashId}' has an unsafe path '{path}'.";
+                return false;
+            }
+
+            var builtin = false;
+            if (entry.TryGetProperty("builtin", out var bEl) && bEl.ValueKind != JsonValueKind.Null)
+            {
+                if (bEl.ValueKind != JsonValueKind.True && bEl.ValueKind != JsonValueKind.False)
+                {
+                    error = $"pack.json: dashboard '{dashId}' has 'builtin' that is not a boolean.";
+                    return false;
+                }
+                builtin = bEl.GetBoolean();
+            }
+
+            list.Add(new PackDashboardRef(dashId, path, builtin));
+        }
+
+        refs = list;
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Validate a pack-declared relative path: forward-slash separated, no
+    /// scheme, no drive letter, no absolute prefix, no <c>..</c> segment.
+    /// The caller still re-resolves and confirms containment within the
+    /// pack root before touching the filesystem — this is the cheap first
+    /// line of defence the parser provides.
+    /// </summary>
+    private static bool IsSafeRelativePath(string path)
+    {
+        if (path.Length == 0) return false;
+        if (path[0] is '/' or '\\') return false;
+        if (path.Contains(':', StringComparison.Ordinal)) return false;
+        if (path.Contains('\\', StringComparison.Ordinal)) return false;
+        foreach (var segment in path.Split('/'))
+        {
+            if (segment.Length == 0) return false;
+            if (segment is "." or "..") return false;
+        }
+        return true;
+    }
+
+    private static bool IsHttpsUrl(string raw) =>
+        Uri.TryCreate(raw, UriKind.Absolute, out var uri)
+        && string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+
     private static bool TryRequiredString(
         JsonElement root,
         string field,
@@ -345,7 +617,6 @@ public static class LibraryManifestParser
         h = 3;
         if (!root.TryGetProperty("defaultSize", out var size))
         {
-            // Allow omission — defaults are sane.
             error = null;
             return true;
         }

@@ -70,12 +70,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app
 
 # Non-root user. Alpine's adduser syntax differs from useradd (Debian).
-# `/app/builtin-libraries` is the default second scan path for widget libraries
-# and `/app/builtin-dashboards` for built-in dashboards baked into derived
-# images — derived Dockerfiles just `COPY` here, no env vars or appsettings
-# overrides required.
+# `/app/builtin-packs` is the default second scan path: derived Dockerfiles
+# just `COPY my-pack/ /app/builtin-packs/my-pack/` to bake in libraries
+# and built-in dashboards — no env vars or appsettings overrides required.
 RUN adduser -D -u 10001 otel \
-    && mkdir -p /app/data /app/builtin-libraries /app/builtin-dashboards \
+    && mkdir -p /app/data /app/builtin-packs \
     && chown -R otel:otel /app
 
 # OTLP gRPC and OTLP HTTP/Protobuf (also serves /healthz and the SPA).
