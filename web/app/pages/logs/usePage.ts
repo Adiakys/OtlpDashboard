@@ -12,7 +12,11 @@ export interface UseLogsPageOptions {
   initialBody?: string
   initialAttr?: string[]
   initialLimit?: number
-  /** Default: true. Set to false in unit tests to control live mode manually. */
+  /** Persisted in the URL as `live=false` once the user toggles
+   *  off, so the choice survives navigation away and back.
+   *  Default: true. */
+  initialLive?: boolean
+  /** Override `initialLive` for unit tests. */
   autoLive?: boolean
 }
 
@@ -156,16 +160,18 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     }
   }
 
-  const live = useLivePolling(liveTick, { autoStart: options.autoLive ?? true })
+  const live = useLivePolling(liveTick, {
+    autoStart: options.autoLive ?? options.initialLive ?? true
+  })
 
   const reload = () => fetchPage(false)
   const loadMore = () => fetchPage(true)
 
-  // Range / limit / service filter all trigger a reload of the table —
-  // changing any of them is the user saying "show me a different slice".
-  // The services list also re-fetches on range change because the set of
-  // services seen *in that window* may differ. Skipped while live mode
-  // is on (the range / limit filters are UI-disabled then anyway).
+  // Range and limit are UI-disabled in live mode (the live tail
+  // can't shift them without re-querying), so their reload stays
+  // gated. Every other filter is interactive in live mode and must
+  // reload immediately on change — the user toggling severity sees
+  // the rows filter right away; subsequent live ticks compose on top.
   watch(() => [range.value.from, range.value.to], () => {
     void loadServices()
     if (!live.isLive.value) void reload()
@@ -174,18 +180,12 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() }, { deep: true })
-  watch(severityFilter, () => {
-    if (!live.isLive.value) void reload()
-  }, { deep: true })
+  watch(severityFilter, () => { void reload() }, { deep: true })
   // Body search reloads on each keystroke. The /v1/logs request is
   // light enough that user-perceived latency stays low; if this proves
   // chatty we'll add a debounce here.
-  watch(bodyQuery, () => {
-    if (!live.isLive.value) void reload()
-  })
-  watch(attributeFilters, () => {
-    if (!live.isLive.value) void reload()
-  }, { deep: true })
+  watch(bodyQuery, () => { void reload() })
+  watch(attributeFilters, () => { void reload() }, { deep: true })
 
   // Filter state encoded for URL persistence. The page watches this
   // and pushes it back via `router.replace` so refreshes / shares /
@@ -204,6 +204,10 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     if (body) q.bodyContains = body
     if (attributeFilters.value.length > 0) q.attr = attributeFilters.value
     if (limit.value !== DEFAULT_LIMIT) q.limit = String(limit.value)
+    // Encode only the off state so a fresh visit auto-starts live;
+    // turning it off and bouncing through `/logs/{id}` keeps the
+    // user's choice via the URL.
+    if (!live.isLive.value) q.live = 'false'
     return q
   })
 

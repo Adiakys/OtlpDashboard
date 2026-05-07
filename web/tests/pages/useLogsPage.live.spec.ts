@@ -94,6 +94,54 @@ describe('useLogsPage — live mode', () => {
     page.toggleLive()
   })
 
+  it('reloads with the new severity filter when toggled in live mode', async () => {
+    // Initial unfiltered fetch returns one Info log; after the user
+    // toggles a severity bucket the watcher must call /v1/logs again
+    // with the new `severities` param even though live mode is on,
+    // and the items list must replace with the filtered response.
+    const initial = makeLog({ time: '2030-01-01T00:00:10.000Z', spanId: 'aaaaaaaaaaaaaaaa' })
+    const filteredOnly = makeLog({
+      time: '2030-01-01T00:00:15.000Z',
+      spanId: 'eeeeeeeeeeeeeeee',
+      severityText: 'WARN'
+    })
+    filteredOnly.severityNumber = 13
+    const http = stubHttp([
+      // 1: initial reload
+      { items: [initial], nextCursor: null },
+      // 2: immediate first live tick after toggleLive — empty so no
+      //    new rows interfere with the test's assertion.
+      { items: [], nextCursor: null },
+      // 3: forced reload from the severity change (the actual subject
+      //    of this test).
+      { items: [filteredOnly], nextCursor: null }
+    ])
+    const service = new LogsService(http.client)
+
+    const page = useLogsPage(service, { autoLive: false })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(page.items.value).toHaveLength(1)
+
+    // Enter live mode and let the immediate first tick drain.
+    page.toggleLive()
+    await vi.advanceTimersByTimeAsync(0)
+    // Then change the severity filter — the watcher must reload
+    // immediately even though live mode is on.
+    page.severityFilter.value = ['warn']
+    await vi.advanceTimersByTimeAsync(0)
+
+    // The single item now visible is the WARN-only response of the
+    // forced reload — proves the filter went out and the items list
+    // was wiped + repopulated.
+    expect(page.items.value).toHaveLength(1)
+    expect(page.items.value[0]?.spanId).toBe('eeeeeeeeeeeeeeee')
+
+    const logsCalls = http.get.mock.calls.filter(c => c[0] === '/v1/logs')
+    expect(logsCalls.at(-1)?.[1]).toMatchObject({ severities: 'warn' })
+
+    page.toggleLive()
+  })
+
   it('forwards Bearer-less fetch with traceId filter during live ticks', async () => {
     const http = stubHttp([
       { items: [], nextCursor: null },

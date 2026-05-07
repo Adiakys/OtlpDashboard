@@ -67,7 +67,11 @@ const page = useTracesPage($traceService, {
   initialDuration,
   initialSearch: strFromQuery('spanNameContains'),
   initialAttr: strArrayFromQuery('attr'),
-  initialLimit: numFromQuery('limit')
+  initialLimit: numFromQuery('limit'),
+  // Auto-start live unless the URL says otherwise — that's how
+  // navigating to /traces/{id} and back preserves the user's choice
+  // to disable it.
+  initialLive: strFromQuery('live') !== 'false'
 })
 
 // Persist filter changes to the URL via `replace` — back button stays

@@ -66,7 +66,8 @@ const page = useLogsPage($logsService, {
   initialSeverity,
   initialBody: strFromQuery('bodyContains'),
   initialAttr: strArrayFromQuery('attr'),
-  initialLimit: numFromQuery('limit')
+  initialLimit: numFromQuery('limit'),
+  initialLive: strFromQuery('live') !== 'false'
 })
 
 // Persist filter state back to the URL. `replace` keeps the back

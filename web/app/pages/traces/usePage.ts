@@ -24,7 +24,12 @@ export interface UseTracesPageOptions {
   initialSearch?: string
   initialAttr?: string[]
   initialLimit?: number
-  /** Default: true. Set to false in unit tests to control live mode manually. */
+  /** When the user manually disabled live mode, the URL persists
+   *  `live=false` so the choice survives navigation away and back.
+   *  Default: true (auto-start on a fresh visit). */
+  initialLive?: boolean
+  /** Override `initialLive` for unit tests where the timer-driven
+   *  polling gets in the way. Default: undefined (use initialLive). */
   autoLive?: boolean
 }
 
@@ -155,16 +160,20 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     }
   }
 
-  const live = useLivePolling(liveTick, { autoStart: options.autoLive ?? true })
+  const live = useLivePolling(liveTick, {
+    autoStart: options.autoLive ?? options.initialLive ?? true
+  })
 
   const reload = () => fetchPage(false)
   const loadMore = () => fetchPage(true)
 
-  // Range / limit / service filter all trigger a reload — changing any
-  // of them is the user asking for a different slice. The services list
-  // also re-fetches on range change because the set of services seen
-  // *in that window* may differ. Skipped while live mode is on (the
-  // range / limit filters are UI-disabled then anyway).
+  // Range and limit are the only filters whose UI is *disabled* while
+  // live mode is on (the live tail can't honour either without
+  // re-querying the whole window), so their reload stays gated. The
+  // rest stay interactive in live mode — and must reload immediately
+  // on change, otherwise the user sees the picker move but the rows
+  // don't filter. Subsequent live ticks compose on top of the
+  // already-filtered list.
   watch(() => [range.value.from, range.value.to], () => {
     void loadServices()
     if (!live.isLive.value) void reload()
@@ -175,18 +184,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   watch(serviceFilter, () => { void reload() }, { deep: true })
   watch(noServiceFilter, () => { void reload() })
   watch(serviceMatch, () => { void reload() })
-  watch(statusFilter, () => {
-    if (!live.isLive.value) void reload()
-  })
-  watch(() => [durationFilter.value.minMs, durationFilter.value.maxMs], () => {
-    if (!live.isLive.value) void reload()
-  })
-  watch(searchQuery, () => {
-    if (!live.isLive.value) void reload()
-  })
-  watch(attributeFilters, () => {
-    if (!live.isLive.value) void reload()
-  }, { deep: true })
+  watch(statusFilter, () => { void reload() })
+  watch(() => [durationFilter.value.minMs, durationFilter.value.maxMs], () => { void reload() })
+  watch(searchQuery, () => { void reload() })
+  watch(attributeFilters, () => { void reload() }, { deep: true })
 
   // Filter state encoded for URL persistence — see logs/usePage for
   // the rationale. Defaulted values are omitted to keep the URL short.
@@ -205,6 +206,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     if (search) q.spanNameContains = search
     if (attributeFilters.value.length > 0) q.attr = attributeFilters.value
     if (limit.value !== DEFAULT_LIMIT) q.limit = String(limit.value)
+    // Live mode default is on; only encode the negative state so a
+    // fresh visit auto-starts as before. Surviving the round-trip
+    // through `/traces/{id}` and back is the user-facing point.
+    if (!live.isLive.value) q.live = 'false'
     return q
   })
 
