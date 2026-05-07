@@ -45,6 +45,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.ref.outputs.ref }}
+          # `proto/opentelemetry-proto` is a submodule; the Ingestion
+          # project's gRPC codegen needs the .proto files at build time.
+          submodules: recursive
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
