@@ -49,9 +49,6 @@ jobs:
           # project's gRPC codegen needs the .proto files at build time.
           submodules: recursive
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -81,9 +78,7 @@ jobs:
         with:
           context: .
           file: src/OpenTelemetryDashboard.Host/Dockerfile
-          # Multi-arch covers Apple silicon and Graviton. Drop arm64 if
-          # you only ship x86_64 — the build is ~2x faster.
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

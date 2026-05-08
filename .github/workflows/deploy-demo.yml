@@ -10,9 +10,6 @@
 name: Deploy demo to GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
   release:
     types: [published]
   workflow_dispatch:
