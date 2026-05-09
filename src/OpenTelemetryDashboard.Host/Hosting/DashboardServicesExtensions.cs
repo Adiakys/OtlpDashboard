@@ -4,6 +4,7 @@ using OpenTelemetryDashboard.Dashboards;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetryDashboard.Host.Authentication;
 using OpenTelemetryDashboard.Host.Configuration;
+using OpenTelemetryDashboard.Host.ErrorHandling;
 using OpenTelemetryDashboard.Ingestion;
 using OpenTelemetryDashboard.Persistence;
 
@@ -19,6 +20,12 @@ internal static class DashboardServicesExtensions
 {
     public static WebApplicationBuilder AddDashboardServices(this WebApplicationBuilder builder)
     {
+        // Uniform RFC 7807 error shape: validation/concurrency endpoints already
+        // emit ProblemDetails; this pair extends the same shape to anything that
+        // escapes an endpoint as an unhandled exception.
+        builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
         builder.Services.AddRoutingCore();
         builder.Services.AddTelemetryCore(builder.Configuration);
         builder.Services.AddOtlpIngestion();

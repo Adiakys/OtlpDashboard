@@ -38,28 +38,39 @@ internal static class SecurityHeadersExtensions
     {
         return app.Use(async (context, next) =>
         {
-            var headers = context.Response.Headers;
-
-            // Endpoints that override the SPA-shell CSP (e.g. PackEndpoints
-            // for SVG assets) set their own value first; we don't clobber it.
-            if (!headers.ContainsKey("Content-Security-Policy"))
+            // OnStarting fires just before the response bytes are flushed,
+            // so the headers are present whatever wrote the response —
+            // including the global exception handler, which calls
+            // Response.Clear() on its way to writing a ProblemDetails 500
+            // and would otherwise drop headers set on the request way in.
+            context.Response.OnStarting(static state =>
             {
-                headers["Content-Security-Policy"] = ContentSecurityPolicy;
-            }
-            headers["X-Content-Type-Options"] = "nosniff";
-            headers["X-Frame-Options"] = "DENY";
-            headers["Referrer-Policy"] = "no-referrer";
-            headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()";
+                var ctx = (HttpContext)state;
+                var headers = ctx.Response.Headers;
 
-            // HSTS only when we're confident the connection is TLS — the
-            // dashboard is typically deployed behind a reverse proxy that
-            // terminates TLS, so we trust UseForwardedHeaders (when wired)
-            // to surface the original scheme. Without that, IsHttps reads
-            // Kestrel's local socket scheme, which is fine for direct TLS.
-            if (context.Request.IsHttps)
-            {
-                headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
-            }
+                // Endpoints that override the SPA-shell CSP (e.g. PackEndpoints
+                // for SVG assets) set their own value first; we don't clobber it.
+                if (!headers.ContainsKey("Content-Security-Policy"))
+                {
+                    headers["Content-Security-Policy"] = ContentSecurityPolicy;
+                }
+                headers["X-Content-Type-Options"] = "nosniff";
+                headers["X-Frame-Options"] = "DENY";
+                headers["Referrer-Policy"] = "no-referrer";
+                headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()";
+
+                // HSTS only when we're confident the connection is TLS — the
+                // dashboard is typically deployed behind a reverse proxy that
+                // terminates TLS, so we trust UseForwardedHeaders (when wired)
+                // to surface the original scheme. Without that, IsHttps reads
+                // Kestrel's local socket scheme, which is fine for direct TLS.
+                if (ctx.Request.IsHttps)
+                {
+                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+                }
+
+                return Task.CompletedTask;
+            }, context);
 
             await next().ConfigureAwait(false);
         });
