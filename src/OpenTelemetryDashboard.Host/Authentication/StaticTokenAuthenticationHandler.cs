@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetryDashboard.Core.Common;
 using OpenTelemetryDashboard.Host.Configuration;
 
 namespace OpenTelemetryDashboard.Host.Authentication;
@@ -28,8 +29,13 @@ public sealed class StaticTokenAuthenticationHandler
     : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string SchemeName = "StaticToken";
-    public const string RoleBrowser = "browser";
-    public const string RoleOtlp = "otlp";
+
+    // Re-exposed locally for backwards-compatibility with code that referenced
+    // them through this handler. Source of truth lives in
+    // <see cref="AuthRoleNames"/> so non-Host modules (Api's /info redaction)
+    // can read the role names without depending on the Host assembly.
+    public const string RoleBrowser = AuthRoleNames.Browser;
+    public const string RoleOtlp = AuthRoleNames.Otlp;
 
     private const string BearerPrefix = "Bearer ";
     private const string OtlpApiKeyHeader = "x-otlp-api-key";

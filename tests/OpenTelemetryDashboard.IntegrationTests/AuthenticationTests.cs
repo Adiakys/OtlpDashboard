@@ -231,6 +231,26 @@ public sealed class AuthenticationTests : IAsyncLifetime
         body.ShouldNotContain("\"version\":\"unknown\"");
     }
 
+    [Fact]
+    public async Task Info_Endpoint_With_Otlp_Token_Stays_Redacted()
+    {
+        // The OTLP token authenticates the caller (IsAuthenticated == true)
+        // but does NOT grant the Browser role. /info must redact infra
+        // metadata for any caller who isn't explicitly a browser user —
+        // this guards against future auth-scheme additions silently
+        // widening the disclosure surface.
+        using var client = Client();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OtlpApiKey);
+
+        using var response = await client.GetAsync(new Uri("/api/v1/info", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("\"applicationName\"");
+        body.ShouldContain(AppName);
+        body.ShouldContain("\"version\":null");
+    }
+
     private static ByteArrayContent MinimalTraceRequestContent()
     {
         var request = new ExportTraceServiceRequest

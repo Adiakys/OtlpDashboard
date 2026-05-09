@@ -40,6 +40,20 @@ export default defineNuxtConfig({
     storageKey: 'oteldash-color-mode'
   },
 
+  // Bundle icons into the client JS instead of fetching them at runtime.
+  // Without this Nuxt Icon falls back to api.iconify.design, which our CSP
+  // (connect-src 'self') blocks and which would leak the set of icons we
+  // render to a third party. `scan: true` tree-shakes to just the icons
+  // actually referenced in templates; the @iconify-json/* dev deps provide
+  // the offline source. See the corresponding CSP in
+  // OpenTelemetryDashboard.Host/Hosting/SecurityHeadersExtensions.cs.
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512
+    }
+  },
+
   i18n: {
     strategy: 'no_prefix',
     defaultLocale: 'it',
@@ -52,6 +66,13 @@ export default defineNuxtConfig({
       cookieKey: 'oteldash-locale',
       redirectOn: 'no prefix',
       fallbackLocale: 'en'
+    },
+    // The default emits absolute filesystem paths into the bundled
+    // payload (visible in `index.html` as `/home/<user>/.../i18n/...`),
+    // leaking the build host's username and repo layout to every
+    // visitor. 'relative' surfaces only the path within the project.
+    experimental: {
+      generatedLocaleFilePathFormat: 'relative'
     }
   },
 

@@ -265,6 +265,16 @@ internal static class PackEndpoints
         httpContext.Response.Headers.ETag = etag;
         httpContext.Response.Headers.CacheControl = "public, max-age=300";
 
+        // Asset hardening. The endpoint is anonymous and serves SVG/PNG/WebP
+        // from disk; even with the extension whitelist + traversal/symlink
+        // guards, an SVG containing inline <script> would otherwise execute
+        // JS in this origin. Override the SPA-shell CSP with the strictest
+        // policy compatible with rendering an image, and force the browser
+        // to honour the declared Content-Type instead of MIME-sniffing.
+        httpContext.Response.Headers["Content-Security-Policy"] =
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox;";
+        httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
+
         return TypedResults.File(bytes, contentType: contentType);
     }
 

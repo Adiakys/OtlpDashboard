@@ -14,6 +14,10 @@ internal static class RequestPipelineExtensions
 {
     public static WebApplication UseDashboardPipeline(this WebApplication app)
     {
+        // Run before everything else so static files, endpoints AND the
+        // 401/429 short-circuit responses all carry the hardening headers.
+        app.UseDashboardSecurityHeaders();
+
         app.UseRateLimiter();
 
         // Serve the Nuxt SPA (built with `nuxi generate`) from wwwroot/. In

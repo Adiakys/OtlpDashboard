@@ -134,6 +134,25 @@ public sealed class PackEndpointsTests : IClassFixture<PackEndpointsTests.PackTe
     }
 
     [Fact]
+    public async Task Get_Pack_Asset_Sets_Strict_Csp_And_Nosniff()
+    {
+        // Anonymous endpoint serving SVG/PNG/WebP: even with the extension
+        // whitelist, an SVG with inline <script> would otherwise execute
+        // in the dashboard origin. The endpoint must override the SPA's
+        // permissive CSP with a "nothing executes" policy and stop the
+        // browser from MIME-sniffing the bytes.
+        using var client = _host.CreateAuthenticatedClient();
+        using var resp = await client.GetAsync(
+            new Uri("/api/v1/packs/team/assets/icons/postgres/postgres.svg", UriKind.Relative));
+
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        resp.Headers.GetValues("X-Content-Type-Options").ShouldContain("nosniff");
+        var csp = resp.Headers.GetValues("Content-Security-Policy").Single();
+        csp.ShouldContain("default-src 'none'");
+        csp.ShouldContain("sandbox");
+    }
+
+    [Fact]
     public async Task Get_Pack_Asset_Rejects_Path_Traversal()
     {
         using var client = _host.CreateAuthenticatedClient();
