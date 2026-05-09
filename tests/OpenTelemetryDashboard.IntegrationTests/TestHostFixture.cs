@@ -50,17 +50,7 @@ public sealed class TestHostFixture : WebApplicationFactory<Program>, IAsyncLife
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        try
-        {
-            if (File.Exists(DatabasePath))
-            {
-                File.Delete(DatabasePath);
-            }
-        }
-        catch (IOException)
-        {
-            // File still locked on slow shutdown; leave the temp file behind.
-        }
+        TempSqliteFiles.TryDelete(DatabasePath);
     }
 
     Task IAsyncLifetime.DisposeAsync() => DisposeAsync().AsTask();

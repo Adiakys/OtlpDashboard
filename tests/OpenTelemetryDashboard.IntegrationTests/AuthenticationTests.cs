@@ -65,17 +65,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
         {
             await _factory.DisposeAsync();
         }
-        try
-        {
-            if (File.Exists(_dbPath))
-            {
-                File.Delete(_dbPath);
-            }
-        }
-        catch (IOException)
-        {
-            // Best effort.
-        }
+        TempSqliteFiles.TryDelete(_dbPath);
     }
 
     private HttpClient Client() => _factory!.CreateClient();

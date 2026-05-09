@@ -35,6 +35,7 @@ public static class SqliteTelemetryStoreExtensions
                 sqlite.MaxBatchSize(100);
             });
             options.ReplaceService<IModelCustomizer, SqliteJsonAttributeFunctionCustomizer>();
+            options.AddInterceptors(new SqlitePragmaInterceptor());
         }, poolSize);
     }
 
@@ -72,6 +73,7 @@ public static class SqliteTelemetryStoreExtensions
                 sqlite.MaxBatchSize(100);
             });
             options.ReplaceService<IModelCustomizer, SqliteJsonAttributeFunctionCustomizer>();
+            options.AddInterceptors(new SqlitePragmaInterceptor());
         }, poolSize);
     }
 }
