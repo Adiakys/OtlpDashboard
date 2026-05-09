@@ -475,6 +475,13 @@ The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
 
 ---
 
+## Acknowledgements
+
+Claude Code did a lot of the typing on this project. The direction, design,
+testing, and debugging stayed on me.
+
+---
+
 ## License
 
 [GPLv3](LICENSE).
