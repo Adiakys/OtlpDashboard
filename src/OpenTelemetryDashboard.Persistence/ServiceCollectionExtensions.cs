@@ -160,4 +160,21 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(builder);
         return builder.AddCheck<RetentionPostureHealthCheck>(name, failureStatus);
     }
+
+    /// <summary>
+    /// Registers a connectivity probe for <see cref="TelemetryDbContext"/>
+    /// (<c>SELECT 1</c> through the configured provider) so <c>/healthz</c>
+    /// fails when the database is unreachable. Without it, an orchestrator's
+    /// liveness probe stays green even when every read/write fails — the
+    /// pipeline's sink/retention checks only see internal pressure, not the
+    /// network/DB layer.
+    /// </summary>
+    public static IHealthChecksBuilder AddTelemetryDbConnectivityHealthCheck(
+        this IHealthChecksBuilder builder,
+        string name = "telemetry-db",
+        HealthStatus failureStatus = HealthStatus.Unhealthy)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.AddDbContextCheck<TelemetryDbContext>(name, failureStatus);
+    }
 }

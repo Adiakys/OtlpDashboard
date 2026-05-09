@@ -69,6 +69,7 @@ internal static class DashboardServicesExtensions
 
         builder.Services
             .AddHealthChecks()
+            .AddTelemetryDbConnectivityHealthCheck()
             .AddTelemetrySinkHealthCheck()
             .AddRetentionPostureHealthCheck()
             .AddCheck<AuthPostureHealthCheck>("auth-posture", HealthStatus.Degraded);
