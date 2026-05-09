@@ -98,7 +98,7 @@ export function generateTraceList(args: {
  */
 export function generateTraceDetail(traceIdHex: string): TraceDetailDto {
   const plan = planTrace(traceIdHex)
-  return { traceId: traceIdHex, spans: tracePlanToSpans(plan) }
+  return { traceId: traceIdHex, spans: tracePlanToSpans(plan), truncated: false }
 }
 
 /** Used by the logs generator to tail a window with scenario-correlated

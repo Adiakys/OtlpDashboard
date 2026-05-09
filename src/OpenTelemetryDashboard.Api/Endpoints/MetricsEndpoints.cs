@@ -61,10 +61,10 @@ internal static class MetricsEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var metricWindow = window is { } w ? new MetricWindow(w.From, w.To) : (MetricWindow?)null;
+        var metricWindow = new MetricWindow(window.Value.From, window.Value.To);
         var includeAttributes = parameters.IncludeAttributes ?? false;
         var series = await reader
-            .GetSeriesAsync(key.Value, metricWindow, includeAttributes, cancellationToken)
+            .GetSeriesAsync(key.Value, metricWindow, options.Value.MaxMetricPoints, includeAttributes, cancellationToken)
             .ConfigureAwait(false);
         if (series is null)
         {
@@ -78,6 +78,6 @@ internal static class MetricsEndpoints
         }
 
         var instrumentDto = series.Instrument.ToDto(series.Key, series.LifetimePointCount, series.ServiceName, series.ServiceInstanceId);
-        return TypedResults.Ok(new MetricSeriesDto(instrumentDto, points));
+        return TypedResults.Ok(new MetricSeriesDto(instrumentDto, points, series.Truncated));
     }
 }

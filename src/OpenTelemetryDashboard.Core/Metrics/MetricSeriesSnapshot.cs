@@ -20,7 +20,12 @@ public sealed record MetricSeriesSnapshot(
     /// distinctly in the metric detail header.</summary>
     string? ServiceInstanceId,
     int LifetimePointCount,
-    IReadOnlyList<DataPoint> Points);
+    IReadOnlyList<DataPoint> Points,
+    /// <summary>True when the reader hit the configured row cap and the
+    /// returned <see cref="Points"/> are an early prefix of the requested
+    /// window. The caller must surface this to the user — the chart is
+    /// incomplete, not empty.</summary>
+    bool Truncated);
 
 /// <summary>
 /// Half-open time window <c>[From, To)</c> used to slice a series.

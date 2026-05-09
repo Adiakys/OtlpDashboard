@@ -986,7 +986,9 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         await SeedGaugeAsync(client, metricName, anchorNano, value: 1024d);
         var key = await WaitForInstrumentAsync(metricName);
 
-        var url = $"/api/v1/metrics/points?resourceHash={key.ResourceHashHex}&scopeName={Uri.EscapeDataString(key.ScopeName)}&instrumentName={Uri.EscapeDataString(metricName)}&kind=Gauge";
+        var from = Uri.EscapeDataString(anchor.AddHours(-1).ToString("O"));
+        var to = Uri.EscapeDataString(anchor.AddHours(1).ToString("O"));
+        var url = $"/api/v1/metrics/points?resourceHash={key.ResourceHashHex}&scopeName={Uri.EscapeDataString(key.ScopeName)}&instrumentName={Uri.EscapeDataString(metricName)}&kind=Gauge&from={from}&to={to}";
         var response = await client.GetFromJsonAsync<MetricSeriesResponse>(new Uri(url, UriKind.Relative), JsonOptions);
 
         response.ShouldNotBeNull();
@@ -1002,7 +1004,9 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         using var client = _fixture.CreateClient();
         // Well-formed hex, but guaranteed to not match any existing resource.
         var bogusHash = string.Concat(Enumerable.Repeat("ab", 32));
-        var url = $"/api/v1/metrics/points?resourceHash={bogusHash}&scopeName=tests&instrumentName=nope&kind=Gauge";
+        var from = Uri.EscapeDataString(DateTimeOffset.UtcNow.AddHours(-1).ToString("O"));
+        var to = Uri.EscapeDataString(DateTimeOffset.UtcNow.ToString("O"));
+        var url = $"/api/v1/metrics/points?resourceHash={bogusHash}&scopeName=tests&instrumentName=nope&kind=Gauge&from={from}&to={to}";
 
         using var response = await client.GetAsync(new Uri(url, UriKind.Relative));
 
@@ -1081,6 +1085,107 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         filtered.ShouldNotBeNull();
         filtered!.Points.Count.ShouldBe(1);
         filtered.Points[0].Value.ShouldBe(2d);
+    }
+
+    [Fact]
+    public async Task GetSeriesAsync_Truncates_When_Points_Exceed_MaxPoints()
+    {
+        // We exercise the reader directly so the test stays self-contained
+        // (configuring the host's MaxMetricPoints from the shared fixture is
+        // the wrong knob; the cap is enforced by the reader).
+        using var client = _fixture.CreateClient();
+        var metricName = $"trunc.{Guid.NewGuid():N}";
+        var anchor = new DateTimeOffset(2030, 9, 1, 0, 0, 0, TimeSpan.Zero);
+
+        var request = new ExportMetricsServiceRequest();
+        var resourceMetrics = new ResourceMetrics
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "metrics-trunc" } },
+                },
+            },
+        };
+        var scope = new ScopeMetrics { Scope = new InstrumentationScope { Name = "tests" } };
+        var gauge = new Gauge();
+        for (var i = 0; i < 3; i++)
+        {
+            gauge.DataPoints.Add(new NumberDataPoint
+            {
+                TimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMinutes(i)),
+                AsDouble = i + 1,
+            });
+        }
+        scope.Metrics.Add(new Metric { Name = metricName, Gauge = gauge });
+        resourceMetrics.ScopeMetrics.Add(scope);
+        request.ResourceMetrics.Add(resourceMetrics);
+
+        using (var postResp = await PostProtobufAsync(client, "/v1/metrics", request))
+        {
+            postResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        var key = await WaitForInstrumentAsync(metricName, expectedPoints: 3);
+        var window = new MetricWindow(anchor.AddSeconds(-1), anchor.AddMinutes(10));
+
+        var reader = _fixture.Services.GetRequiredService<IMetricReader>();
+        var series = await reader.GetSeriesAsync(key, window, maxPoints: 2, includeAttributes: false, CancellationToken.None);
+
+        series.ShouldNotBeNull();
+        series!.Points.Count.ShouldBe(2);
+        series.Truncated.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetSpansInTraceAsync_Truncates_When_Spans_Exceed_MaxSpans()
+    {
+        using var client = _fixture.CreateClient();
+        var traceIdHex = Guid.NewGuid().ToString("N");
+        var anchor = new DateTimeOffset(2030, 9, 1, 0, 0, 0, TimeSpan.Zero);
+
+        var request = new ExportTraceServiceRequest();
+        var resourceSpans = new ResourceSpans
+        {
+            Resource = new OtlpResource
+            {
+                Attributes =
+                {
+                    new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "traces-trunc" } },
+                },
+            },
+        };
+        var scope = new ScopeSpans { Scope = new InstrumentationScope { Name = "tests" } };
+        var traceIdBytes = Convert.FromHexString(traceIdHex);
+        for (var i = 0; i < 4; i++)
+        {
+            scope.Spans.Add(new OtlpSpan
+            {
+                Name = $"span-{i}",
+                TraceId = ByteString.CopyFrom(traceIdBytes),
+                SpanId = ByteString.CopyFrom(Guid.NewGuid().ToByteArray()[..8]),
+                StartTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMilliseconds(i)),
+                EndTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(anchor.AddMilliseconds(i + 1)),
+                Kind = OtlpSpan.Types.SpanKind.Server,
+            });
+        }
+        resourceSpans.ScopeSpans.Add(scope);
+        request.ResourceSpans.Add(resourceSpans);
+
+        using (var postResp = await PostProtobufAsync(client, "/v1/traces", request))
+        {
+            postResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        await WaitForTraceAsync(traceIdHex, expectedSpans: 4);
+
+        var reader = _fixture.Services.GetRequiredService<ITraceReader>();
+        TraceId.TryParse(traceIdHex.AsSpan(), out var parsed).ShouldBeTrue();
+        var snapshot = await reader.GetSpansInTraceAsync(parsed, maxSpans: 2, CancellationToken.None);
+
+        snapshot.Spans.Count.ShouldBe(2);
+        snapshot.Truncated.ShouldBeTrue();
     }
 
     private static string Iso(DateTimeOffset value) =>
@@ -1667,6 +1772,25 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         throw new TimeoutException($"Instrument '{instrumentName}' did not reach {expectedPoints} point(s) in time.");
     }
 
+    private async Task WaitForTraceAsync(string traceIdHex, int expectedSpans, int timeoutSeconds = 10)
+    {
+        var reader = _fixture.Services.GetRequiredService<ITraceReader>();
+        TraceId.TryParse(traceIdHex.AsSpan(), out var parsed).ShouldBeTrue();
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(timeoutSeconds);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            // expectedSpans + 1 so the +1 sentinel slot the truncation logic
+            // relies on can be exercised without a deadline race.
+            var snapshot = await reader.GetSpansInTraceAsync(parsed, maxSpans: expectedSpans + 1, CancellationToken.None);
+            if (snapshot.Spans.Count >= expectedSpans)
+            {
+                return;
+            }
+            await Task.Delay(50);
+        }
+        throw new TimeoutException($"Trace '{traceIdHex}' did not reach {expectedSpans} span(s) in time.");
+    }
+
     private sealed record PagedLogsResponse(IReadOnlyList<LogItem> Items, string? NextCursor);
     private sealed record LogItem(DateTimeOffset Time, string? Body, string? SeverityText, string? ServiceName);
 
@@ -1678,7 +1802,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         string? ServiceName,
         IReadOnlyList<string>? OtherServiceNames = null);
 
-    private sealed record TraceDetailResponse(string TraceId, IReadOnlyList<SpanItem> Spans);
+    private sealed record TraceDetailResponse(string TraceId, IReadOnlyList<SpanItem> Spans, bool Truncated);
     private sealed record SpanItem(string SpanId, string Name, string? ServiceName);
 
     private sealed record TraceAggregationsResponse(IReadOnlyList<TraceAggregationItem> Items);
@@ -1702,6 +1826,6 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         string Temporality,
         int PointCount);
 
-    private sealed record MetricSeriesResponse(InstrumentItem Instrument, IReadOnlyList<MetricPointItem> Points);
+    private sealed record MetricSeriesResponse(InstrumentItem Instrument, IReadOnlyList<MetricPointItem> Points, bool Truncated);
     private sealed record MetricPointItem(DateTimeOffset Time, DateTimeOffset StartTime, double Value);
 }

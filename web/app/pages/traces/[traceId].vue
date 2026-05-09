@@ -129,8 +129,17 @@ const actions = computed<ActionDescriptor[]>(() => {
         icon="i-ph-prohibit"
         :title="t('traces.detail.noSpans')"
       />
+      <template v-else>
+      <UAlert
+        v-if="page.trace.value.truncated"
+        color="warning"
+        variant="subtle"
+        icon="i-ph-warning"
+        :title="t('traces.detail.truncatedTitle')"
+        :description="t('traces.detail.truncatedDescription', { count: page.trace.value.spans.length })"
+        class="mb-2"
+      />
       <AppResizableSplit
-        v-else
         name="trace-detail"
         :default-ratio="0.62"
       >
@@ -184,6 +193,7 @@ const actions = computed<ActionDescriptor[]>(() => {
           </div>
         </template>
       </AppResizableSplit>
+      </template>
     </template>
   </AppPage>
 </template>

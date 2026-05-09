@@ -71,6 +71,10 @@ export interface SpanDto {
 export interface TraceDetailDto {
   traceId: string
   spans: SpanDto[]
+  /** True when the trace contained more spans than the per-trace cap and
+   *  the returned `spans` array is an early prefix. The SPA must surface
+   *  this to the user — the trace is incomplete, not complete. */
+  truncated: boolean
 }
 
 /** One row of the Top-N aggregation. The server fills all four
@@ -238,6 +242,10 @@ export interface MetricPointDto {
 export interface MetricSeriesDto {
   instrument: InstrumentDto
   points: MetricPointDto[]
+  /** True when the server hit its per-series row cap before reaching the
+   *  end of the requested window. The caller should narrow the window
+   *  before refetching. */
+  truncated: boolean
 }
 
 /** Identifies one instrument — the four fields form the server-side lookup key. */

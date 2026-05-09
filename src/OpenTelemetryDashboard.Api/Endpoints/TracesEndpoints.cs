@@ -114,6 +114,7 @@ internal static class TracesEndpoints
     public static async Task<Results<Ok<TraceDetailDto>, NotFound, ValidationProblem>> GetTraceAsync(
         string traceId,
         ITraceReader reader,
+        IOptions<QueryApiOptions> options,
         CancellationToken cancellationToken)
     {
         if (!TraceId.TryParse(traceId.AsSpan(), out var parsed))
@@ -125,17 +126,21 @@ internal static class TracesEndpoints
                 });
         }
 
-        var spans = new List<SpanDto>();
-        await foreach (var row in reader.GetSpansInTraceAsync(parsed, cancellationToken).ConfigureAwait(false))
-        {
-            spans.Add(row.Span.ToDto(row.ServiceName));
-        }
+        var snapshot = await reader
+            .GetSpansInTraceAsync(parsed, options.Value.MaxSpansPerTrace, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (spans.Count == 0)
+        if (snapshot.Spans.Count == 0)
         {
             return TypedResults.NotFound();
         }
 
-        return TypedResults.Ok(new TraceDetailDto(parsed.ToString(), spans));
+        var spans = new List<SpanDto>(snapshot.Spans.Count);
+        foreach (var row in snapshot.Spans)
+        {
+            spans.Add(row.Span.ToDto(row.ServiceName));
+        }
+
+        return TypedResults.Ok(new TraceDetailDto(parsed.ToString(), spans, snapshot.Truncated));
     }
 }

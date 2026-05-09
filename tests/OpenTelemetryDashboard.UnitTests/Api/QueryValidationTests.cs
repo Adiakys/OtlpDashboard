@@ -150,4 +150,57 @@ public sealed class QueryValidationTests
         QueryValidation.TryBuildTraceQuery(parameters, Options, out var query, out _).ShouldBeTrue();
         query!.Limit.ShouldBe(50);
     }
+
+    [Fact]
+    public void MetricPoints_Missing_From_And_To_Are_Rejected()
+    {
+        // The four identity fields are valid; the missing window must surface
+        // as an error rather than silently letting the reader scan everything.
+        var parameters = new MetricPointsQueryParameters(
+            ResourceHash: "abcd",
+            ScopeName: "tests",
+            InstrumentName: "memory",
+            Kind: "Gauge",
+            From: null,
+            To: null);
+
+        QueryValidation.TryBuildMetricPointsQuery(parameters, Options, out var key, out var window, out var errors).ShouldBeFalse();
+        key.ShouldBeNull();
+        window.ShouldBeNull();
+        errors.ShouldNotBeNull();
+        errors.Keys.ShouldContain("from");
+        errors.Keys.ShouldContain("to");
+    }
+
+    [Fact]
+    public void MetricPoints_From_Without_To_Is_Rejected()
+    {
+        var parameters = new MetricPointsQueryParameters(
+            ResourceHash: "abcd",
+            ScopeName: "tests",
+            InstrumentName: "memory",
+            Kind: "Gauge",
+            From: T(0),
+            To: null);
+
+        QueryValidation.TryBuildMetricPointsQuery(parameters, Options, out _, out _, out var errors).ShouldBeFalse();
+        errors.ShouldNotBeNull();
+        errors.Keys.ShouldContain("to");
+    }
+
+    [Fact]
+    public void MetricPoints_Valid_Parameters_Succeed()
+    {
+        var parameters = new MetricPointsQueryParameters(
+            ResourceHash: "abcd",
+            ScopeName: "tests",
+            InstrumentName: "memory",
+            Kind: "Gauge",
+            From: T(0),
+            To: T(1));
+
+        QueryValidation.TryBuildMetricPointsQuery(parameters, Options, out var key, out var window, out _).ShouldBeTrue();
+        key.ShouldNotBeNull();
+        window.ShouldNotBeNull();
+    }
 }

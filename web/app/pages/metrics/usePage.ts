@@ -305,5 +305,8 @@ function mergeSeries(prev: MetricSeriesDto, next: MetricSeriesDto): MetricSeries
   }
   // The chart strategy will sort per-group on render — here we keep arrival
   // order so the live tail appends naturally.
-  return { instrument: next.instrument, points: merged }
+  // Truncated propagates from the latest tick: the merged buffer can hide
+  // the warning if we always took it from `prev`, while a fresh tick that
+  // re-fetched the same window with full coverage would clear it.
+  return { instrument: next.instrument, points: merged, truncated: next.truncated }
 }

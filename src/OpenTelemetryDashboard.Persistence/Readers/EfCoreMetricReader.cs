@@ -85,10 +85,13 @@ public sealed class EfCoreMetricReader : IMetricReader
 
     public async Task<MetricSeriesSnapshot?> GetSeriesAsync(
         InstrumentKey key,
-        MetricWindow? window,
+        MetricWindow window,
+        int maxPoints,
         bool includeAttributes,
         CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPoints);
+
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
         byte[] resourceHash;
@@ -136,16 +139,20 @@ public sealed class EfCoreMetricReader : IMetricReader
             .CountAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        // Window is mandatory: the API gates this in QueryValidation, the
+        // reader enforces it again so direct callers (tests, MCP) can't
+        // accidentally drag a lifetime's worth of points into memory.
+        var fromNano = UnixNanoTime.ToUnixNanoseconds(window.From);
+        var toNano = UnixNanoTime.ToUnixNanoseconds(window.To);
         var pointsQuery = context.MetricPoints
             .AsNoTracking()
-            .Where(p => p.InstrumentId == instrumentRow.Id);
+            .Where(p => p.InstrumentId == instrumentRow.Id)
+            .Where(p => p.TimeUnixNano >= fromNano && p.TimeUnixNano < toNano);
 
-        if (window is { } w)
-        {
-            var fromNano = UnixNanoTime.ToUnixNanoseconds(w.From);
-            var toNano = UnixNanoTime.ToUnixNanoseconds(w.To);
-            pointsQuery = pointsQuery.Where(p => p.TimeUnixNano >= fromNano && p.TimeUnixNano < toNano);
-        }
+        // Take(maxPoints + 1): a returned count of maxPoints + 1 means the
+        // window has at least one point we did not return — caller surfaces
+        // truncation through MetricSeriesSnapshot.Truncated.
+        var fetchLimit = maxPoints + 1;
 
         // Two projections so the JSON column is left out of the SELECT list
         // entirely when the caller doesn't want attributes — the EF value
@@ -157,6 +164,7 @@ public sealed class EfCoreMetricReader : IMetricReader
         {
             var rows = await pointsQuery
                 .OrderBy(p => p.TimeUnixNano)
+                .Take(fetchLimit)
                 .Select(p => new
                 {
                     p.TimeUnixNano,
@@ -183,6 +191,7 @@ public sealed class EfCoreMetricReader : IMetricReader
         {
             var rows = await pointsQuery
                 .OrderBy(p => p.TimeUnixNano)
+                .Take(fetchLimit)
                 .Select(p => new
                 {
                     p.TimeUnixNano,
@@ -205,6 +214,12 @@ public sealed class EfCoreMetricReader : IMetricReader
             }
         }
 
+        var truncated = points.Count > maxPoints;
+        if (truncated)
+        {
+            points.RemoveAt(points.Count - 1);
+        }
+
         var instrument = new Instrument
         {
             Name = key.InstrumentName,
@@ -215,7 +230,14 @@ public sealed class EfCoreMetricReader : IMetricReader
             Temporality = instrumentRow.Temporality,
         };
 
-        return new MetricSeriesSnapshot(key, instrument, instrumentRow.ServiceName, instrumentRow.ServiceInstanceId, lifetimeCount, points);
+        return new MetricSeriesSnapshot(
+            key,
+            instrument,
+            instrumentRow.ServiceName,
+            instrumentRow.ServiceInstanceId,
+            lifetimeCount,
+            points,
+            truncated);
     }
 
     public async Task<IReadOnlyCollection<string>> GetDistinctServiceNamesAsync(CancellationToken cancellationToken)

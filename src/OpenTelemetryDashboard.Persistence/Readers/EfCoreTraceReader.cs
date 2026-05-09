@@ -30,10 +30,13 @@ public sealed class EfCoreTraceReader : ITraceReader
             .ConfigureAwait(false);
     }
 
-    public async IAsyncEnumerable<(Span Span, string? ServiceName)> GetSpansInTraceAsync(
+    public async Task<TraceSpansSnapshot> GetSpansInTraceAsync(
         TraceId traceId,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        int maxSpans,
+        CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxSpans);
+
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
         // Load the spans first (with events/links), then stitch in service
@@ -41,18 +44,27 @@ public sealed class EfCoreTraceReader : ITraceReader
         // alongside a Resource join in one projection, so we keep the
         // collection includes separate. The second query is bounded by the
         // distinct resource hashes in this trace — typically a handful.
+        // We Take(maxSpans + 1) so a returned count of maxSpans + 1 means the
+        // trace has at least one span we did not return (truncated).
         var spans = await context.Spans
             .AsNoTracking()
             .Include(s => s.Events)
             .Include(s => s.Links)
             .Where(s => s.TraceId == traceId)
             .OrderBy(s => s.StartUnixNano)
+            .Take(maxSpans + 1)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
         if (spans.Count == 0)
         {
-            yield break;
+            return new TraceSpansSnapshot([], Truncated: false);
+        }
+
+        var truncated = spans.Count > maxSpans;
+        if (truncated)
+        {
+            spans.RemoveAt(spans.Count - 1);
         }
 
         var hashes = spans.Select(s => s.ResourceHash).Distinct(ByteArrayEqualityComparer.Instance).ToArray();
@@ -63,12 +75,15 @@ public sealed class EfCoreTraceReader : ITraceReader
             .ToDictionaryAsync(x => x.Hash, x => x.ServiceName, ByteArrayEqualityComparer.Instance, cancellationToken)
             .ConfigureAwait(false);
 
+        var rows = new List<TraceSpanRow>(spans.Count);
         foreach (var span in spans)
         {
             cancellationToken.ThrowIfCancellationRequested();
             serviceByHash.TryGetValue(span.ResourceHash, out var serviceName);
-            yield return (span, serviceName);
+            rows.Add(new TraceSpanRow(span, serviceName));
         }
+
+        return new TraceSpansSnapshot(rows, truncated);
     }
 
     public async IAsyncEnumerable<(TraceSummary Summary, long SecondaryKey, string? ServiceName)> QueryTraceSummariesAsync(

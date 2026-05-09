@@ -60,10 +60,11 @@ internal sealed class TraceTools
     }
 
     [McpServerTool(Name = "get_trace", ReadOnly = true, Idempotent = true)]
-    [Description("Return every span belonging to the given trace id, with each span's resource service.name. Errors if no spans match.")]
+    [Description("Return every span belonging to the given trace id, with each span's resource service.name. Errors if no spans match. Truncated=true means the trace exceeded the per-trace span cap and the spans returned are an early prefix.")]
     public static async Task<TraceDetailDto> GetTraceAsync(
         [Description("Trace id (32-character lowercase hex).")] string traceId,
         ITraceReader reader,
+        IOptions<QueryApiOptions> options,
         CancellationToken cancellationToken)
     {
         if (!TraceId.TryParse(traceId.AsSpan(), out var parsed))
@@ -71,18 +72,22 @@ internal sealed class TraceTools
             throw new McpException("traceId: must be a 32-character lowercase hex string.");
         }
 
-        var spans = new List<SpanDto>();
-        await foreach (var row in reader.GetSpansInTraceAsync(parsed, cancellationToken).ConfigureAwait(false))
-        {
-            spans.Add(row.Span.ToDto(row.ServiceName));
-        }
+        var snapshot = await reader
+            .GetSpansInTraceAsync(parsed, options.Value.MaxSpansPerTrace, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (spans.Count == 0)
+        if (snapshot.Spans.Count == 0)
         {
             throw new McpException($"No trace found with id '{parsed}'.");
         }
 
-        return new TraceDetailDto(parsed.ToString(), spans);
+        var spans = new List<SpanDto>(snapshot.Spans.Count);
+        foreach (var row in snapshot.Spans)
+        {
+            spans.Add(row.Span.ToDto(row.ServiceName));
+        }
+
+        return new TraceDetailDto(parsed.ToString(), spans, snapshot.Truncated);
     }
 
     [McpServerTool(Name = "list_trace_services", ReadOnly = true, Idempotent = true)]

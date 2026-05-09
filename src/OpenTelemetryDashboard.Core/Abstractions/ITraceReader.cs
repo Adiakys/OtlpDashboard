@@ -12,12 +12,16 @@ public interface ITraceReader
     Task<Span?> FindSpanAsync(TraceId traceId, SpanId spanId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Returns every span belonging to <paramref name="traceId"/>, paired with
-    /// the resource's <c>service.name</c> (null when unset). A single trace may
-    /// span multiple services; each span carries its own value.
+    /// Returns up to <paramref name="maxSpans"/> spans belonging to
+    /// <paramref name="traceId"/>, paired with the resource's
+    /// <c>service.name</c> (null when unset). A single trace may span
+    /// multiple services; each span carries its own value. The cap protects
+    /// against pathological traces (instrumentation loops, retry storms);
+    /// when it fires <c>Truncated</c> on the snapshot is true.
     /// </summary>
-    IAsyncEnumerable<(Span Span, string? ServiceName)> GetSpansInTraceAsync(
+    Task<TraceSpansSnapshot> GetSpansInTraceAsync(
         TraceId traceId,
+        int maxSpans,
         CancellationToken cancellationToken);
 
     /// <summary>

@@ -72,7 +72,8 @@ export function generateMetricSeries(
 
   return {
     instrument: spec.dto,
-    points
+    points,
+    truncated: false
   }
 }
 

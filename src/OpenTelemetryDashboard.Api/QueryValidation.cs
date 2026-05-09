@@ -446,7 +446,7 @@ internal static class QueryValidation
         MetricPointsQueryParameters parameters,
         QueryApiOptions options,
         [NotNullWhen(true)] out InstrumentKey? key,
-        out MetricPointsTimeWindow? window,
+        [NotNullWhen(true)] out MetricPointsTimeWindow? window,
         [NotNullWhen(false)] out Dictionary<string, string[]>? errors)
     {
         key = null;
@@ -483,20 +483,29 @@ internal static class QueryValidation
             problems["kind"] = [$"'kind' must be one of: {string.Join(", ", Enum.GetNames<InstrumentKind>())}."];
         }
 
+        if (parameters.From is null)
+        {
+            problems["from"] = ["The 'from' query parameter is required."];
+        }
+        if (parameters.To is null)
+        {
+            problems["to"] = ["The 'to' query parameter is required."];
+        }
+
         if (problems.Count > 0)
         {
             errors = problems;
             return false;
         }
 
-        if (parameters.From is not null || parameters.To is not null)
+        // Window is mandatory: without it the reader would scan every point
+        // ever recorded for this instrument, which can OOM the host on a
+        // long-running gauge / a deployment with retention disabled.
+        if (!TryValidateWindow(parameters.From, parameters.To, options, out var fromValue, out var toValue, out errors))
         {
-            if (!TryValidateWindow(parameters.From, parameters.To, options, out var fromValue, out var toValue, out errors))
-            {
-                return false;
-            }
-            window = new MetricPointsTimeWindow(fromValue, toValue);
+            return false;
         }
+        window = new MetricPointsTimeWindow(fromValue, toValue);
 
         key = new InstrumentKey(
             parameters.ResourceHash!,

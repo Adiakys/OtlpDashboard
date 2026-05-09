@@ -32,7 +32,8 @@ public interface IMetricReader
     /// </summary>
     Task<MetricSeriesSnapshot?> GetSeriesAsync(
         InstrumentKey key,
-        MetricWindow? window,
+        MetricWindow window,
+        int maxPoints,
         bool includeAttributes,
         CancellationToken cancellationToken);
 

@@ -382,7 +382,9 @@
       "links": "Links",
       "noSpans": "This trace has no spans.",
       "viewTree": "Tree",
-      "viewFlame": "Flame"
+      "viewFlame": "Flame",
+      "truncatedTitle": "Trace truncated",
+      "truncatedDescription": "This trace has more spans than the server's per-trace cap; showing the first {count}. Drill down using narrower filters to see the rest."
     }
   },
   "metrics": {

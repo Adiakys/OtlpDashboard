@@ -280,7 +280,12 @@ public sealed class OtlpHttpIngestionTests : IClassFixture<TestHostFixture>
         }
 
         matched.ShouldNotBeNull();
-        var series = await reader.GetSeriesAsync(matched!.Key, window: null, includeAttributes: false, CancellationToken.None);
+        // The fixture uses a synthetic TimeUnixNano = 10 (1970-01-01), so a
+        // window starting at the Unix epoch is the only one that covers it.
+        var window = new MetricWindow(
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UtcNow.AddHours(1));
+        var series = await reader.GetSeriesAsync(matched!.Key, window, maxPoints: 1_000, includeAttributes: false, CancellationToken.None);
         series.ShouldNotBeNull();
         series!.Points.Count.ShouldBe(1);
         series.Points[0].Value.ShouldBe(42.5);

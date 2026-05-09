@@ -383,7 +383,9 @@
       "links": "Link",
       "noSpans": "Questa trace non contiene span.",
       "viewTree": "Albero",
-      "viewFlame": "Flame"
+      "viewFlame": "Flame",
+      "truncatedTitle": "Trace troncata",
+      "truncatedDescription": "Questa trace contiene più span del limite per-trace del server; mostro i primi {count}. Restringi i filtri per vedere il resto."
     }
   },
   "metrics": {

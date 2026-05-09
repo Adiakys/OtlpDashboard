@@ -33,17 +33,17 @@ internal sealed class MetricTools
     }
 
     [McpServerTool(Name = "query_metric_points", ReadOnly = true, Idempotent = true)]
-    [Description("Return the points of a single instrument time-series identified by (resourceHash, scopeName, instrumentName, kind), optionally narrowed by a UTC window. Use list_metrics first to discover the four-field key.")]
+    [Description("Return the points of a single instrument time-series identified by (resourceHash, scopeName, instrumentName, kind) inside the required UTC window. Use list_metrics first to discover the four-field key. Truncated=true means the window contains more points than the configured cap and the points returned are an early prefix.")]
     public static async Task<MetricSeriesDto> QueryMetricPointsAsync(
         [Description("Resource hash (lowercase hex) — see list_metrics output.")] string resourceHash,
         [Description("Scope name (use empty string for the anonymous scope).")] string scopeName,
         [Description("Instrument name.")] string instrumentName,
         [Description("Instrument kind: Gauge, Sum, Histogram, ExponentialHistogram, Summary.")] string kind,
+        [Description("Window start (ISO-8601 UTC). Required.")] DateTimeOffset from,
+        [Description("Window end (ISO-8601 UTC). Required, > from.")] DateTimeOffset to,
         IMetricReader reader,
         IOptions<QueryApiOptions> options,
         CancellationToken cancellationToken,
-        [Description("Optional window start (ISO-8601 UTC).")] DateTimeOffset? from = null,
-        [Description("Optional window end (ISO-8601 UTC).")] DateTimeOffset? to = null,
         [Description("Set true to hydrate per-point attribute maps. Default false (cheaper for single-value widgets).")] bool? includeAttributes = null)
     {
         var parameters = new MetricPointsQueryParameters(resourceHash, scopeName, instrumentName, kind, from, to, includeAttributes);
@@ -52,10 +52,10 @@ internal sealed class MetricTools
             throw new McpException(LogTools.FormatValidationErrors(errors));
         }
 
-        var metricWindow = window is { } w ? new MetricWindow(w.From, w.To) : (MetricWindow?)null;
+        var metricWindow = new MetricWindow(window.Value.From, window.Value.To);
         var hydrate = includeAttributes ?? false;
         var series = await reader
-            .GetSeriesAsync(key.Value, metricWindow, hydrate, cancellationToken)
+            .GetSeriesAsync(key.Value, metricWindow, options.Value.MaxMetricPoints, hydrate, cancellationToken)
             .ConfigureAwait(false);
         if (series is null)
         {
@@ -69,7 +69,7 @@ internal sealed class MetricTools
         }
 
         var instrumentDto = series.Instrument.ToDto(series.Key, series.LifetimePointCount, series.ServiceName, series.ServiceInstanceId);
-        return new MetricSeriesDto(instrumentDto, points);
+        return new MetricSeriesDto(instrumentDto, points, series.Truncated);
     }
 
     [McpServerTool(Name = "list_metric_services", ReadOnly = true, Idempotent = true)]
