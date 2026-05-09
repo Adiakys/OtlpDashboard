@@ -411,7 +411,9 @@
       "incompatibleKind": "Tipo non compatibile con la selezione corrente",
       "count": "{n} strumenti",
       "expandAll": "Espandi tutto",
-      "collapseAll": "Comprimi tutto"
+      "collapseAll": "Comprimi tutto",
+      "exportJson": "Esporta JSON",
+      "exportJsonHint": "Scarica gli strumenti visibili come JSON"
     },
     "chart": {
       "title": "Grafico",

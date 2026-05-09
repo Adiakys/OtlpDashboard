@@ -135,6 +135,21 @@ export function countLeaves(nodes: MetricTreeNode[]): number {
   return n
 }
 
+/**
+ * Flatten the (possibly filtered) tree to the underlying instrument
+ * list — used by the JSON export so the file mirrors what the user
+ * sees in the panel after the search filter is applied.
+ */
+export function collectInstruments(nodes: MetricTreeNode[]): InstrumentDto[] {
+  const out: InstrumentDto[] = []
+  function walk(node: MetricTreeNode) {
+    if (node.kind === 'leaf') out.push(node.instrument)
+    else for (const c of node.children) walk(c)
+  }
+  for (const n of nodes) walk(n)
+  return out
+}
+
 function splitScope(scope: string): string[] {
   if (!scope) return [ROOT_BUCKET]
   const parts = scope.split('.').map(s => s.trim()).filter(s => s.length > 0)

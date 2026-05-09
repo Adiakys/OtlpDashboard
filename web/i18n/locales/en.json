@@ -410,7 +410,9 @@
       "incompatibleKind": "Incompatible kind for current selection",
       "count": "{n} instruments",
       "expandAll": "Expand all",
-      "collapseAll": "Collapse all"
+      "collapseAll": "Collapse all",
+      "exportJson": "Export JSON",
+      "exportJsonHint": "Download the visible instruments as JSON"
     },
     "chart": {
       "title": "Chart",
