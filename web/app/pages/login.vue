@@ -78,7 +78,7 @@ async function submit() {
         </span>
         <div class="flex flex-col gap-1.5 min-w-0">
           <span class="text-overline" style="color: var(--color-graphite-500);">
-            {{ t('auth.overline') }}<template v-if="$appVersion"> · v{{ $appVersion }}</template>
+            {{ t('auth.overline') }}
           </span>
           <h1 class="text-display text-default truncate">{{ $appName }}</h1>
         </div>
