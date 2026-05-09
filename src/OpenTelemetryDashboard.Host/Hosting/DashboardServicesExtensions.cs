@@ -1,6 +1,7 @@
 using OpenTelemetryDashboard.Api;
 using OpenTelemetryDashboard.Core;
 using OpenTelemetryDashboard.Dashboards;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetryDashboard.Host.Authentication;
 using OpenTelemetryDashboard.Host.Configuration;
 using OpenTelemetryDashboard.Ingestion;
@@ -26,7 +27,7 @@ internal static class DashboardServicesExtensions
 
         builder.Services.AddQueryApi(builder.Configuration);
         builder.Services.AddDashboards(builder.Configuration);
-        builder.Services.AddDashboardAuth(builder.Configuration);
+        builder.Services.AddDashboardAuth(builder.Configuration, builder.Environment);
 
         // Compose the full DashboardInfoDto once at boot. The endpoint resolves
         // it from DI and returns either the full record (authenticated) or a
@@ -43,7 +44,8 @@ internal static class DashboardServicesExtensions
 
         builder.Services
             .AddHealthChecks()
-            .AddTelemetrySinkHealthCheck();
+            .AddTelemetrySinkHealthCheck()
+            .AddCheck<AuthPostureHealthCheck>("auth-posture", HealthStatus.Degraded);
 
         return builder;
     }
