@@ -31,9 +31,12 @@ public static class DashboardsEndpointRouteBuilderExtensions
 
         group.MapGet(string.Empty, DashboardEndpoints.GetAllDashboardAsync).WithName("GetAllDashboards");
         group.MapGet("/{id}", DashboardEndpoints.GetDashboardByIdAsync).WithName("GetDashboardById");
-        group.MapPost(string.Empty, DashboardEndpoints.PostDashboardAsync).WithName("AddDashboard");
-        group.MapPut("/{id}", DashboardEndpoints.PutDashboardAsync).WithName("UpdateDashboard");
-        group.MapDelete("/{id}", DashboardEndpoints.DeleteDashboardAsync).WithName("DeleteDashboard");
+        group.MapPost(string.Empty, DashboardEndpoints.PostDashboardAsync).WithName("AddDashboard")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
+        group.MapPut("/{id}", DashboardEndpoints.PutDashboardAsync).WithName("UpdateDashboard")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
+        group.MapDelete("/{id}", DashboardEndpoints.DeleteDashboardAsync).WithName("DeleteDashboard")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
 
         return group;
     }
@@ -63,11 +66,14 @@ public static class DashboardsEndpointRouteBuilderExtensions
         group.MapGet("/definitions/{id}", WidgetEndpoints.GetDefinitionByIdAsync)
             .WithName("GetWidgetDefinitionById");
         group.MapPost("/definitions", WidgetEndpoints.PostDefinitionAsync)
-            .WithName("AddWidgetDefinition");
+            .WithName("AddWidgetDefinition")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
         group.MapPut("/definitions/{id}", WidgetEndpoints.PutDefinitionAsync)
-            .WithName("UpdateWidgetDefinition");
+            .WithName("UpdateWidgetDefinition")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
         group.MapDelete("/definitions/{id}", WidgetEndpoints.DeleteDefinitionAsync)
-            .WithName("DeleteWidgetDefinition");
+            .WithName("DeleteWidgetDefinition")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
 
         group.MapGet("/libraries", WidgetLibraryEndpoints.GetLibrariesAsync)
             .WithName("GetWidgetLibraries");
@@ -92,10 +98,17 @@ public static class DashboardsEndpointRouteBuilderExtensions
         var group = endpoints.MapGroup("/api/v1/packs").WithTags("Packs");
 
         group.MapGet(string.Empty, PackEndpoints.GetPacksAsync).WithName("GetPacks");
-        group.MapPost("/reload", PackEndpoints.ReloadPacksAsync).WithName("ReloadPacks");
-        group.MapPost("/install", PackEndpoints.InstallPackAsync).WithName("InstallPack");
-        group.MapPost("/{id}/update", PackEndpoints.UpdatePackAsync).WithName("UpdatePack");
-        group.MapDelete("/{id}", PackEndpoints.UninstallPackAsync).WithName("UninstallPack");
+        // reload/install/update share the pack-install bucket: each one touches
+        // the filesystem (and install/update touches the network too), so we
+        // serialize them globally rather than letting them race.
+        group.MapPost("/reload", PackEndpoints.ReloadPacksAsync).WithName("ReloadPacks")
+            .RequireRateLimiting(DashboardRateLimitPolicies.PackInstall);
+        group.MapPost("/install", PackEndpoints.InstallPackAsync).WithName("InstallPack")
+            .RequireRateLimiting(DashboardRateLimitPolicies.PackInstall);
+        group.MapPost("/{id}/update", PackEndpoints.UpdatePackAsync).WithName("UpdatePack")
+            .RequireRateLimiting(DashboardRateLimitPolicies.PackInstall);
+        group.MapDelete("/{id}", PackEndpoints.UninstallPackAsync).WithName("UninstallPack")
+            .RequireRateLimiting(DashboardRateLimitPolicies.Mutations);
 
         // Pack assets (currently icons only) are public on purpose: the
         // SVG / PNG / WebP files are referenced from <image> tags inside

@@ -30,17 +30,6 @@ public sealed class HttpServerOptions
 
     [Range(1_024, long.MaxValue)]
     public long MaxRequestBodySize { get; set; } = 16 * 1024 * 1024;
-
-    public HttpRateLimitOptions RateLimit { get; set; } = new();
-}
-
-public sealed class HttpRateLimitOptions
-{
-    [Range(1, 1_000_000)]
-    public int PermitsPerSecond { get; set; } = 200;
-
-    [Range(0, 1_000_000)]
-    public int Burst { get; set; } = 500;
 }
 
 public static class IngestionServerOptionsExtensions
