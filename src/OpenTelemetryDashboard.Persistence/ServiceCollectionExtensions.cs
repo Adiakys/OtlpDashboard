@@ -9,6 +9,7 @@ using OpenTelemetryDashboard.Dashboards.Storage;
 using OpenTelemetryDashboard.Persistence.Demo;
 using OpenTelemetryDashboard.Persistence.HealthChecks;
 using OpenTelemetryDashboard.Persistence.Ingestion;
+using OpenTelemetryDashboard.Persistence.Locking;
 using OpenTelemetryDashboard.Persistence.Readers;
 using OpenTelemetryDashboard.Persistence.Retention;
 using OpenTelemetryDashboard.Persistence.Sinks;
@@ -64,6 +65,10 @@ public static class ServiceCollectionExtensions
         // the TelemetrySinkHealthCheck. Single shared instance across signals.
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<TelemetrySinkMetrics>();
+
+        // No-op default; provider-specific extensions (Postgres / SqlServer)
+        // override this with a real distributed lock.
+        services.TryAddSingleton<IMigrationLock, NoOpMigrationLock>();
 
         // Service-map dependency-synthesis keys. Bound here (not in
         // the host) because the service-map reader is the only

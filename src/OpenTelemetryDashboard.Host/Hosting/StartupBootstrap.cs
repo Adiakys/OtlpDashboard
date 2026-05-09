@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenTelemetryDashboard.Dashboards.Seeding;
 using OpenTelemetryDashboard.Persistence;
 using OpenTelemetryDashboard.Persistence.Demo;
+using OpenTelemetryDashboard.Persistence.Locking;
 
 namespace OpenTelemetryDashboard.Host.Hosting;
 
@@ -23,13 +24,21 @@ internal static class StartupBootstrap
 
     private static async Task ApplyMigrationsAsync(IServiceProvider services)
     {
-        // SQLite provider's migrator is idempotent and we run a single writer
-        // process, so the cost on an up-to-date schema is a single metadata
-        // query. Production containers rely on this to create the schema on
-        // first run.
-        var factory = services.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
-        await using var context = await factory.CreateDbContextAsync();
-        await context.Database.MigrateAsync();
+        // Distributed lock around MigrateAsync. On a rolling deploy multiple
+        // replicas race to apply the same DDL; without coordination two
+        // pods can deadlock or partially apply. The lock implementation is
+        // provider-specific (Postgres advisory lock, SQL Server sp_getapplock,
+        // SQLite no-op) — see IMigrationLock. Holders dispose to release.
+        // SQLite migrator is idempotent and we run a single writer process,
+        // so the cost on an up-to-date schema is a single metadata query;
+        // the lock is essentially free in that case.
+        var migrationLock = services.GetRequiredService<IMigrationLock>();
+        await using (await migrationLock.AcquireAsync(CancellationToken.None).ConfigureAwait(false))
+        {
+            var factory = services.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
+            await using var context = await factory.CreateDbContextAsync();
+            await context.Database.MigrateAsync();
+        }
     }
 
     private static async Task SeedBuiltinDashboardsAsync(IServiceProvider services)

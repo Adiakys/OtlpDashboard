@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetryDashboard.Persistence.Locking;
 
 namespace OpenTelemetryDashboard.Persistence.PostgreSql;
 
@@ -18,6 +19,7 @@ public static class PostgreSqlTelemetryStoreExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
+        services.AddSingleton<IMigrationLock>(_ => new PostgresMigrationLock(connectionString));
         return services.AddTelemetryPersistenceCore(options =>
         {
             options.UseNpgsql(connectionString, npgsql =>
@@ -42,6 +44,7 @@ public static class PostgreSqlTelemetryStoreExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(connectionStringFactory);
 
+        services.AddSingleton<IMigrationLock>(sp => new PostgresMigrationLock(connectionStringFactory(sp)));
         return services.AddTelemetryPersistenceCore((sp, options) =>
         {
             var connectionString = connectionStringFactory(sp);
