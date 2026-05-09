@@ -48,4 +48,8 @@
     <ProjectReference Include="..\OpenTelemetryDashboard.Core\OpenTelemetryDashboard.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenTelemetryDashboard.UnitTests" />
+  </ItemGroup>
+
 </Project>

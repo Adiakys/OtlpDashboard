@@ -138,7 +138,16 @@ public sealed class OtlpTraceTranslator
             }
         }
 
-        var span = new Core.Domain.Span
+        // Hard caps on events/links protect against pathological spans
+        // (instrumentation loops, retry storms): every entry above the
+        // limit is counted into DroppedEventsCount / DroppedLinksCount on
+        // top of what the producer itself reported as dropped, so the
+        // ingest counter survives the truncation. We build the lists
+        // first because Span exposes the counts as init-only.
+        var (events, droppedEvents) = TranslateEvents(protoSpan);
+        var (links, droppedLinks) = TranslateLinks(protoSpan);
+
+        return new Core.Domain.Span
         {
             TraceId = traceId,
             SpanId = spanId,
@@ -156,14 +165,26 @@ public sealed class OtlpTraceTranslator
             ScopeVersion = scopeVersion,
             Flags = protoSpan.Flags,
             Attributes = OtlpConversion.ToAttributeMap(protoSpan.Attributes),
+            Events = events,
+            Links = links,
             DroppedAttributesCount = protoSpan.DroppedAttributesCount,
-            DroppedEventsCount = protoSpan.DroppedEventsCount,
-            DroppedLinksCount = protoSpan.DroppedLinksCount,
+            DroppedEventsCount = protoSpan.DroppedEventsCount + droppedEvents,
+            DroppedLinksCount = protoSpan.DroppedLinksCount + droppedLinks,
         };
+    }
 
+    private static (List<SpanEvent> Events, uint Dropped) TranslateEvents(OpenTelemetry.Proto.Trace.V1.Span protoSpan)
+    {
+        var events = new List<SpanEvent>(Math.Min(protoSpan.Events.Count, OtlpTranslationLimits.MaxEventsPerSpan));
+        var dropped = 0u;
         foreach (var protoEvent in protoSpan.Events)
         {
-            span.Events.Add(new SpanEvent
+            if (events.Count >= OtlpTranslationLimits.MaxEventsPerSpan)
+            {
+                dropped++;
+                continue;
+            }
+            events.Add(new SpanEvent
             {
                 Name = protoEvent.Name,
                 TimeUnixNano = (long)protoEvent.TimeUnixNano,
@@ -171,7 +192,13 @@ public sealed class OtlpTraceTranslator
                 DroppedAttributesCount = protoEvent.DroppedAttributesCount,
             });
         }
+        return (events, dropped);
+    }
 
+    private static (List<SpanLink> Links, uint Dropped) TranslateLinks(OpenTelemetry.Proto.Trace.V1.Span protoSpan)
+    {
+        var links = new List<SpanLink>(Math.Min(protoSpan.Links.Count, OtlpTranslationLimits.MaxLinksPerSpan));
+        var dropped = 0u;
         foreach (var protoLink in protoSpan.Links)
         {
             if (protoLink.TraceId.Length != TraceId.SizeInBytes ||
@@ -179,8 +206,12 @@ public sealed class OtlpTraceTranslator
             {
                 continue;
             }
-
-            span.Links.Add(new SpanLink
+            if (links.Count >= OtlpTranslationLimits.MaxLinksPerSpan)
+            {
+                dropped++;
+                continue;
+            }
+            links.Add(new SpanLink
             {
                 TraceId = TraceId.FromBytes(protoLink.TraceId.Span),
                 SpanId = SpanId.FromBytes(protoLink.SpanId.Span),
@@ -189,8 +220,7 @@ public sealed class OtlpTraceTranslator
                 DroppedAttributesCount = protoLink.DroppedAttributesCount,
             });
         }
-
-        return span;
+        return (links, dropped);
     }
 }
 

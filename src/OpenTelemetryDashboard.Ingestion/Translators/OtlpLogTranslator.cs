@@ -135,13 +135,24 @@ public sealed class OtlpLogTranslator
     private static string? ExtractBody(ProtoLogRecord protoLog)
     {
         var obj = OtlpConversion.ToObject(protoLog.Body);
-        return obj switch
+        var serialised = obj switch
         {
             null => null,
             string s => s,
             bool b => b ? "true" : "false",
             _ => System.Text.Json.JsonSerializer.Serialize(obj),
         };
+        if (serialised is { Length: > OtlpTranslationLimits.MaxLogBodyLength })
+        {
+            // Storage column has its own length cap, but truncating in
+            // the translator (a) bounds the in-memory representation
+            // before the EF batch buffers it and (b) leaves the trailing
+            // suffix visible so an SRE notices the cut.
+            return string.Concat(
+                serialised.AsSpan(0, OtlpTranslationLimits.MaxLogBodyLength),
+                OtlpTranslationLimits.TruncationSuffix);
+        }
+        return serialised;
     }
 }
 
