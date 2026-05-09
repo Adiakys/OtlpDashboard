@@ -134,6 +134,31 @@ public sealed class PackEndpointsTests : IClassFixture<PackEndpointsTests.PackTe
     }
 
     [Fact]
+    public async Task Get_Pack_Asset_Sanitises_Hostile_Svg()
+    {
+        // End-to-end: a pack ships a hostile SVG; the asset endpoint must
+        // not pass the active-content shapes through to the browser. The
+        // CSP/nosniff/sandbox headers are the primary defence; the
+        // sanitiser is the second line that also covers clients that
+        // ignore CSP.
+        using var client = _host.CreateAuthenticatedClient();
+        using var resp = await client.GetAsync(
+            new Uri("/api/v1/packs/team/assets/icons/postgres/evil.svg", UriKind.Relative));
+
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await resp.Content.ReadAsStringAsync();
+
+        body.ShouldNotContain("<script", Case.Insensitive);
+        body.ShouldNotContain("foreignObject", Case.Insensitive);
+        body.ShouldNotContain("javascript:", Case.Insensitive);
+        body.ShouldNotContain("onload", Case.Insensitive);
+        body.ShouldNotContain("<animate", Case.Insensitive);
+        // Same-document anchor href must survive — confirms we strip
+        // schemes, not all hrefs.
+        body.ShouldContain("#legitimate");
+    }
+
+    [Fact]
     public async Task Get_Pack_Asset_Sets_Strict_Csp_And_Nosniff()
     {
         // Anonymous endpoint serving SVG/PNG/WebP: even with the extension
@@ -447,6 +472,24 @@ public sealed class PackEndpointsTests : IClassFixture<PackEndpointsTests.PackTe
                 """);
             File.WriteAllText(Path.Combine(iconDir, "postgres.svg"),
                 "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 16\"></svg>");
+
+            // Hostile SVG used by the sanitisation tests. The asset endpoint
+            // serves any file under the pack root that matches the extension
+            // whitelist, so this file is reachable via /assets/icons/postgres/evil.svg
+            // even though it isn't declared in pack.json. Carries every
+            // active-content shape the sanitiser is expected to strip.
+            File.WriteAllText(Path.Combine(iconDir, "evil.svg"),
+                """
+                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                     viewBox="0 0 16 16" onload="alert(1)">
+                  <script>alert('xss')</script>
+                  <foreignObject><iframe src="javascript:alert(2)"/></foreignObject>
+                  <a href="javascript:alert(3)"><circle cx="8" cy="8" r="4"/></a>
+                  <use xlink:href="javascript:alert(4)"/>
+                  <animate attributeName="href" to="javascript:alert(5)"/>
+                  <a href="#legitimate"><circle cx="2" cy="2" r="1"/></a>
+                </svg>
+                """);
 
             builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((_, config) =>

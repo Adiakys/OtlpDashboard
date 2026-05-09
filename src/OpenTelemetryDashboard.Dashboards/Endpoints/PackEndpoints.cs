@@ -255,6 +255,18 @@ internal static class PackEndpoints
             return TypedResults.NotFound();
         }
 
+        // Defence-in-depth on top of the CSP override below: parse the SVG
+        // server-side and drop active content (<script>, <foreignObject>,
+        // SMIL animations, on* event handlers, javascript: URIs in href).
+        // A malformed SVG returns 404 rather than a passthrough — the asset
+        // surface refuses to serve bytes it can't audit.
+        if (string.Equals(ext, ".svg", StringComparison.OrdinalIgnoreCase))
+        {
+            var sanitized = SvgSanitizer.TrySanitize(bytes);
+            if (sanitized is null) return TypedResults.NotFound();
+            bytes = sanitized;
+        }
+
         var contentType = AssetContentTypes.TryGetValue(ext, out var ct)
             ? ct
             : "application/octet-stream";
@@ -267,15 +279,39 @@ internal static class PackEndpoints
 
         // Asset hardening. The endpoint is anonymous and serves SVG/PNG/WebP
         // from disk; even with the extension whitelist + traversal/symlink
-        // guards, an SVG containing inline <script> would otherwise execute
-        // JS in this origin. Override the SPA-shell CSP with the strictest
-        // policy compatible with rendering an image, and force the browser
-        // to honour the declared Content-Type instead of MIME-sniffing.
+        // guards plus SvgSanitizer, an SVG with inline content would
+        // otherwise have multiple chances to execute JS in this origin.
+        // Override the SPA-shell CSP with the strictest policy compatible
+        // with rendering an image, force the browser to honour the declared
+        // Content-Type instead of MIME-sniffing, and pin Content-Disposition
+        // to inline so a download flow can't get a quirks-mode interpretation.
         httpContext.Response.Headers["Content-Security-Policy"] =
             "default-src 'none'; style-src 'unsafe-inline'; sandbox;";
         httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        httpContext.Response.Headers["Content-Disposition"] =
+            $"inline; filename=\"{SafeContentDispositionFilename(rawPath)}\"";
 
         return TypedResults.File(bytes, contentType: contentType);
+    }
+
+    /// <summary>
+    /// Strips path separators and quotes from the raw asset path so the
+    /// value is safe inside a <c>Content-Disposition</c> filename token.
+    /// The path has already been validated against traversal/whitelist
+    /// rules above, but the header sits in the response without any
+    /// further escaping — better to keep it simple.
+    /// </summary>
+    private static string SafeContentDispositionFilename(string rawPath)
+    {
+        var name = Path.GetFileName(rawPath);
+        if (string.IsNullOrEmpty(name)) return "asset";
+        var buf = new char[name.Length];
+        for (var i = 0; i < name.Length; i++)
+        {
+            var c = name[i];
+            buf[i] = c is '"' or '\\' or '/' or '\r' or '\n' || c < 0x20 ? '_' : c;
+        }
+        return new string(buf);
     }
 
     public static async Task<Results<NoContent, NotFound, ValidationProblem, BadRequest<ProblemDetails>>>
