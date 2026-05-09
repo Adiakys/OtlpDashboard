@@ -32,14 +32,31 @@ function isAuthenticated(): boolean {
 }
 
 function safeNext(value: unknown): string {
-  return typeof value === 'string' && value.startsWith('/') ? value : '/dashboard'
+  if (typeof value !== 'string' || !value.startsWith('/')) return '/dashboard'
+  // Drop next-targets that point back at /login — that's how the
+  // recursive "/login?next=/login/?next=/login/..." loop is born when a
+  // refresh on /login fires the middleware before the auth flag reads.
+  if (normalizePath(value.split('?')[0] ?? '') === '/login') return '/dashboard'
+  return value
+}
+
+/** Strip trailing slash so `/login/` (Nuxt static gen) and `/login`
+ *  compare equal. Without this, refreshing on the static-built /login
+ *  page falls through to the `!authed` branch and re-redirects to
+ *  /login with a `next` param that itself contains `/login/`. */
+function normalizePath(path: string): string {
+  if (path.length > 1 && path.endsWith('/')) {
+    return path.slice(0, -1)
+  }
+  return path
 }
 
 export default defineNuxtRouteMiddleware((to) => {
   if (!import.meta.client) return
   const authed = isAuthenticated()
+  const path = normalizePath(to.path)
 
-  if (to.path === '/login') {
+  if (path === '/login') {
     // Already authenticated users skip the login form and land where
     // they were originally headed (or the dashboard).
     if (authed) {
@@ -48,7 +65,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  if (to.path === '/') {
+  if (path === '/') {
     return navigateTo(authed ? '/dashboard' : '/login', { replace: true })
   }
 

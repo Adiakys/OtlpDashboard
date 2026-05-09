@@ -12,9 +12,21 @@ export interface DemoFetcherHooks {
 /**
  * Endpoints that don't require auth in the real server. Mirrored here so
  * the demo behaves the same — `/v1/info` serves the app name and is
- * polled by the login page itself, before there's a token.
+ * polled by the login page itself, before there's a session.
  */
 const PUBLIC_PATHS = new Set<string>(['/v1/info'])
+
+/**
+ * sessionStorage key the demo uses to remember "this tab is logged in".
+ * Mirrors the role of the real backend's HttpOnly auth cookie — JS would
+ * never see that cookie, but in a static-only demo we have no server side
+ * to set one, so this is the closest practical analogue. Distinct from
+ * <c>AuthStore.StorageKey</c> on purpose: AuthStore tracks the SPA's view
+ * ("did I log in?"); this key is the demo's session-of-truth ("does the
+ * mock server consider this caller authenticated?"). Two keys → two
+ * concerns, like cookie vs. JS state in prod.
+ */
+const DEMO_SESSION_KEY = 'dashboard.demo.session'
 
 /**
  * Build a function that conforms to the call signature of Nuxt's
@@ -39,14 +51,28 @@ export function createDemoFetcher(
     // network would be ~100ms anyway, this avoids "instant" jank.
     await delay(60)
 
-    // Auth gate — every endpoint outside `PUBLIC_PATHS` needs a bearer
-    // token. The Authorization header is set by HttpClientService when a
-    // token exists; we inspect it directly rather than reading the auth
-    // store so the contract stays "what the wire shows, the demo
-    // validates".
-    const auth = options?.headers?.['Authorization'] ?? options?.headers?.['authorization']
-    const token = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7) : ''
-    const authenticated = token.length > 0
+    // /v1/auth/login and /v1/auth/logout are intercepted before the auth
+    // gate — login itself can't be gated, and logout from a stale tab
+    // should always succeed. Any non-empty password is accepted: the demo
+    // has no real users, the form is just there to mirror the real login
+    // UX. Mirrors the real backend's `POST /api/v1/auth/login`, which sets
+    // an HttpOnly cookie; here we set a sessionStorage marker instead.
+    if (method === 'POST' && path === '/v1/auth/login') {
+      const token = (body as { token?: unknown } | null)?.token
+      if (typeof token !== 'string' || token.length === 0) {
+        throw demoError(400, 'Token is required')
+      }
+      writeSession(true)
+      return undefined
+    }
+    if (method === 'POST' && path === '/v1/auth/logout') {
+      writeSession(false)
+      return undefined
+    }
+
+    // Auth gate — every other endpoint outside `PUBLIC_PATHS` needs the
+    // demo session marker (set by /v1/auth/login above).
+    const authenticated = readSession()
 
     if (!PUBLIC_PATHS.has(path) && !authenticated) {
       const err = demoError(401, 'Authentication required')
@@ -102,5 +128,28 @@ function stripBaseUrl(request: string, baseURL: string | undefined): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function readSession(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.sessionStorage.getItem(DEMO_SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeSession(authenticated: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (authenticated) {
+      window.sessionStorage.setItem(DEMO_SESSION_KEY, '1')
+    } else {
+      window.sessionStorage.removeItem(DEMO_SESSION_KEY)
+    }
+  } catch {
+    // Safari private mode etc. — fall back to in-memory only; caller
+    // ends up logged-out on refresh, acceptable degraded UX for the demo.
+  }
 }
 

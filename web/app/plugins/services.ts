@@ -51,7 +51,11 @@ export default defineNuxtPlugin(async () => {
     if (response?.status !== 401) return
     if (!import.meta.client) return
     const current = router.currentRoute.value
-    if (current.path === '/login') return
+    // Match both `/login` and `/login/` — Nuxt static gen serves the
+    // login page from `/login/index.html`, so the runtime path keeps the
+    // trailing slash and a strict equality would miss it.
+    const path = current.path
+    if (path === '/login' || path === '/login/') return
     authStore.clear()
     navigateTo({ path: '/login', query: { next: current.fullPath } }, { replace: true })
   }

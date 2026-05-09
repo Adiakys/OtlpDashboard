@@ -10,10 +10,12 @@
  * `new LocalStorageStorage('oteldash-demo:')` — no other site changes.
  *
  * Auth: the demo *keeps* the login flow intact. The demo fetcher
- * inspects the Authorization header and returns 401 when no token is
- * present, exactly like the real backend. Any non-empty password works
- * — it's stored as a bearer token and accepted by the fetcher on
- * subsequent calls.
+ * intercepts <c>POST /v1/auth/login</c> / <c>...auth/logout</c> and
+ * tracks the session via a <c>sessionStorage</c> marker — the closest
+ * static-build analogue to the real backend's HttpOnly cookie. Any
+ * non-empty password is accepted; the form is purely for UX parity with
+ * the real login. Once authenticated the marker survives reloads of
+ * the same tab; closing the tab logs out.
  */
 import { createDemoFetcher, type DemoFetcherHooks } from './fetcher'
 import { InMemoryStorage } from './storage/InMemoryStorage'

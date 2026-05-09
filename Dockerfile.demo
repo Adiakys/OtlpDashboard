@@ -26,8 +26,12 @@ ENV CI=1
 ARG NUXT_APP_BASE_URL=/
 
 COPY web/package.json web/pnpm-lock.yaml ./web/
+# `corepack prepare` pins the same pnpm version package.json declares —
+# without it newer corepack pulls pnpm 11.x and pnpm 11+ refuses to
+# downshift to the project's 10.33.0 under corepack, breaking the build.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     corepack enable && \
+    corepack prepare pnpm@10.33.0 --activate && \
     pnpm -C web install --prefer-frozen-lockfile
 
 # Copy what the demo build actually reads:

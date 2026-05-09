@@ -120,13 +120,13 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     })
     const nodeMap = new Map<string, { service: string; requestCount: number; errorCount: number }>()
     const edgeMap = new Map<string, { fromService: string; toService: string; callCount: number; errorCount: number }>()
-    // The demo data has no truly synthesised dependencies: postgresql /
-    // redis are emitted as real OTel services with their own resources
-    // (not inferred from `peer.service` on a host's Client span). So we
-    // classify every node as `service` — the drill-down `service=name`
-    // filter works for all of them, matching how a user would expect
-    // the demo to behave. The real backend retains the synthesised-
-    // dependency distinction in <see cref="EfCoreServiceMapReader"/>.
+    // Postgres and Redis are emitted in the demo as their own OTel
+    // services for trace browsing convenience, but on the topology map
+    // they're really backing dependencies of sample-server — they don't
+    // expose a Server-kind ingress. Classify them as `dependency` so the
+    // map renders them with the visual treatment the real backend uses
+    // for synthesised peer.service nodes.
+    const DEPENDENCY_SERVICES = new Set(['postgresql', 'redis'])
     for (const summary of list.items) {
       const t = summary as { traceId: string; rootStatusCode: string; serviceName: string | null }
       const detail = generateTraceDetail(t.traceId)
@@ -160,10 +160,19 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
         edgeMap.set(key, edge)
       }
     }
-    let nodes = [...nodeMap.values()].map(n => ({
-      ...n,
-      kind: 'service' as const
-    }))
+    let nodes = [...nodeMap.values()].map(n => {
+      const isDep = DEPENDENCY_SERVICES.has(n.service)
+      return {
+        ...n,
+        kind: isDep ? 'dependency' as const : 'service' as const,
+        // For dependency nodes the drawer lets the user drill into
+        // /traces filtered by the attribute that named the dep — for
+        // postgres / redis, we surface peer.service as the canonical
+        // OTel convention so the link matches what a real producer
+        // would tag.
+        attributeKey: isDep ? 'peer.service' : null
+      }
+    })
     let edges = [...edgeMap.values()]
     if (focus) {
       const keptEdges = edges.filter(e => e.fromService === focus || e.toService === focus)

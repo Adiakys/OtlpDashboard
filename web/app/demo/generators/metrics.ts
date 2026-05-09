@@ -29,7 +29,7 @@ export function generateMetricSeries(
   const startTime = new Date(fromMs).toISOString()
 
   const seed = hashString(
-    `${spec.dto.scopeName}|${spec.dto.name}|${spec.dto.kind}|${spec.dto.serviceName}`
+    `${spec.dto.scopeName}|${spec.dto.name}|${spec.dto.kind}|${spec.dto.serviceName}|${spec.dto.serviceInstanceId ?? ''}`
   )
 
   if (spec.splitBy) {

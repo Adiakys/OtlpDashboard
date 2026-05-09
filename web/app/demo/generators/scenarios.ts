@@ -82,7 +82,10 @@ function serviceFromScope(scope: string): string {
 }
 
 function withServices(s: Omit<Scenario, 'services'>): Scenario {
-  const set = new Set<string>([serviceFromScope(s.rootScope)])
+  // sample-client is always present because planTrace wraps every
+  // scenario in a synthetic outer Client span emitted by sample-client —
+  // the upstream caller of every sample-server request.
+  const set = new Set<string>(['sample-client', serviceFromScope(s.rootScope)])
   for (const c of s.children) set.add(serviceFromScope(c.scope))
   return { ...s, services: [...set] }
 }
@@ -313,35 +316,81 @@ function pickScenarioByWeight(rand: () => number): Scenario {
   return SCENARIOS[SCENARIOS.length - 1]!
 }
 
+/**
+ * Network overhead the sample-client Client span pads around the
+ * sample-server Server span. Real HTTP roundtrips show DNS / TCP /
+ * TLS / queue time on top of the server's processing, so the client
+ * span is always strictly longer; we emulate that with a small fixed
+ * delta on each side.
+ */
+const CLIENT_NET_OVERHEAD_MS = 3
+
 /** Reconstruct the trace's full plan from a trace id alone. Used by
  *  both the detail and the log generators so they share spanIds and
- *  timestamps. */
+ *  timestamps.
+ *  <para>
+ *  Every trace is wrapped in a synthetic <c>sample-client</c> Client
+ *  span so the service map shows the realistic upstream caller —
+ *  <c>sample-client → sample-server → (postgresql, redis)</c> — without
+ *  duplicating the topology in every scenario.
+ *  </para>
+ */
 export function planTrace(traceIdHex: string): TracePlan {
-  const startMs = decodeStartMs(traceIdHex)
+  const serverStartMs = decodeStartMs(traceIdHex)
   const seed = hashString(`scenario|${traceIdHex}`)
   const rand = mulberry32(seed)
   const scenario = pickScenarioByWeight(rand)
   const isError = rand() < scenario.errorRate
-  const durationMs = Math.max(1, Math.exp(scenario.mu + gaussian(rand) * scenario.sigma))
+  const serverDurationMs = Math.max(1, Math.exp(scenario.mu + gaussian(rand) * scenario.sigma))
 
   const spanIdSeed = hashString(`span|${traceIdHex}`)
-  const rootSpanId = makeSpanId(spanIdSeed, 0)
-  const spans: TracePlan['spans'] = [{
-    id: rootSpanId,
-    parentId: null,
-    name: scenario.rootName,
-    scope: scenario.rootScope,
-    kind: scenario.rootKind,
-    service: serviceFromScope(scenario.rootScope),
-    startMs,
-    durationMs,
-    isError
-  }]
-  const ids: string[] = [rootSpanId]
+
+  // Synthetic outermost Client span on sample-client. Its window
+  // brackets the server span with CLIENT_NET_OVERHEAD_MS slack on each
+  // side to mirror network/queue latency a real HTTP roundtrip pays.
+  const clientRootId = makeSpanId(spanIdSeed, 0)
+  const clientStartMs = serverStartMs - CLIENT_NET_OVERHEAD_MS
+  const clientDurationMs = serverDurationMs + 2 * CLIENT_NET_OVERHEAD_MS
+
+  // Mirror the rootName as the client-facing operation. Strips the HTTP
+  // route placeholders so the picker shows a clean op name.
+  const clientOpName = scenario.rootName
+
+  const serverSpanId = makeSpanId(spanIdSeed, 1)
+  const spans: TracePlan['spans'] = [
+    {
+      id: clientRootId,
+      parentId: null,
+      name: clientOpName,
+      scope: 'System.Net.Http',
+      kind: 'Client',
+      service: 'sample-client',
+      startMs: clientStartMs,
+      durationMs: clientDurationMs,
+      isError
+    },
+    {
+      id: serverSpanId,
+      parentId: clientRootId,
+      name: scenario.rootName,
+      scope: scenario.rootScope,
+      kind: scenario.rootKind,
+      service: serviceFromScope(scenario.rootScope),
+      startMs: serverStartMs,
+      durationMs: serverDurationMs,
+      isError
+    }
+  ]
+  // Index 0 is the synthetic client root; index 1 is the scenario root
+  // (the original "root" scenarios are authored against). Keep the
+  // children's `parentIndex` semantics unchanged by inserting the
+  // server span at logical index 0 of the scenario's tree.
+  const ids: string[] = [serverSpanId]
 
   for (let c = 0; c < scenario.children.length; c++) {
     const child = scenario.children[c]!
-    const childId = makeSpanId(spanIdSeed, c + 1)
+    // c+2 because we already used 0 (client root) and 1 (server root).
+    const childId = makeSpanId(spanIdSeed, c + 2)
     ids.push(childId)
     const parentIdx = child.parentIndex && child.parentIndex > 0 && child.parentIndex - 1 < c
       ? child.parentIndex
@@ -353,19 +402,35 @@ export function planTrace(traceIdHex: string): TracePlan {
       scope: child.scope,
       kind: child.kind,
       service: serviceFromScope(child.scope),
-      startMs: startMs + child.startFraction * durationMs,
-      durationMs: child.durationFraction * durationMs,
+      startMs: serverStartMs + child.startFraction * serverDurationMs,
+      durationMs: child.durationFraction * serverDurationMs,
       isError: isError && c === scenario.errorSpanIndex
     })
   }
 
-  return { scenario, isError, startMs, durationMs, endMs: startMs + durationMs, spans }
+  return {
+    scenario,
+    isError,
+    startMs: clientStartMs,
+    durationMs: clientDurationMs,
+    endMs: clientStartMs + clientDurationMs,
+    spans
+  }
 }
 
 /** Render a scenario's log script into LogRecordDtos for the given
  *  trace. Timestamps land inside the targeted span; trace+span ids
  *  match what `planTrace` returns so the trace detail page's alert
- *  markers line up. */
+ *  markers line up.
+ *  <para>
+ *  Log scripts in <c>SCENARIOS</c> author span indices against the
+ *  scenario's logical tree (root = 0, children[c] = c+1). After
+ *  <c>planTrace</c> prepends the synthetic sample-client wrapper at
+ *  index 0, those logical indices land one slot later in the
+ *  reconstructed plan.spans array — we shift by +1 here so log
+ *  attachment still matches the authored intent.
+ *  </para>
+ */
 export function buildScenarioLogs(traceIdHex: string): LogRecordDto[] {
   const plan = planTrace(traceIdHex)
   const fillerSeed = hashString(`logfill|${traceIdHex}`)
@@ -373,7 +438,7 @@ export function buildScenarioLogs(traceIdHex: string): LogRecordDto[] {
   const script = plan.isError ? plan.scenario.errorLogs : plan.scenario.successLogs
   const out: LogRecordDto[] = []
   for (const line of script) {
-    const idx = line.attachSpanIndex
+    const idx = line.attachSpanIndex + 1
     if (idx < 0 || idx >= plan.spans.length) continue
     const span = plan.spans[idx]!
     const timeMs = span.startMs + span.durationMs * line.timeFraction
