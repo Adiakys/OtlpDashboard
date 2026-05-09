@@ -1,8 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace OpenTelemetryDashboard.Host.ErrorHandling;
 
@@ -45,18 +42,38 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
             return false;
         }
 
-        _logger.UnhandledException(
-            exception,
-            httpContext.Request.Method,
-            httpContext.Request.Path);
+        // BadHttpRequestException covers framework-side binding failures
+        // (missing required query/route values, malformed JSON bodies,
+        // request-too-large, etc.). Its StatusCode is the right one to
+        // surface — usually 400 — so we honour it instead of clobbering
+        // every binding miss as a server-side 500.
+        var statusCode = exception is BadHttpRequestException badRequest
+            ? badRequest.StatusCode
+            : StatusCodes.Status500InternalServerError;
 
-        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        // 5xx is a server fault worth logging at Error; 4xx is the caller's
+        // fault and gets a quieter Debug entry — otherwise every malformed
+        // request would page the on-call SRE.
+        var method = httpContext.Request.Method;
+        var path = httpContext.Request.Path.ToString();
+        if (statusCode >= 500)
+        {
+            _logger.UnhandledServerException(exception, method, path);
+        }
+        else if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.RejectedClientRequest(exception.Message, method, path);
+        }
+
+        httpContext.Response.StatusCode = statusCode;
 
         var problem = new ProblemDetails
         {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "An unexpected error occurred.",
-            Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+            Status = statusCode,
+            Title = statusCode >= 500
+                ? "An unexpected error occurred."
+                : "The request could not be processed.",
+            Type = $"https://httpstatuses.io/{statusCode}",
             Instance = httpContext.Request.Path,
         };
 
@@ -68,6 +85,13 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
         {
             problem.Detail = exception.Message;
             problem.Extensions["exceptionType"] = exception.GetType().FullName;
+        }
+        else if (statusCode < 500)
+        {
+            // 4xx Detail is safe to expose: it's the framework's "what was
+            // wrong with your request" string (e.g. "Required parameter
+            // 'rowVersion' was not provided"), not internal state.
+            problem.Detail = exception.Message;
         }
 
         return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
@@ -82,10 +106,18 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
 internal static partial class GlobalExceptionHandlerLog
 {
     [LoggerMessage(EventId = 1, Level = LogLevel.Error,
-        Message = "Unhandled exception while processing {Method} {Path}")]
-    public static partial void UnhandledException(
+        Message = "Unhandled server exception while processing {Method} {Path}")]
+    public static partial void UnhandledServerException(
         this ILogger logger,
         Exception exception,
+        string method,
+        string path);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Debug,
+        Message = "Rejected client request {Method} {Path}: {Reason}")]
+    public static partial void RejectedClientRequest(
+        this ILogger logger,
+        string reason,
         string method,
         string path);
 }

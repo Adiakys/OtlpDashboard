@@ -131,14 +131,24 @@ internal static class WidgetEndpoints
         return TypedResults.Ok(ToDto(persisted));
     }
 
-    public static async Task<Results<Ok, NotFound>>
+    public static async Task<Results<Ok, NotFound, Conflict<ConcurrencyProblem>>>
         DeleteDefinitionAsync(
             [FromRoute] Guid id,
+            [FromQuery] uint rowVersion,
             IWidgetDefinitionStore store,
             CancellationToken cancellationToken)
     {
         var existing = await store.GetByIdAsync(id, cancellationToken);
         if (existing is null) return TypedResults.NotFound();
+
+        // Optimistic concurrency: refuse the delete if the caller's
+        // RowVersion doesn't match the loaded one — another writer modified
+        // the definition between the SPA's last GET and this DELETE.
+        if (existing.RowVersion != rowVersion)
+        {
+            return TypedResults.Conflict(new ConcurrencyProblem(
+                "The widget definition has been modified by another writer. Reload and retry."));
+        }
 
         await store.DeleteAsync(existing, cancellationToken);
         return TypedResults.Ok();

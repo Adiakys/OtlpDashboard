@@ -44,9 +44,15 @@ export class WidgetService {
     )
   }
 
-  deleteCustom(id: string): Promise<void> {
+  /**
+   * Optimistic-concurrency check: pass the `rowVersion` most recently
+   * returned by the server for this definition. The server returns 409 if
+   * the definition was modified after that snapshot.
+   */
+  deleteCustom(id: string, rowVersion: number): Promise<void> {
     return this.http.delete<void>(
-      `/v1/widgets/definitions/${encodeURIComponent(id)}`
+      `/v1/widgets/definitions/${encodeURIComponent(id)}`,
+      { rowVersion }
     )
   }
 

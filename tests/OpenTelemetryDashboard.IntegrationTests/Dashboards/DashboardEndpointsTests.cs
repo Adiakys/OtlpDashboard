@@ -279,7 +279,7 @@ public sealed class DashboardEndpointsTests : IClassFixture<TestHostFixture>
         var created = await CreateDashboardAsync(client, $"dl-{Guid.NewGuid():N}"[..30]);
 
         using var response = await client.DeleteAsync(
-            new Uri($"/api/v1/dashboards/{created.Id}", UriKind.Relative));
+            new Uri($"/api/v1/dashboards/{created.Id}?rowVersion={created.RowVersion}", UriKind.Relative));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
@@ -294,7 +294,7 @@ public sealed class DashboardEndpointsTests : IClassFixture<TestHostFixture>
         using var client = _fixture.CreateClient();
 
         using var response = await client.DeleteAsync(
-            new Uri($"/api/v1/dashboards/{Dashboard.DefaultId}", UriKind.Relative));
+            new Uri($"/api/v1/dashboards/{Dashboard.DefaultId}?rowVersion=1", UriKind.Relative));
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -305,9 +305,43 @@ public sealed class DashboardEndpointsTests : IClassFixture<TestHostFixture>
         using var client = _fixture.CreateClient();
 
         using var response = await client.DeleteAsync(
-            new Uri($"/api/v1/dashboards/{Guid.NewGuid()}", UriKind.Relative));
+            new Uri($"/api/v1/dashboards/{Guid.NewGuid()}?rowVersion=1", UriKind.Relative));
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_Returns_400_When_RowVersion_Missing()
+    {
+        // The query param is non-nullable on the endpoint signature, so a
+        // request without it fails model binding at the framework layer.
+        using var client = _fixture.CreateClient();
+        var created = await CreateDashboardAsync(client, $"dl-{Guid.NewGuid():N}"[..30]);
+
+        using var response = await client.DeleteAsync(
+            new Uri($"/api/v1/dashboards/{created.Id}", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Delete_Returns_409_For_Stale_RowVersion()
+    {
+        // Update bumps RowVersion to 2; a delete carrying RowVersion=1 must
+        // be refused as concurrency conflict, not silently dropped.
+        using var client = _fixture.CreateClient();
+        var created = await CreateDashboardAsync(client, $"dl-{Guid.NewGuid():N}"[..30]);
+
+        using var update = await client.PutAsJsonAsync(
+            new Uri($"/api/v1/dashboards/{created.Id}", UriKind.Relative),
+            new SaveDashboardRequest(created.Name, [], created.RowVersion),
+            JsonOptions);
+        update.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var response = await client.DeleteAsync(
+            new Uri($"/api/v1/dashboards/{created.Id}?rowVersion={created.RowVersion}", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     // ---------- helpers ----------

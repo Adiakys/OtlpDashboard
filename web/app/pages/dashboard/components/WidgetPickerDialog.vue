@@ -203,11 +203,15 @@ async function deleteCustom(def: WidgetDefinition, e: Event) {
   e.stopPropagation()
   if (isDeleting.value) return
   if (!confirm(t('widgets.deleteConfirm'))) return
+  // The delete button only renders for `custom` defs, which always carry
+  // a server-assigned rowVersion — the `?` on the type is for `std` and
+  // library defs that take a different path.
+  if (def.rowVersion === undefined) return
   const id = parseKind(def.kind).id
   isDeleting.value = id
   error.value = null
   try {
-    await $widgetService.deleteCustom(id)
+    await $widgetService.deleteCustom(id, def.rowVersion)
     await catalog.refreshCustom()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)

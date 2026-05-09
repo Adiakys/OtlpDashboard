@@ -62,8 +62,10 @@ export function useDashboardList(
     if (!isCurrentDeletable.value) return false
     error.value = null
     const id = currentDashboardId.value
+    const target = dashboards.value.find(d => d.id === id)
+    if (!target) return false
     try {
-      await service.delete(id)
+      await service.delete(id, target.rowVersion)
       dashboards.value = dashboards.value.filter(d => d.id !== id)
       currentDashboardId.value = DEFAULT_DASHBOARD_ID
       await options.onSelected(DEFAULT_DASHBOARD_ID)

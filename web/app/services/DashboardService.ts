@@ -27,7 +27,16 @@ export class DashboardService {
     return this.http.put<DashboardDto>(`/v1/dashboards/${encodeURIComponent(id)}`, request)
   }
 
-  delete(id: string): Promise<void> {
-    return this.http.delete<void>(`/v1/dashboards/${encodeURIComponent(id)}`)
+  /**
+   * Optimistic-concurrency check: pass the `rowVersion` most recently
+   * returned by the server for this dashboard. The server returns 409 if
+   * the dashboard was modified after that snapshot — reload via `getById`
+   * and confirm with the user before retrying.
+   */
+  delete(id: string, rowVersion: number): Promise<void> {
+    return this.http.delete<void>(
+      `/v1/dashboards/${encodeURIComponent(id)}`,
+      { rowVersion }
+    )
   }
 }

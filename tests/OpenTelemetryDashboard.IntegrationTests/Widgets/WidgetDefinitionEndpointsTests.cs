@@ -281,7 +281,7 @@ public sealed class WidgetDefinitionEndpointsTests : IClassFixture<TestHostFixtu
         var created = await CreatePresetAsync(client);
 
         using var response = await client.DeleteAsync(
-            new Uri($"/api/v1/widgets/definitions/{created.Id}", UriKind.Relative));
+            new Uri($"/api/v1/widgets/definitions/{created.Id}?rowVersion={created.RowVersion}", UriKind.Relative));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         using var refetch = await client.GetAsync(
@@ -295,9 +295,51 @@ public sealed class WidgetDefinitionEndpointsTests : IClassFixture<TestHostFixtu
         using var client = _fixture.CreateClient();
 
         using var response = await client.DeleteAsync(
-            new Uri($"/api/v1/widgets/definitions/{Guid.NewGuid()}", UriKind.Relative));
+            new Uri($"/api/v1/widgets/definitions/{Guid.NewGuid()}?rowVersion=1", UriKind.Relative));
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_Returns_400_When_RowVersion_Missing()
+    {
+        using var client = _fixture.CreateClient();
+        var created = await CreatePresetAsync(client);
+
+        using var response = await client.DeleteAsync(
+            new Uri($"/api/v1/widgets/definitions/{created.Id}", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Delete_Returns_409_For_Stale_RowVersion()
+    {
+        using var client = _fixture.CreateClient();
+        var created = await CreatePresetAsync(client);
+
+        // Bump RowVersion via update so the original is now stale.
+        var update = new SaveWidgetDefinitionRequest(
+            Name: created.Name,
+            Description: created.Description,
+            Icon: created.Icon,
+            Engine: created.Engine,
+            BaseKind: created.BaseKind,
+            Config: created.Config,
+            Spec: created.Spec,
+            DefaultW: created.DefaultW,
+            DefaultH: created.DefaultH,
+            RowVersion: created.RowVersion);
+        using var put = await client.PutAsJsonAsync(
+            new Uri($"/api/v1/widgets/definitions/{created.Id}", UriKind.Relative),
+            update,
+            JsonOptions);
+        put.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var response = await client.DeleteAsync(
+            new Uri($"/api/v1/widgets/definitions/{created.Id}?rowVersion={created.RowVersion}", UriKind.Relative));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     // ---------- helpers ----------

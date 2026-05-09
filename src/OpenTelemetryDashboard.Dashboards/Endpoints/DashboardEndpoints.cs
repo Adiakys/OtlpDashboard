@@ -110,8 +110,12 @@ internal static class DashboardEndpoints
         return TypedResults.Ok(ToDto(persisted));
     }
 
-    public static async Task<Results<Ok, NotFound, ValidationProblem>>
-        DeleteDashboardAsync([FromRoute] Guid id, IDashboardStore store, CancellationToken cancellationToken)
+    public static async Task<Results<Ok, NotFound, ValidationProblem, Conflict<ConcurrencyProblem>>>
+        DeleteDashboardAsync(
+            [FromRoute] Guid id,
+            [FromQuery] uint rowVersion,
+            IDashboardStore store,
+            CancellationToken cancellationToken)
     {
         if (id == Dashboard.DefaultId)
         {
@@ -124,6 +128,15 @@ internal static class DashboardEndpoints
         var existing = await store.GetByIdAsync(id, cancellationToken);
 
         if (existing is null) return TypedResults.NotFound();
+
+        // Optimistic concurrency: refuse the delete if the caller's
+        // RowVersion doesn't match the loaded one — another writer modified
+        // the dashboard between the SPA's last GET and this DELETE.
+        if (existing.RowVersion != rowVersion)
+        {
+            return TypedResults.Conflict(new ConcurrencyProblem(
+                "The dashboard has been modified by another writer. Reload and retry."));
+        }
 
         await store.DeleteAsync(existing, cancellationToken);
 
