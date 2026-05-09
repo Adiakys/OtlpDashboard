@@ -11,6 +11,14 @@ HTTP/Protobuf on `:4318` (the same port also serves the SPA).
 
 **Live demo:** [adiakys.github.io/OtlpDashboard](https://adiakys.github.io/OtlpDashboard/) — static build with mock telemetry, no backend required. Login accepts any password (e.g. `demo`).
 
+> The demo runs against an in-browser **mock** backend (a tiny TS shim
+> that intercepts every API call and returns generated DTOs) — not the
+> real .NET host. It exists to let people click around without us
+> hosting anything; behaviour can drift from the real server in subtle
+> ways (some flows are stubbed, some validation paths return generated
+> data instead of real errors). For a faithful preview run the docker
+> compose stack below.
+
 ---
 
 ## Quick start
