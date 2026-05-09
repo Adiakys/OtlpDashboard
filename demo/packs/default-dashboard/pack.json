@@ -1,0 +1,13 @@
+{
+  "id": "default-dashboard",
+  "name": "Demo stack starter dashboard",
+  "version": "1.0.0",
+  "author": "OpenTelemetryDashboard",
+  "license": "MIT",
+  "description": "Built-in dashboard pre-bound to the demo compose stack (sample-server x2, sample-client, postgres, redis). Lives in the main repo so its layout co-evolves with the SPA; the widget libraries it consumes ship as a separate pack (default).",
+  "homepage": "https://github.com/Adiakys/OtlpDashboard",
+  "libraries": [],
+  "dashboards": [
+    { "id": "default", "path": "dashboards/default.json", "builtin": true }
+  ]
+}

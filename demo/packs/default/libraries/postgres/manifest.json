@@ -1,5 +1,0 @@
-{
-  "id": "postgres",
-  "name": "PostgreSQL",
-  "description": "Widgets for PostgreSQL metrics scraped by the OTel Collector postgresqlreceiver. Connections, transactions, cache hit, vacuum health, WAL — plus a few graphical 'wow' widgets."
-}

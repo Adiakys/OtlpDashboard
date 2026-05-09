@@ -47,6 +47,7 @@ services:
     volumes:
       - dashboard-data:/app/data
       - ./demo/packs/default:/app/builtin-packs/default:ro
+      - ./demo/packs/default-dashboard:/app/builtin-packs/default-dashboard:ro
     depends_on:
       postgres:
         condition: service_healthy

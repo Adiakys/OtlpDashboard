@@ -31,6 +31,12 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          # `demo/packs/default/` is a submodule (the widget-library pack
+          # lives in its own repo). Without this the demo bundle would
+          # ship empty libraries and the SPA would render the dashboard
+          # with placeholder widgets only.
+          submodules: recursive
 
       - uses: pnpm/action-setup@v4
         with:

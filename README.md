@@ -30,9 +30,10 @@ docker compose up --build
 ```
 
 Sources for the demo workload live under [`demo/`](demo/) — sample app
-(Server / Client), the built-in pack (`demo/packs/default/` — bundles the
-.NET runtime and PostgreSQL widget libraries plus a starter dashboard), and
-the Collector config. To run only the dashboard against an external Postgres / SQL Server,
+(Server / Client), the built-in widget-library pack
+(`demo/packs/default/`, distributed as a separate repo and consumed via
+git submodule), the demo-stack starter dashboard
+(`demo/packs/default-dashboard/`), and the Collector config. To run only the dashboard against an external Postgres / SQL Server,
 strip the demo services from your override file and point
 `Dashboard__Storage__Provider` + `ConnectionStrings__*` at your DB.
 
@@ -217,9 +218,14 @@ When two paths expose packs with the same `pack.json#id`, the first in
 scan order wins and the rest are skipped with a warning — so a runtime
 install can override a baked-in default by sharing its id.
 
-A sample pack lives at `demo/packs/default/` and is bind-mounted by
-`docker-compose.yml`, so `docker compose up --build` shows the .NET and
-PostgreSQL libraries plus the starter dashboard out of the box.
+Two sample packs live under `demo/packs/`:
+- `default/` (a submodule pointing at `Adiakys/OtlpDashboard-default-pack`)
+  ships the .NET and PostgreSQL widget libraries.
+- `default-dashboard/` ships the starter dashboard pre-bound to the
+  demo compose stack.
+
+Both are bind-mounted by `docker-compose.yml`, so `docker compose up --build`
+shows libraries + starter dashboard out of the box.
 
 Install one of two ways:
 
@@ -441,9 +447,9 @@ the seeder back off.
 
 To re-apply a built-in file, delete the dashboard via the UI first.
 
-A demo lives at `demo/packs/default/dashboards/default.json` (referenced
-from the bundled pack with `builtin: true`), mounted by
-`docker-compose.yml` as `/app/builtin-packs/default`.
+A demo lives at `demo/packs/default-dashboard/dashboards/default.json`
+(referenced from `default-dashboard/pack.json` with `builtin: true`),
+mounted by `docker-compose.yml` as `/app/builtin-packs/default-dashboard`.
 
 ---
 
