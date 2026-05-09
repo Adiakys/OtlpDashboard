@@ -185,7 +185,7 @@ const stringMax = computed(() =>
     <template v-else-if="decl.type === 'number'">
       <UInput
         type="number"
-        :model-value="numberValue ?? ''"
+        :model-value="numberValue"
         :min="decl.min"
         :max="decl.max"
         :step="decl.step ?? 1"

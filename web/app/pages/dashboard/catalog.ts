@@ -118,7 +118,7 @@ export function defaultConfigForDefinition(def: WidgetDefinition): WidgetConfig 
     seed.parameters = parameterSeed(def.parameters)
   }
 
-  return seed as WidgetConfig
+  return seed as unknown as WidgetConfig
 }
 
 function parameterSeed(decls: ParameterDecl[]): Record<string, string | number | boolean> {
