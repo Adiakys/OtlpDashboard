@@ -15,10 +15,11 @@ import type { QueryLimitsDto, TelemetryLimitsDto } from '~/services/types'
  * InfoService), exactly matching the architectural contract: one HTTP pipe,
  * many callers.
  *
- * Also drains `?token=…` from the landing URL into the AuthStore (30 min
- * default TTL) and strips the parameter from the address bar so it doesn't
- * leak into browser history / logs / shared links. When the login page
- * populates the AuthStore via `setToken(...)`, everything else is unchanged.
+ * Also drains `?token=…` from the landing URL by exchanging it for an
+ * HttpOnly session cookie via `POST /api/v1/auth/login`, then strips the
+ * parameter from the address bar so it doesn't leak into browser history /
+ * logs / shared links. The login page does the same thing — only difference
+ * is that there the user types the token into a form.
  *
  * A single `$fetch` response interceptor turns every 401 into a redirect to
  * `/login?next=…`; the interceptor is wired here (not inside HttpClientService)
@@ -33,22 +34,10 @@ import type { QueryLimitsDto, TelemetryLimitsDto } from '~/services/types'
  */
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
-  const authStore = new AuthStore()
   // Vite replaces this literal at build time. When the env var is unset,
   // the comparison folds to `false` and the entire demo branch (including
   // the dynamic `import('~/demo')`) is dropped from the prod bundle.
   const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
-
-  if (import.meta.client) {
-    const currentUrl = new URL(window.location.href)
-    const tokenParam = currentUrl.searchParams.get('token')
-    if (tokenParam) {
-      authStore.setToken(tokenParam)
-      currentUrl.searchParams.delete('token')
-      const cleaned = currentUrl.pathname + currentUrl.search + currentUrl.hash
-      window.history.replaceState(window.history.state, '', cleaned)
-    }
-  }
 
   // Shared 401 handler: clears the auth store and bounces the user to
   // /login. Used by both the real fetcher (via `$fetch.create`) and the
@@ -80,8 +69,32 @@ export default defineNuxtPlugin(async () => {
     })
   }
 
-  const http = new HttpClientService(config.public.apiBaseUrl, () => authStore.getToken(), fetcher)
+  const http = new HttpClientService(config.public.apiBaseUrl, fetcher)
+  const authStore = new AuthStore(http)
   const infoService = new InfoService(http)
+
+  // Deep-link login: a `?token=...` query parameter on the landing URL
+  // is exchanged for an HttpOnly session cookie before the rest of the
+  // SPA boots, then scrubbed from the address bar so it doesn't leak
+  // into history / shared links / Referer headers. We scrub BEFORE the
+  // exchange completes only on success — failures leave the URL alone
+  // so the user can retry / inspect what they sent.
+  if (import.meta.client) {
+    const currentUrl = new URL(window.location.href)
+    const tokenParam = currentUrl.searchParams.get('token')
+    if (tokenParam) {
+      try {
+        await authStore.login(tokenParam)
+        currentUrl.searchParams.delete('token')
+        const cleaned = currentUrl.pathname + currentUrl.search + currentUrl.hash
+        window.history.replaceState(window.history.state, '', cleaned)
+      } catch {
+        // Invalid / expired deep-link token: fall through to the global
+        // auth middleware, which will redirect to /login on the first
+        // 401 from any read-API call.
+      }
+    }
+  }
 
   // Defaults keep the UI coherent while the /info call is in flight (or if
   // the endpoint is unreachable). Fire-and-forget: we don't block the plugin

@@ -9,40 +9,24 @@
  * own `await navigateTo(...)` in setup (which interacts badly with
  * Suspense and layout transitions during SPA boot under a baseURL
  * subpath). The fetch-level 401 interceptor in `plugins/services.ts`
- * stays as a backstop for tokens that expire mid-session.
+ * stays as a backstop for cookies that expire mid-session.
  *
- * Reads `document.cookie` directly rather than going through
- * `useNuxtApp().$authStore`. The DI route turned out to be unreliable
- * during chained `replace: true` transitions, where the provider map
- * could still be settling. Cookie access is synchronous and race-free.
- * The envelope shape is mirrored from `AuthStore.ts`; if it changes
- * there, update the type-guard below.
+ * The session token now lives in an HttpOnly cookie set by
+ * <c>POST /api/v1/auth/login</c>, so JS can't read it. We fall back to
+ * a sessionStorage flag the AuthStore keeps in sync ("did this tab log
+ * in successfully?"). The flag is best-effort routing UX — every API
+ * call still gets a real 401 from the server when the cookie is
+ * missing/expired, and the fetch interceptor handles those.
  */
-const STORAGE_KEY = 'dashboard.auth'
-
-function readAuthCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const prefix = `${encodeURIComponent(STORAGE_KEY)}=`
-  for (const part of document.cookie.split('; ')) {
-    if (part.startsWith(prefix)) {
-      return decodeURIComponent(part.slice(prefix.length))
-    }
-  }
-  return null
-}
+const FLAG_STORAGE_KEY = 'dashboard.auth.signed-in'
 
 function isAuthenticated(): boolean {
-  const raw = readAuthCookie()
-  if (!raw) return false
+  if (typeof window === 'undefined') return false
   try {
-    const env = JSON.parse(raw) as { token?: unknown; expiresAt?: unknown }
-    return (
-      typeof env.token === 'string' &&
-      env.token.length > 0 &&
-      typeof env.expiresAt === 'number' &&
-      env.expiresAt > Date.now()
-    )
+    return window.sessionStorage.getItem(FLAG_STORAGE_KEY) === '1'
   } catch {
+    // Safari private mode etc.: pessimistic fallback so the user lands
+    // on /login and the cookie can still authenticate the API calls.
     return false
   }
 }

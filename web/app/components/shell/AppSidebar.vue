@@ -10,7 +10,10 @@ const { collapsed, toggle } = useSidebarState()
 const { $authStore } = useNuxtApp()
 
 async function logout() {
-  $authStore.clear()
+  // Tear down the server-side session cookie before bouncing to /login.
+  // logout() also clears the local "signed-in" flag in its finally branch
+  // so a backend hiccup doesn't leave the SPA in a half-logged-out state.
+  await $authStore.logout()
   await navigateTo('/login', { replace: true })
 }
 </script>

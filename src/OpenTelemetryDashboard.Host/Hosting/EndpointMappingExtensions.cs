@@ -16,11 +16,21 @@ internal static class EndpointMappingExtensions
 {
     public static WebApplication MapDashboardEndpoints(this WebApplication app)
     {
+        MapAuth(app);
         MapOtlpIngestion(app);
         MapReadApi(app);
         MapMcp(app);
         MapHealthAndSpaFallback(app);
         return app;
+    }
+
+    private static void MapAuth(WebApplication app)
+    {
+        // Anonymous: /login validates the password. Lives under read-api
+        // rate limit so brute-force attempts on the BrowserToken are
+        // throttled per IP. The /logout side is also rate-limited for
+        // symmetry.
+        app.MapAuth().RequireRateLimiting(HostRateLimitPolicies.ReadApi);
     }
 
     private static void MapOtlpIngestion(WebApplication app)

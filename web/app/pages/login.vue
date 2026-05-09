@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'empty' })
 
 const { t } = useI18n()
-const { $authStore, $logsService } = useNuxtApp()
+const { $authStore } = useNuxtApp()
 const route = useRoute()
 const config = useRuntimeConfig()
 
@@ -33,14 +33,14 @@ async function submit() {
 
   isSubmitting.value = true
   error.value = null
-  $authStore.setToken(password.value)
 
   try {
-    const now = new Date()
-    const from = new Date(now.getTime() - 60_000).toISOString()
-    await $logsService.listLogs({ from, to: now.toISOString(), limit: 1 })
+    // Server validates the password and sets an HttpOnly session cookie
+    // on success. The password itself never re-enters JS after this
+    // call returns — subsequent requests carry the cookie automatically
+    // via `credentials: 'include'`.
+    await $authStore.login(password.value)
   } catch (e: unknown) {
-    $authStore.clear()
     const status = (e as { statusCode?: number; response?: { status?: number } }).statusCode
       ?? (e as { response?: { status?: number } }).response?.status
     error.value = status === 401
@@ -52,8 +52,8 @@ async function submit() {
   }
 
   // Hard navigation: bypass Vue Router so the destination route mounts
-  // from a clean SPA boot (token already in the auth cookie). The global
-  // auth middleware will let it through on the next tick; the dashboard
+  // from a clean SPA boot (cookie already set). The global auth
+  // middleware will let it through on the next tick; the dashboard
   // layout renders without the empty-layout-still-mounted glitch.
   if (import.meta.client) {
     window.location.assign(resolveAbsolute(nextTarget.value))

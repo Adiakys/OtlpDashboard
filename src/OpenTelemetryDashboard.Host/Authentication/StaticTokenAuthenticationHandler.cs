@@ -13,13 +13,17 @@ namespace OpenTelemetryDashboard.Host.Authentication;
 /// <summary>
 /// Authenticates requests by constant-time comparing a presented token
 /// against the two configured static tokens (<see cref="DashboardAuthOptions.BrowserToken"/>
-/// and <see cref="OtlpAuthOptions.ApiKey"/>). Two header forms are accepted:
+/// and <see cref="OtlpAuthOptions.ApiKey"/>). Three sources are checked in
+/// order:
 /// <list type="bullet">
-///   <item><c>Authorization: Bearer &lt;token&gt;</c> — OTel-standard and the
-///   only form used by the browser SPA; matches either configured token.</item>
+///   <item><c>Authorization: Bearer &lt;token&gt;</c> — OTel-standard; matches
+///   either token. Used by headless integrations and (still) by OTLP.</item>
 ///   <item><c>x-otlp-api-key: &lt;token&gt;</c> — Aspire-compatible OTLP
-///   exporter header (e.g. <c>services.Configure&lt;OtlpExporterOptions&gt;(o =&gt;
-///   o.Headers = "x-otlp-api-key=...")</c>); matches <b>only</b> the OTLP key.</item>
+///   exporter header; matches <b>only</b> the OTLP key.</item>
+///   <item>HttpOnly cookie issued by <see cref="AuthEndpoints"/> at
+///   <c>POST /api/v1/auth/login</c>; matches <b>only</b> the browser token.
+///   This is the form the SPA uses today, so an XSS in the dashboard
+///   origin can no longer read the token via <c>document.cookie</c>.</item>
 /// </list>
 /// Successful matches are issued a <see cref="ClaimTypes.Role"/> claim of
 /// <see cref="RoleBrowser"/> or <see cref="RoleOtlp"/>; the two authorization
@@ -87,6 +91,24 @@ public sealed class StaticTokenAuthenticationHandler
             else
             {
                 return Task.FromResult(AuthenticateResult.Fail("Invalid OTLP API key."));
+            }
+        }
+        // SPA cookie set by /api/v1/auth/login. Browser-token only — OTLP
+        // ingest never travels through the cookie path.
+        else if (Request.Cookies.TryGetValue(AuthCookie.Name, out var cookieToken)
+                 && !string.IsNullOrEmpty(cookieToken))
+        {
+            if (Matches(cookieToken, tokens.BrowserToken))
+            {
+                role = RoleBrowser;
+            }
+            else
+            {
+                // A stale cookie (token rotated server-side) shouldn't
+                // surface as an auth failure — return NoResult so the
+                // request is treated as anonymous and the SPA bounces to
+                // /login on the resulting 401, then re-authenticates.
+                return Task.FromResult(AuthenticateResult.NoResult());
             }
         }
         else

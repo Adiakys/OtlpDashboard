@@ -201,6 +201,87 @@ public sealed class AuthenticationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AuthLogin_With_Correct_Token_Sets_HttpOnly_Cookie()
+    {
+        using var client = Client();
+        using var content = JsonContent($"{{\"token\":\"{BrowserToken}\"}}");
+
+        using var response = await client.PostAsync(new Uri("/api/v1/auth/login", UriKind.Relative), content);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        response.Headers.ShouldContain(h => h.Key == "Set-Cookie");
+        var cookie = response.Headers.GetValues("Set-Cookie").Single();
+        cookie.ShouldContain("oteldash_auth=");
+        cookie.ShouldContain("httponly", Case.Insensitive);
+        cookie.ShouldContain("samesite=strict", Case.Insensitive);
+        cookie.ShouldContain("path=/", Case.Insensitive);
+        // TestHostFixture runs with ASPNETCORE_ENVIRONMENT=Development, so
+        // Secure is intentionally off here. Production tests would assert it.
+    }
+
+    [Fact]
+    public async Task AuthLogin_With_Wrong_Token_Returns_401_And_No_Cookie()
+    {
+        using var client = Client();
+        using var content = JsonContent("{\"token\":\"obviously-wrong\"}");
+
+        using var response = await client.PostAsync(new Uri("/api/v1/auth/login", UriKind.Relative), content);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        response.Headers.Contains("Set-Cookie").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetLogs_With_AuthCookie_Returns_200()
+    {
+        using var client = Client();
+        var cookieValue = await LoginAndCaptureCookieAsync(client);
+
+        // No Authorization header — the cookie alone authenticates the
+        // browser session. WebApplicationFactory's HttpClient doesn't
+        // auto-track cookies, so we send it back manually.
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(LogsUrl(), UriKind.Relative));
+        request.Headers.Add("Cookie", cookieValue);
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AuthLogout_Clears_The_Cookie()
+    {
+        using var client = Client();
+        var cookieValue = await LoginAndCaptureCookieAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/api/v1/auth/logout", UriKind.Relative));
+        request.Headers.Add("Cookie", cookieValue);
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var cookie = response.Headers.GetValues("Set-Cookie").Single();
+        cookie.ShouldContain("oteldash_auth=");
+        // Either explicit Max-Age=0 or an Expires in the past — the
+        // ResponseCookies API uses both belt-and-braces.
+        (cookie.Contains("max-age=0", StringComparison.OrdinalIgnoreCase)
+            || cookie.Contains("expires=", StringComparison.OrdinalIgnoreCase))
+            .ShouldBeTrue();
+    }
+
+    private static async Task<string> LoginAndCaptureCookieAsync(HttpClient client)
+    {
+        using var content = JsonContent($"{{\"token\":\"{BrowserToken}\"}}");
+        using var response = await client.PostAsync(new Uri("/api/v1/auth/login", UriKind.Relative), content);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var setCookie = response.Headers.GetValues("Set-Cookie").Single();
+        // "name=value; Path=/; ..." — keep only the name=value pair for resend.
+        var semi = setCookie.IndexOf(';');
+        return semi < 0 ? setCookie : setCookie[..semi];
+    }
+
+    private static StringContent JsonContent(string json) =>
+        new(json, System.Text.Encoding.UTF8, "application/json");
+
+    [Fact]
     public async Task Info_Endpoint_Unauthenticated_Returns_Name_But_Version_Null()
     {
         using var client = Client();

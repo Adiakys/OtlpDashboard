@@ -1,133 +1,105 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthStore, type TokenStorage } from '~/services/AuthStore'
+import { AuthStore } from '~/services/AuthStore'
+import type { HttpClientService } from '~/services/HttpClientService'
 
-function inMemoryStorage(): TokenStorage {
+function inMemoryStorage(): Storage {
   const store = new Map<string, string>()
   return {
+    get length(): number { return store.size },
+    clear: () => store.clear(),
     getItem: k => store.get(k) ?? null,
     setItem: (k, v) => { store.set(k, v) },
-    removeItem: k => { store.delete(k) }
+    removeItem: k => { store.delete(k) },
+    key: i => Array.from(store.keys())[i] ?? null
   }
+}
+
+function fakeHttp(): HttpClientService & { calls: Array<{ method: string; path: string; body?: unknown }> } {
+  const calls: Array<{ method: string; path: string; body?: unknown }> = []
+  return {
+    calls,
+    get: vi.fn(async () => undefined as never),
+    post: vi.fn(async (path, body) => {
+      calls.push({ method: 'POST', path, body })
+      return undefined as never
+    }),
+    put: vi.fn(async () => undefined as never),
+    delete: vi.fn(async () => undefined as never)
+  } as unknown as HttpClientService & { calls: Array<{ method: string; path: string; body?: unknown }> }
 }
 
 describe('AuthStore', () => {
   beforeEach(() => {
-    vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
-  it('round-trips a token within TTL', () => {
-    const store = new AuthStore(inMemoryStorage())
+  it('starts logged-out when storage is empty', () => {
+    const store = new AuthStore(fakeHttp(), inMemoryStorage())
 
-    store.setToken('abc')
-
-    expect(store.getToken()).toBe('abc')
-    expect(store.isAuthenticated()).toBe(true)
-  })
-
-  it('returns null and auto-clears after TTL elapses', () => {
-    vi.useFakeTimers()
-    const start = new Date('2030-01-01T12:00:00Z').getTime()
-    vi.setSystemTime(start)
-
-    const storage = inMemoryStorage()
-    const store = new AuthStore(storage)
-    store.setToken('abc', 1_000) // 1s TTL for the test
-
-    vi.setSystemTime(start + 1_001)
-
-    expect(store.getToken()).toBeNull()
-    expect(storage.getItem('dashboard.auth')).toBeNull() // auto-cleared
-  })
-
-  it('defaults to a 30-minute TTL when idle', () => {
-    vi.useFakeTimers()
-    const start = new Date('2030-01-01T12:00:00Z').getTime()
-    vi.setSystemTime(start)
-
-    const store = new AuthStore(inMemoryStorage())
-    store.setToken('abc')
-
-    // No reads in between — the sliding refresh never fires, so the
-    // initial 30-minute deadline is the one that takes the token out.
-    vi.setSystemTime(start + 30 * 60 * 1000 + 1)
-    expect(store.getToken()).toBeNull()
-  })
-
-  it('slides the deadline forward on a read past the half-TTL mark', () => {
-    vi.useFakeTimers()
-    const start = new Date('2030-01-01T12:00:00Z').getTime()
-    vi.setSystemTime(start)
-
-    const store = new AuthStore(inMemoryStorage())
-    store.setToken('abc') // expiresAt = start + 30min
-
-    // 20 min in — past the half-TTL threshold (15 min). Reading the
-    // token here should slide the deadline to "now + 30 min" = 50 min.
-    vi.setSystemTime(start + 20 * 60 * 1000)
-    expect(store.getToken()).toBe('abc')
-
-    // 35 min in — past the original 30-min deadline, but the slide
-    // pushed it to 50 min. Token must still be valid.
-    vi.setSystemTime(start + 35 * 60 * 1000)
-    expect(store.getToken()).toBe('abc')
-
-    // 51 min in — past the slid 50-min deadline AND no further read
-    // happened to slide again (we're checking the boundary). Expired.
-    vi.setSystemTime(start + 51 * 60 * 1000)
-    expect(store.getToken()).toBeNull()
-  })
-
-  it('does not slide on a read inside the first half of the TTL', () => {
-    vi.useFakeTimers()
-    const start = new Date('2030-01-01T12:00:00Z').getTime()
-    vi.setSystemTime(start)
-
-    const storage = inMemoryStorage()
-    const store = new AuthStore(storage)
-    store.setToken('abc')
-
-    const before = storage.getItem('dashboard.auth')
-
-    // 5 min in — well inside the first half. The cookie/envelope must
-    // be unchanged: re-writing on every read would be wasteful for a
-    // read-heavy SPA.
-    vi.setSystemTime(start + 5 * 60 * 1000)
-    expect(store.getToken()).toBe('abc')
-
-    expect(storage.getItem('dashboard.auth')).toBe(before)
-  })
-
-  it('clear() removes the token', () => {
-    const store = new AuthStore(inMemoryStorage())
-    store.setToken('abc')
-
-    store.clear()
-
-    expect(store.getToken()).toBeNull()
     expect(store.isAuthenticated()).toBe(false)
   })
 
-  it('setToken("") clears the token', () => {
-    const store = new AuthStore(inMemoryStorage())
-    store.setToken('abc')
-
-    store.setToken('')
-
-    expect(store.getToken()).toBeNull()
-  })
-
-  it('getToken returns null when storage is empty', () => {
-    const store = new AuthStore(inMemoryStorage())
-
-    expect(store.getToken()).toBeNull()
-  })
-
-  it('corrupted storage entry is dropped and returns null', () => {
+  it('login posts the token to /v1/auth/login and flips the flag on success', async () => {
+    const http = fakeHttp()
     const storage = inMemoryStorage()
-    storage.setItem('dashboard.auth', '{not-valid-json')
-    const store = new AuthStore(storage)
+    const store = new AuthStore(http, storage)
 
-    expect(store.getToken()).toBeNull()
-    expect(storage.getItem('dashboard.auth')).toBeNull()
+    await store.login('s3cret')
+
+    expect(http.calls).toEqual([{ method: 'POST', path: '/v1/auth/login', body: { token: 's3cret' } }])
+    expect(store.isAuthenticated()).toBe(true)
+    expect(storage.getItem('dashboard.auth.signed-in')).toBe('1')
+  })
+
+  it('login propagates failure and leaves the store logged-out', async () => {
+    const http = fakeHttp()
+    vi.spyOn(http, 'post').mockRejectedValueOnce(new Error('401'))
+    const store = new AuthStore(http, inMemoryStorage())
+
+    await expect(store.login('wrong')).rejects.toThrow('401')
+    expect(store.isAuthenticated()).toBe(false)
+  })
+
+  it('logout calls /v1/auth/logout and clears the flag even if the call fails', async () => {
+    const http = fakeHttp()
+    const storage = inMemoryStorage()
+    const store = new AuthStore(http, storage)
+    await store.login('s3cret')
+
+    vi.spyOn(http, 'post').mockRejectedValueOnce(new Error('network'))
+    await store.logout()
+
+    expect(store.isAuthenticated()).toBe(false)
+    expect(storage.getItem('dashboard.auth.signed-in')).toBeNull()
+  })
+
+  it('clear flips the flag without hitting the network', () => {
+    const http = fakeHttp()
+    const storage = inMemoryStorage()
+    storage.setItem('dashboard.auth.signed-in', '1')
+    const store = new AuthStore(http, storage)
+    expect(store.isAuthenticated()).toBe(true)
+
+    store.clear()
+
+    expect(store.isAuthenticated()).toBe(false)
+    expect(http.calls.length).toBe(0)
+  })
+
+  it('rehydrates the signed-in flag from existing storage on construction', () => {
+    const storage = inMemoryStorage()
+    storage.setItem('dashboard.auth.signed-in', '1')
+
+    const store = new AuthStore(fakeHttp(), storage)
+
+    expect(store.isAuthenticated()).toBe(true)
+  })
+
+  it('rejects an empty login token without contacting the server', async () => {
+    const http = fakeHttp()
+    const store = new AuthStore(http, inMemoryStorage())
+
+    await expect(store.login('')).rejects.toThrow()
+    expect(http.calls.length).toBe(0)
   })
 })
