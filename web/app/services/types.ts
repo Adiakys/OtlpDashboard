@@ -394,6 +394,28 @@ export interface PackDashboardDto {
   builtin: boolean
 }
 
+/** One service-map icon shipped by a pack. The SPA's icon resolver
+ *  walks the pack catalog (in pack-load order) and evaluates `match[]`
+ *  in declaration order; the first hit determines the icon used for a
+ *  given service-map node. */
+export interface PackIconDto {
+  id: string
+  name: string
+  /** Server-resolved URL the SPA renders directly inside an
+   *  `<image>` tag — points at the pack asset endpoint in real
+   *  builds, at a bundled `web/public/` path in the demo. */
+  imageUrl: string
+  match: PackIconMatchDto[]
+}
+
+/** Single matcher rule under {@link PackIconDto.match}. Exactly one
+ *  field is set; the resolver throws if it sees both, but the wire
+ *  shape just declares them as optional. */
+export interface PackIconMatchDto {
+  serviceName?: string | null
+  namePattern?: string | null
+}
+
 /** Wire shape for an installed pack. Returned by `GET /v1/packs` and
  *  by the install endpoint. */
 export interface PackDto {
@@ -416,4 +438,5 @@ export interface PackDto {
   removable: boolean
   libraries: WidgetLibraryDto[]
   dashboards: PackDashboardDto[]
+  icons: PackIconDto[]
 }

@@ -2272,5 +2272,38 @@
       ],
       "packId": "default"
     }
+  ],
+  "icons": [
+    {
+      "packId": "default",
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "imageUrl": "/icons/default/postgres/postgres.svg",
+      "match": [
+        {
+          "serviceName": "postgresql"
+        },
+        {
+          "serviceName": "postgres"
+        },
+        {
+          "namePattern": "^postgres"
+        }
+      ]
+    },
+    {
+      "packId": "default",
+      "id": "redis",
+      "name": "Redis",
+      "imageUrl": "/icons/default/redis/redis.svg",
+      "match": [
+        {
+          "serviceName": "redis"
+        },
+        {
+          "namePattern": "^redis"
+        }
+      ]
+    }
   ]
 }

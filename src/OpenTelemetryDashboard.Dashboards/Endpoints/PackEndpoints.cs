@@ -135,6 +135,139 @@ internal static class PackEndpoints
         }
     }
 
+    /// <summary>
+    /// Asset extensions the pack asset endpoint will serve. Mirrors
+    /// <c>LibraryManifestParser.IsSafeIconImageFilename</c>; both sides
+    /// must agree so a manifest-validated path can never miss the
+    /// runtime guard.
+    /// </summary>
+    private static readonly HashSet<string> AllowedAssetExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".svg", ".png", ".webp" };
+
+    private static readonly Dictionary<string, string> AssetContentTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            [".svg"] = "image/svg+xml",
+            [".png"] = "image/png",
+            [".webp"] = "image/webp",
+        };
+
+    /// <summary>
+    /// Serves a binary asset from a pack's directory. Scoped to a fixed
+    /// extension whitelist so the endpoint can't be repurposed to read
+    /// arbitrary files (config snippets, install metadata) out of the
+    /// pack root, and double-checks containment by absolute-path
+    /// comparison after the OS resolves any symlinks.
+    /// </summary>
+    public static async Task<Results<FileContentHttpResult, NotFound, BadRequest<ProblemDetails>>>
+        GetPackAssetAsync(
+            [FromRoute] string id,
+            HttpContext httpContext,
+            IPackRegistry registry,
+            CancellationToken cancellationToken)
+    {
+        if (!IsValidId(id))
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid pack id",
+                Detail = "Pack id must be lowercase alphanumeric with optional hyphens (max 64 chars).",
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        // Catch-all parameters are bound from RouteValues — we read them
+        // here because the [FromRoute] attribute can't reliably bind a
+        // route segment containing slashes across versions of ASP.NET.
+        var rawPath = httpContext.Request.RouteValues["path"] as string;
+        if (string.IsNullOrWhiteSpace(rawPath))
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Reject obvious traversal attempts before touching the
+        // filesystem. Defence in depth: GetFullPath would resolve them
+        // anyway, but this gives a cheap fast-fail and a clear log line.
+        if (rawPath.Contains("..", StringComparison.Ordinal)
+            || rawPath.Contains('\\', StringComparison.Ordinal)
+            || rawPath.StartsWith('/'))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var ext = Path.GetExtension(rawPath);
+        if (!AllowedAssetExtensions.Contains(ext))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var packs = await registry.ListAsync(cancellationToken);
+        var pack = packs.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.Ordinal));
+        if (pack is null) return TypedResults.NotFound();
+
+        var rootPath = pack.RootPath;
+        if (string.IsNullOrEmpty(rootPath)) return TypedResults.NotFound();
+
+        var fullPath = Path.GetFullPath(Path.Combine(rootPath, rawPath));
+        var rootWithSep = rootPath.EndsWith(Path.DirectorySeparatorChar)
+            ? rootPath
+            : rootPath + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(rootWithSep, StringComparison.Ordinal))
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Symlink guard. Path.GetFullPath only canonicalises the string
+        // (it doesn't resolve link targets), so a pack that contained
+        // `icons/evil.svg -> /etc/passwd` would pass the StartsWith
+        // containment check and exfiltrate the target on read. Refusing
+        // to follow any reparse point keeps the asset surface aligned
+        // with the registry's existing top-level symlink ban.
+        var fileInfo = new FileInfo(fullPath);
+        if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            return TypedResults.NotFound();
+        }
+        // Walk parent directories: an intermediate symlink (e.g.
+        // `icons/postgres -> /var/something`) lets the leaf file land
+        // outside the pack even when the leaf itself is a regular file.
+        for (var dir = fileInfo.Directory; dir is not null; dir = dir.Parent)
+        {
+            if (string.Equals(dir.FullName, rootPath, StringComparison.Ordinal)) break;
+            if ((dir.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                return TypedResults.NotFound();
+            }
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = await File.ReadAllBytesAsync(fullPath, cancellationToken);
+        }
+        catch (IOException)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var contentType = AssetContentTypes.TryGetValue(ext, out var ct)
+            ? ct
+            : "application/octet-stream";
+
+        // ETag = pack version + relative path. Stable across processes,
+        // bumps on pack update.
+        var etag = $"\"{pack.Version}-{rawPath.GetHashCode(StringComparison.Ordinal):x8}\"";
+        httpContext.Response.Headers.ETag = etag;
+        httpContext.Response.Headers.CacheControl = "public, max-age=300";
+
+        return TypedResults.File(bytes, contentType: contentType);
+    }
+
     public static async Task<Results<NoContent, NotFound, ValidationProblem, BadRequest<ProblemDetails>>>
         UninstallPackAsync(
             [FromRoute] string id,
@@ -180,6 +313,21 @@ internal static class PackEndpoints
         var dashboards = new List<PackDashboardDto>(pack.Dashboards.Count);
         foreach (var d in pack.Dashboards) dashboards.Add(new PackDashboardDto(d.Id, d.Builtin));
 
+        var icons = new List<PackIconDto>(pack.Icons.Count);
+        foreach (var icon in pack.Icons)
+        {
+            var match = new List<PackIconMatchDto>(icon.Match.Count);
+            foreach (var m in icon.Match)
+            {
+                match.Add(new PackIconMatchDto(m.ServiceName, m.NamePattern));
+            }
+            icons.Add(new PackIconDto(
+                icon.Id,
+                icon.Name,
+                $"/api/v1/packs/{pack.Id}/assets/{icon.Image}",
+                match));
+        }
+
         return new PackDto(
             pack.Id,
             pack.Name,
@@ -196,6 +344,7 @@ internal static class PackEndpoints
             pack.InstalledAt,
             pack.Removable,
             libraries,
-            dashboards);
+            dashboards,
+            icons);
     }
 }

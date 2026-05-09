@@ -257,4 +257,162 @@ public sealed class LibraryManifestParserTests
         ok.ShouldBeFalse();
         error!.ShouldContain("must match");
     }
+
+    [Fact]
+    public void Pack_Parses_Icons_Array()
+    {
+        const string json = """
+        {
+          "id": "default",
+          "name": "Default",
+          "version": "1.0.0",
+          "icons": [
+            { "id": "postgres", "path": "icons/postgres" }
+          ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParsePack(json, "default", out var pack, out var error);
+
+        ok.ShouldBeTrue(error);
+        pack!.Icons.Count.ShouldBe(1);
+        pack.Icons[0].Id.ShouldBe("postgres");
+        pack.Icons[0].RelativePath.ShouldBe("icons/postgres");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Parses_With_Mixed_Match_Types()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.svg",
+          "match": [
+            { "serviceName": "postgresql" },
+            { "namePattern": "^postgres" }
+          ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out var icon, out var error);
+
+        ok.ShouldBeTrue(error);
+        icon!.Image.ShouldBe("postgres.svg");
+        icon.Match.Count.ShouldBe(2);
+        icon.Match[0].ServiceName.ShouldBe("postgresql");
+        icon.Match[0].NamePattern.ShouldBeNull();
+        icon.Match[1].ServiceName.ShouldBeNull();
+        icon.Match[1].NamePattern.ShouldBe("^postgres");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Empty_Match()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.svg",
+          "match": []
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error!.ShouldContain("at least one");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Match_With_Both_Fields()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.svg",
+          "match": [
+            { "serviceName": "postgres", "namePattern": "^pg" }
+          ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error!.ShouldContain("exactly one");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Bad_Image_Extension()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.gif",
+          "match": [ { "serviceName": "postgres" } ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error!.ShouldContain(".svg");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Image_Path_Traversal()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "../../etc/passwd.svg",
+          "match": [ { "serviceName": "postgres" } ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Invalid_Regex()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.svg",
+          "match": [ { "namePattern": "(unclosed" } ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "postgres", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error!.ShouldContain("regex");
+    }
+
+    [Fact]
+    public void Icon_Descriptor_Rejects_Id_Mismatch_With_Directory()
+    {
+        const string json = """
+        {
+          "id": "postgres",
+          "name": "PostgreSQL",
+          "image": "postgres.svg",
+          "match": [ { "serviceName": "postgres" } ]
+        }
+        """;
+
+        var ok = LibraryManifestParser.TryParseIconDescriptor(json, "redis", out _, out var error);
+
+        ok.ShouldBeFalse();
+        error!.ShouldContain("does not match the directory name");
+    }
 }

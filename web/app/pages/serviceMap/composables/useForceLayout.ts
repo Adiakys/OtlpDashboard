@@ -9,7 +9,23 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum
 } from 'd3-force'
-import type { ServiceMapDto } from '~/services/types'
+import type { ServiceMapEdgeDto, ServiceMapNodeDto } from '~/services/types'
+
+/**
+ * Client-side enriched view of a {@link ServiceMapNodeDto}: adds the
+ * pack-resolved `iconUrl`. Lives here (and not in `services/types.ts`)
+ * because it's purely a render concern — the wire DTO stays clean of
+ * pack knowledge. Page composables call the icon resolver once per
+ * node into this shape; the graph renders it.
+ */
+export interface ResolvedServiceMapNode extends ServiceMapNodeDto {
+  iconUrl: string | null
+}
+
+export interface ResolvedServiceMapDto {
+  nodes: ResolvedServiceMapNode[]
+  edges: ServiceMapEdgeDto[]
+}
 
 /**
  * Node as carried by the force simulation. d3 mutates `x/y/vx/vy` in
@@ -23,6 +39,7 @@ export interface PositionedNode extends SimulationNodeDatum {
   kind: 'service' | 'dependency'
   requestCount: number
   errorCount: number
+  iconUrl: string | null
 }
 
 export interface PositionedEdge extends SimulationLinkDatum<PositionedNode> {
@@ -61,7 +78,7 @@ const DEFAULTS: Required<UseForceLayoutOptions> = {
  * once per simulation tick instead of once per property write.
  */
 export function useForceLayout(
-  data: Ref<ServiceMapDto>,
+  data: Ref<ResolvedServiceMapDto>,
   width: Ref<number>,
   height: Ref<number>,
   options: UseForceLayoutOptions = {}
@@ -103,6 +120,7 @@ export function useForceLayout(
         kind: dto.kind,
         requestCount: dto.requestCount,
         errorCount: dto.errorCount,
+        iconUrl: dto.iconUrl,
         x: cached?.x ?? w / 2 + (Math.random() - 0.5) * 40,
         y: cached?.y ?? h / 2 + (Math.random() - 0.5) * 40
       }

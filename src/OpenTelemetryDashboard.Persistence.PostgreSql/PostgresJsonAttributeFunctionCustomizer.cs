@@ -72,11 +72,18 @@ internal sealed class PostgresJsonAttributeFunctionCustomizer : RelationalModelC
             operand: jsonColumn,
             type: typeof(string),
             typeMapping: jsonbMapping);
+        // argumentsPropagateNullability: false on both — jsonb_extract_path_text
+        // returns NULL when the key is absent regardless of whether the
+        // arguments are non-null. Leaving propagation as `true` makes EF
+        // collapse `... IS NULL` predicates against the function's
+        // result to `WHERE 0` (the JSON column and the key parameter
+        // are themselves NOT NULL), which breaks the per-span attribute
+        // priority pick in EfCoreServiceMapReader.
         return new SqlFunctionExpression(
             functionName: "jsonb_extract_path_text",
             arguments: [jsonbCast, key],
             nullable: true,
-            argumentsPropagateNullability: [true, true],
+            argumentsPropagateNullability: [false, false],
             type: typeof(string),
             typeMapping: stringMapping);
     }

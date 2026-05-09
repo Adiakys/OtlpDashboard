@@ -310,6 +310,25 @@ public sealed class FilesystemPackRegistry : IPackRegistry, IDisposable
             });
         }
 
+        var icons = new List<PackIcon>(packManifest.Icons.Count);
+        foreach (var iconRef in packManifest.Icons)
+        {
+            var iconDirAbs = Path.GetFullPath(Path.Combine(dir, iconRef.RelativePath));
+            if (!iconDirAbs.StartsWith(packRootWithSep, StringComparison.Ordinal))
+            {
+                _logger.PackPathEscaped(packManifest.Id, iconRef.Id, iconDirAbs);
+                continue;
+            }
+            if (!Directory.Exists(iconDirAbs))
+            {
+                _logger.PackIconMissing(packManifest.Id, iconRef.Id, iconDirAbs);
+                continue;
+            }
+
+            if (!TryLoadIcon(iconDirAbs, packRoot, packManifest.Id, iconRef.Id, out var icon)) continue;
+            icons.Add(icon);
+        }
+
         var (installSource, gitInfo) = ReadInstallMetadata(dir);
 
         pack = new Pack
@@ -331,8 +350,94 @@ public sealed class FilesystemPackRegistry : IPackRegistry, IDisposable
             Removable = removable,
             Libraries = libraries,
             Dashboards = dashboards,
+            Icons = icons,
         };
         return true;
+    }
+
+    private bool TryLoadIcon(
+        string iconDirAbs,
+        string packRoot,
+        string packId,
+        string expectedIconId,
+        out PackIcon icon)
+    {
+        icon = default!;
+
+        var iconJsonPath = Path.Combine(iconDirAbs, "icon.json");
+        if (!File.Exists(iconJsonPath))
+        {
+            _logger.IconJsonMissing(packId, expectedIconId);
+            return false;
+        }
+
+        string raw;
+        try
+        {
+            raw = File.ReadAllText(iconJsonPath);
+        }
+        catch (IOException ex)
+        {
+            _logger.IconReadFailed(ex, packId, expectedIconId);
+            return false;
+        }
+
+        if (!LibraryManifestParser.TryParseIconDescriptor(raw, expectedIconId, out var descriptor, out var err))
+        {
+            _logger.IconRejected(packId, expectedIconId, err);
+            return false;
+        }
+
+        var imageAbs = Path.GetFullPath(Path.Combine(iconDirAbs, descriptor.Image));
+        var packRootWithSep = packRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? packRoot
+            : packRoot + Path.DirectorySeparatorChar;
+        if (!imageAbs.StartsWith(packRootWithSep, StringComparison.Ordinal))
+        {
+            _logger.PackPathEscaped(packId, expectedIconId, imageAbs);
+            return false;
+        }
+        if (!File.Exists(imageAbs))
+        {
+            _logger.IconImageMissing(packId, expectedIconId, imageAbs);
+            return false;
+        }
+
+        // Build the forward-slash URL path under the pack root (used by
+        // both the asset endpoint and the resolver). Built from the
+        // already-validated absolute path so the URL can never carry
+        // a path traversal even if the descriptor lied.
+        var rel = Path.GetRelativePath(packRoot, imageAbs).Replace(Path.DirectorySeparatorChar, '/');
+
+        var match = new List<PackIconMatch>(descriptor.Match.Count);
+        foreach (var entry in descriptor.Match)
+        {
+            match.Add(new PackIconMatch
+            {
+                ServiceName = entry.ServiceName,
+                NamePattern = entry.NamePattern,
+            });
+        }
+
+        icon = new PackIcon
+        {
+            Id = descriptor.Id,
+            Name = descriptor.Name,
+            ImageRelativePath = descriptor.Image,
+            Image = rel,
+            ContentType = ContentTypeFor(descriptor.Image),
+            Match = match,
+        };
+        return true;
+    }
+
+    private static string ContentTypeFor(string filename)
+    {
+        var ext = Path.GetExtension(filename);
+        if (string.Equals(ext, ".svg", StringComparison.OrdinalIgnoreCase)) return "image/svg+xml";
+        if (string.Equals(ext, ".png", StringComparison.OrdinalIgnoreCase)) return "image/png";
+        if (string.Equals(ext, ".webp", StringComparison.OrdinalIgnoreCase)) return "image/webp";
+        return "application/octet-stream";
     }
 
     private bool TryLoadLibrary(string dir, string packId, out WidgetLibrary library)
@@ -575,4 +680,24 @@ internal static partial class FilesystemPackRegistryLogs
     [LoggerMessage(EventId = 21, Level = LogLevel.Information,
         Message = "Uninstalled pack '{PackId}' (deleted {Path}).")]
     public static partial void PackUninstalled(this ILogger logger, string packId, string path);
+
+    [LoggerMessage(EventId = 22, Level = LogLevel.Warning,
+        Message = "Pack '{PackId}': icon '{IconId}' is missing on disk ({Path}); skipping.")]
+    public static partial void PackIconMissing(this ILogger logger, string packId, string iconId, string path);
+
+    [LoggerMessage(EventId = 23, Level = LogLevel.Warning,
+        Message = "Pack '{PackId}': icon '{IconId}' has no icon.json; skipping.")]
+    public static partial void IconJsonMissing(this ILogger logger, string packId, string iconId);
+
+    [LoggerMessage(EventId = 24, Level = LogLevel.Warning,
+        Message = "Pack '{PackId}': failed to read icon '{IconId}'.")]
+    public static partial void IconReadFailed(this ILogger logger, Exception ex, string packId, string iconId);
+
+    [LoggerMessage(EventId = 25, Level = LogLevel.Warning,
+        Message = "Pack '{PackId}': icon '{IconId}': {Error}")]
+    public static partial void IconRejected(this ILogger logger, string packId, string iconId, string? error);
+
+    [LoggerMessage(EventId = 26, Level = LogLevel.Warning,
+        Message = "Pack '{PackId}': icon '{IconId}' image is missing on disk ({Path}); skipping.")]
+    public static partial void IconImageMissing(this ILogger logger, string packId, string iconId, string path);
 }

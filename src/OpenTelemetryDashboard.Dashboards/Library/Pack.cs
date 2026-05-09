@@ -61,4 +61,6 @@ public sealed class Pack
     public IReadOnlyList<WidgetLibrary> Libraries { get; init; } = [];
 
     public IReadOnlyList<PackDashboard> Dashboards { get; init; } = [];
+
+    public IReadOnlyList<PackIcon> Icons { get; init; } = [];
 }

@@ -97,6 +97,18 @@ public static class DashboardsEndpointRouteBuilderExtensions
         group.MapPost("/{id}/update", PackEndpoints.UpdatePackAsync).WithName("UpdatePack");
         group.MapDelete("/{id}", PackEndpoints.UninstallPackAsync).WithName("UninstallPack");
 
+        // Pack assets (currently icons only) are public on purpose: the
+        // SVG / PNG / WebP files are referenced from <image> tags inside
+        // the rendered service-map SVG, which the browser fetches with
+        // its own GET — without going through the SPA's authenticated
+        // fetcher, so a Bearer-token policy here would 401 every icon
+        // request. The endpoint stays safe via the extension whitelist
+        // (no arbitrary file reads) and the path-traversal guard, and
+        // pack-shipped image assets carry no sensitive data anyway.
+        group.MapGet("/{id}/assets/{**path}", PackEndpoints.GetPackAssetAsync)
+            .WithName("GetPackAsset")
+            .AllowAnonymous();
+
         return group;
     }
 }

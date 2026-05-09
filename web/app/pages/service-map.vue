@@ -6,13 +6,30 @@ import AppErrorState from '~/components/ui/AppErrorState.vue'
 import ServiceMapGraph from './serviceMap/components/ServiceMapGraph.vue'
 import ServiceDetailDrawer from './serviceMap/components/ServiceDetailDrawer.vue'
 import { useServiceMapPage } from './serviceMap/composables/useServiceMapPage'
+import { useIconResolver } from './serviceMap/composables/useIconResolver'
+import type { ResolvedServiceMapDto } from './serviceMap/composables/useForceLayout'
 import type { ActionDescriptor, FilterDescriptor } from '~/types/toolbar'
-import type { ServiceMapDto, TimeWindow } from '~/services/types'
+import type { PackDto, ServiceMapDto, TimeWindow } from '~/services/types'
 
 const { t, locale } = useI18n()
-const { $serviceMapService, $traceRetentionDays, $queryMaxWindowHours } = useNuxtApp()
+const {
+  $serviceMapService,
+  $widgetService,
+  $traceRetentionDays,
+  $queryMaxWindowHours
+} = useNuxtApp()
 
 const page = useServiceMapPage($serviceMapService)
+
+// Pack-supplied service-map icons. Fetched once on mount; the resolver
+// reactively rebuilds when a pack install/update reloads the list.
+// Failures are non-fatal (the map still renders, just without icons).
+const packs = ref<readonly PackDto[]>([])
+$widgetService.listPacks()
+  .then(list => { packs.value = list })
+  .catch(() => { packs.value = [] })
+
+const { resolve: resolveIconUrl } = useIconResolver(packs)
 
 // Hide-unnamed-services preference. Persisted in localStorage so the
 // view choice survives reloads — same pattern as the histogram toggle
@@ -55,6 +72,19 @@ const displayedData = computed<ServiceMapDto>(() => {
   )
   return { nodes, edges }
 })
+
+// Icon-enriched view passed to the graph. The reactive dependency on
+// `packs` (via the resolver closure) is what makes async pack fetches
+// reflect into the rendered SVG: once /v1/packs resolves, this
+// computed recomputes, the graph receives a fresh data object, and
+// its existing watcher rebuilds the layout with proper iconUrls.
+const resolvedData = computed<ResolvedServiceMapDto>(() => ({
+  nodes: displayedData.value.nodes.map(n => ({
+    ...n,
+    iconUrl: resolveIconUrl(n.service)
+  })),
+  edges: displayedData.value.edges
+}))
 
 const subtitle = computed(() => {
   const win = describeWindow(page.range.value)
@@ -138,7 +168,7 @@ const isEmpty = computed(() => !page.isLoading.value && displayedData.value.node
 
     <ServiceMapGraph
       v-else
-      :data="displayedData"
+      :data="resolvedData"
       :selected="page.selected.value"
       @select="(s) => page.selected.value = s"
     />

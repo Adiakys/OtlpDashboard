@@ -44,13 +44,37 @@ internal sealed class SqliteJsonAttributeFunctionCustomizer : RelationalModelCus
             typeMapping: null);
     }
 
-    /// <summary>Returns <c>CAST(json_extract(json, '$."<key>"') AS text)</c>
-    /// — same shape as the equals translation, just without the
-    /// trailing comparison.</summary>
-    private static SqlUnaryExpression TranslateValue(IReadOnlyList<SqlExpression> args)
+    /// <summary>Returns <c>json_extract(json, '$."<key>"')</c> as a
+    /// nullable string. The equality translation in
+    /// <see cref="TranslateEquals"/> wraps json_extract in a CAST so
+    /// SQLite's type-affinity rules don't fail
+    /// <c>200 = '200'</c>; here we don't apply the cast because we'd
+    /// lose IS NULL semantics: the EF nullability tracker sees
+    /// <c>SqlUnaryExpression(Convert)</c> as non-nullable, then folds
+    /// every <c>... IS NULL</c> predicate to <c>WHERE 0</c>.
+    /// <para>
+    /// <c>argumentsPropagateNullability</c> is <see langword="false"/>
+    /// for both arguments because the function's null-ness is
+    /// <i>independent</i> of the inputs — json_extract returns NULL
+    /// when the key is absent, even if both arguments are non-null. If
+    /// we left this <see langword="true"/>, EF would conclude that
+    /// since the JSON column and the path are NOT NULL the result is
+    /// NOT NULL too, and would still fold <c>... IS NULL</c> to
+    /// <c>WHERE 0</c> — the bug we just removed via the missing CAST
+    /// would come back through a different door.
+    /// </para>
+    /// </summary>
+    private static SqlFunctionExpression TranslateValue(IReadOnlyList<SqlExpression> args)
     {
         var stringMapping = args[1].TypeMapping;
-        return BuildExtractAsText(args[0], args[1], stringMapping);
+        var path = ConcatPath(args[1], stringMapping);
+        return new SqlFunctionExpression(
+            functionName: "json_extract",
+            arguments: [args[0], path],
+            nullable: true,
+            argumentsPropagateNullability: [false, false],
+            type: typeof(string),
+            typeMapping: stringMapping);
     }
 
     private static SqlUnaryExpression BuildExtractAsText(

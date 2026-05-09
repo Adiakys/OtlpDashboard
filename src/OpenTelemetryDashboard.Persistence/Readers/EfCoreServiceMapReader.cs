@@ -89,34 +89,59 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
         // External-dependency synthesis: a remote endpoint that doesn't
         // run an OTel SDK never emits spans of its own. The
         // instrumentation libs inside the *calling* service produce
-        // kind=Client spans tagged with the OTel-semconv "peer service"
-        // attribute (`peer.service`, replaced by `service.peer.name`
-        // in semconv ≥ 1.36). The value is the logical name of the
-        // remote service; we synthesise one virtual node per distinct
-        // value and one edge per (host, value) pair — same shape as
-        // what Datadog/Honeycomb call "dependencies".
+        // kind=Client spans tagged with attributes that name (or type)
+        // the remote — `db.system`, `messaging.system`, `rpc.system`,
+        // `peer.service`, `service.peer.name`. We synthesise one
+        // virtual node per distinct value and one edge per
+        // (host, value) pair — same shape as what Datadog/Honeycomb
+        // call "dependencies".
         //
-        // Which attribute keys count as "dependency markers" is a
-        // configuration concern (`ServiceMapOptions.DependencyAttributes`)
-        // so operators can extend it to their own conventions
-        // (e.g. `db.system`, `messaging.system`, `rpc.system`) without
-        // touching code. One query per key — the keys are typically a
-        // handful, and each query is GROUP-BY indexed on StartUnixNano.
+        // Per-span priority: <c>DependencyAttributes</c> is a priority
+        // list. For each Client span the reader credits *exactly one*
+        // attribute, the first non-null in priority order. Lower-
+        // priority queries explicitly filter out spans that have any
+        // higher-priority key set. This stops a single span from
+        // producing two dependency nodes — e.g. the EF Core
+        // instrumentation often emits both `db.system=postgresql` and
+        // `peer.service=5432`; without the priority filter we'd render
+        // one "postgresql" node *and* one "5432" node for the same
+        // call. With the default order (`service.peer.name` first,
+        // then the kind discriminators, with `peer.service` last),
+        // the kind-named node wins and the port number is suppressed.
         var depKeys = _serviceMapOptions.CurrentValue.DependencyAttributes
             ?.Where(k => !string.IsNullOrEmpty(k))
             ?.Distinct(StringComparer.Ordinal)
             ?.ToArray() ?? [];
 
         var deps = new List<(string Host, string DepName, string AttributeKey, long Count, long ErrorCount)>();
-        foreach (var key in depKeys)
+        for (var i = 0; i < depKeys.Length; i++)
         {
             // Closure-captured `key` is lifted by EF as a parameter,
             // so each iteration emits its own parameterised SQL plan.
-            var attributeKey = key;
+            var attributeKey = depKeys[i];
+            var higherPriorityKeys = i == 0 ? Array.Empty<string>() : depKeys[..i];
+
+            // Base set: Client spans in the window with a resolvable
+            // host service name.
+            IQueryable<Span> spans = context.Spans.AsNoTracking()
+                .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
+                .Where(s => s.Kind == SpanKind.Client);
+
+            // Cumulative IS NULL exclusions for every higher-priority
+            // key. Each Where() folds into the SQL WHERE chain as an
+            // additional AND clause, parameterised on the key string —
+            // so SQLite / PG / SQL Server all see the same shape.
+            foreach (var higherKey in higherPriorityKeys)
+            {
+                var captured = higherKey;
+                spans = spans.Where(s =>
+                    TelemetryDbFunctions.JsonAttributeValue(
+                        EF.Property<string>(s, nameof(Span.Attributes)),
+                        captured) == null);
+            }
+
             var depQuery =
-                from s in context.Spans.AsNoTracking()
-                where s.StartUnixNano >= fromNano && s.StartUnixNano < toNano
-                   && s.Kind == SpanKind.Client
+                from s in spans
                 join r in context.Resources.AsNoTracking() on s.ResourceHash equals r.Hash
                 where r.ServiceName != null
                 let depValue = TelemetryDbFunctions.JsonAttributeValue(

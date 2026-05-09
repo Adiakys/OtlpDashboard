@@ -49,6 +49,10 @@ public static class LibraryManifestParser
     private const int MaxRelativePathLength = 256;
     private const int MaxLibrariesPerPack = 64;
     private const int MaxDashboardsPerPack = 64;
+    private const int MaxIconsPerPack = 64;
+    private const int MaxIconMatchEntries = 16;
+    private const int MaxIconMatchValueLength = 256;
+    private const int MaxIconImageNameLength = 128;
 
     /// <summary>Per-widget config payload size cap. Aligns with the
     /// custom-widget DB constraint so libraries and DB-backed customs share a
@@ -81,7 +85,8 @@ public static class LibraryManifestParser
         string? Description,
         string? Homepage,
         IReadOnlyList<PackLibraryRef> Libraries,
-        IReadOnlyList<PackDashboardRef> Dashboards);
+        IReadOnlyList<PackDashboardRef> Dashboards,
+        IReadOnlyList<PackIconRef> Icons);
 
     /// <summary>Library entry inside a <see cref="PackManifest"/>.
     /// <see cref="Id"/> matches the in-pack directory's manifest id;
@@ -95,6 +100,29 @@ public static class LibraryManifestParser
     /// for the default dashboard). Without it the dashboard is just an
     /// installable template.</summary>
     public sealed record PackDashboardRef(string Id, string RelativePath, bool Builtin);
+
+    /// <summary>Icon entry inside a <see cref="PackManifest"/>.
+    /// <see cref="Id"/> matches the icon directory's own
+    /// <c>icon.json</c> id; <see cref="RelativePath"/> is forward-slash
+    /// relative, validated to stay inside the pack root.</summary>
+    public sealed record PackIconRef(string Id, string RelativePath);
+
+    /// <summary>Parsed <c>icon.json</c>. <see cref="Image"/> is the
+    /// image filename relative to the icon directory (validated to be a
+    /// safe single-segment name with a whitelisted extension);
+    /// <see cref="Match"/> is the (non-empty) ordered list of matchers
+    /// the resolver evaluates against service-map nodes.</summary>
+    public sealed record IconDescriptor(
+        string Id,
+        string Name,
+        string Image,
+        IReadOnlyList<IconMatchEntry> Match);
+
+    /// <summary>One entry in <see cref="IconDescriptor.Match"/>.
+    /// Exactly one of <see cref="ServiceName"/> /
+    /// <see cref="NamePattern"/> is set; the parser rejects entries
+    /// with more than one or none.</summary>
+    public sealed record IconMatchEntry(string? ServiceName, string? NamePattern);
 
     /// <summary>
     /// Library-level header. <see cref="Icon"/> drives the picker
@@ -171,14 +199,77 @@ public static class LibraryManifestParser
 
             if (!TryParseLibraryRefs(root, out var libs, out error)) return false;
             if (!TryParseDashboardRefs(root, out var dashes, out error)) return false;
+            if (!TryParseIconRefs(root, out var icons, out error)) return false;
 
-            if (libs.Count == 0 && dashes.Count == 0)
+            if (libs.Count == 0 && dashes.Count == 0 && icons.Count == 0)
             {
-                error = "pack.json: a pack must declare at least one entry under 'libraries' or 'dashboards'.";
+                error = "pack.json: a pack must declare at least one entry under 'libraries', 'dashboards' or 'icons'.";
                 return false;
             }
 
-            pack = new PackManifest(id, name, version, author, license, description, homepage, libs, dashes);
+            pack = new PackManifest(id, name, version, author, license, description, homepage, libs, dashes, icons);
+            error = null;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Parse an <c>icon.json</c> payload. <paramref name="expectedId"/>
+    /// is the on-disk icon directory name; the parser enforces that
+    /// <c>id</c> matches it before the value is used as a path
+    /// component or surfaced anywhere.
+    /// </summary>
+    public static bool TryParseIconDescriptor(
+        string json,
+        string expectedId,
+        [NotNullWhen(true)] out IconDescriptor? descriptor,
+        [NotNullWhen(false)] out string? error)
+    {
+        descriptor = null;
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            error = $"icon.json is not valid JSON: {ex.Message}";
+            return false;
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                error = "icon.json must be a JSON object.";
+                return false;
+            }
+
+            if (!TryRequiredString(root, "id", MaxIdLength, out var id, out error)) return false;
+            if (!IdRegex.IsMatch(id))
+            {
+                error = "icon.json: 'id' must match [a-z0-9-] (lowercase, no slashes, no dots).";
+                return false;
+            }
+            if (!string.Equals(id, expectedId, StringComparison.Ordinal))
+            {
+                error = $"icon.json: 'id' ('{id}') does not match the directory name ('{expectedId}').";
+                return false;
+            }
+
+            if (!TryRequiredString(root, "name", MaxNameLength, out var name, out error)) return false;
+            if (!TryRequiredString(root, "image", MaxIconImageNameLength, out var image, out error)) return false;
+            if (!IsSafeIconImageFilename(image))
+            {
+                error = "icon.json: 'image' must be a single filename ending in .svg / .png / .webp (no slashes, no '..').";
+                return false;
+            }
+
+            if (!TryParseIconMatch(root, out var matchEntries, out error)) return false;
+
+            descriptor = new IconDescriptor(id, name, image, matchEntries);
             error = null;
             return true;
         }
@@ -501,6 +592,177 @@ public static class LibraryManifestParser
         refs = list;
         error = null;
         return true;
+    }
+
+    private static bool TryParseIconRefs(
+        JsonElement root,
+        out IReadOnlyList<PackIconRef> refs,
+        [NotNullWhen(false)] out string? error)
+    {
+        refs = [];
+        if (!root.TryGetProperty("icons", out var arr))
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind == JsonValueKind.Null)
+        {
+            error = null;
+            return true;
+        }
+        if (arr.ValueKind != JsonValueKind.Array)
+        {
+            error = "pack.json: 'icons' must be a JSON array.";
+            return false;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var list = new List<PackIconRef>();
+        foreach (var entry in arr.EnumerateArray())
+        {
+            if (list.Count >= MaxIconsPerPack)
+            {
+                error = $"pack.json: 'icons' may declare at most {MaxIconsPerPack} entries.";
+                return false;
+            }
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                error = "pack.json: each entry in 'icons' must be an object.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "id", MaxIdLength, out var iconId, out error)) return false;
+            if (!IdRegex.IsMatch(iconId))
+            {
+                error = $"pack.json: icon 'id' '{iconId}' must match [a-z0-9-].";
+                return false;
+            }
+            if (!seen.Add(iconId))
+            {
+                error = $"pack.json: duplicate icon id '{iconId}'.";
+                return false;
+            }
+            if (!TryRequiredString(entry, "path", MaxRelativePathLength, out var path, out error)) return false;
+            if (!IsSafeRelativePath(path))
+            {
+                error = $"pack.json: icon '{iconId}' has an unsafe path '{path}'.";
+                return false;
+            }
+            list.Add(new PackIconRef(iconId, path));
+        }
+
+        refs = list;
+        error = null;
+        return true;
+    }
+
+    private static bool TryParseIconMatch(
+        JsonElement root,
+        out IReadOnlyList<IconMatchEntry> entries,
+        [NotNullWhen(false)] out string? error)
+    {
+        entries = [];
+        if (!root.TryGetProperty("match", out var arr) || arr.ValueKind != JsonValueKind.Array)
+        {
+            error = "icon.json: 'match' is required and must be a JSON array.";
+            return false;
+        }
+
+        var list = new List<IconMatchEntry>();
+        foreach (var element in arr.EnumerateArray())
+        {
+            if (list.Count >= MaxIconMatchEntries)
+            {
+                error = $"icon.json: 'match' may declare at most {MaxIconMatchEntries} entries.";
+                return false;
+            }
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                error = "icon.json: each entry in 'match' must be an object.";
+                return false;
+            }
+
+            string? serviceName = null;
+            string? namePattern = null;
+
+            if (element.TryGetProperty("serviceName", out var sn) && sn.ValueKind != JsonValueKind.Null)
+            {
+                if (sn.ValueKind != JsonValueKind.String)
+                {
+                    error = "icon.json: 'match[].serviceName' must be a string.";
+                    return false;
+                }
+                serviceName = sn.GetString();
+                if (string.IsNullOrEmpty(serviceName) || serviceName.Length > MaxIconMatchValueLength)
+                {
+                    error = $"icon.json: 'match[].serviceName' must be 1..{MaxIconMatchValueLength} characters.";
+                    return false;
+                }
+            }
+
+            if (element.TryGetProperty("namePattern", out var np) && np.ValueKind != JsonValueKind.Null)
+            {
+                if (np.ValueKind != JsonValueKind.String)
+                {
+                    error = "icon.json: 'match[].namePattern' must be a string.";
+                    return false;
+                }
+                namePattern = np.GetString();
+                if (string.IsNullOrEmpty(namePattern) || namePattern.Length > MaxIconMatchValueLength)
+                {
+                    error = $"icon.json: 'match[].namePattern' must be 1..{MaxIconMatchValueLength} characters.";
+                    return false;
+                }
+                try
+                {
+                    _ = new Regex(namePattern, RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+                }
+                catch (ArgumentException ex)
+                {
+                    error = $"icon.json: 'match[].namePattern' is not a valid regex: {ex.Message}";
+                    return false;
+                }
+            }
+
+            var hasServiceName = serviceName is not null;
+            var hasNamePattern = namePattern is not null;
+            if (hasServiceName == hasNamePattern)
+            {
+                error = "icon.json: each 'match[]' entry must specify exactly one of 'serviceName' or 'namePattern'.";
+                return false;
+            }
+
+            list.Add(new IconMatchEntry(serviceName, namePattern));
+        }
+
+        if (list.Count == 0)
+        {
+            error = "icon.json: 'match' must declare at least one entry.";
+            return false;
+        }
+
+        entries = list;
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Icon images are restricted to a single-segment filename with a
+    /// whitelisted extension. Mirroring the asset-endpoint guard at the
+    /// parser stops a typo from slipping past static validation.
+    /// </summary>
+    private static bool IsSafeIconImageFilename(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        if (name.Contains('/', StringComparison.Ordinal)) return false;
+        if (name.Contains('\\', StringComparison.Ordinal)) return false;
+        if (name.Contains(':', StringComparison.Ordinal)) return false;
+        if (name is "." or "..") return false;
+        if (name.StartsWith('.')) return false;
+
+        var ext = Path.GetExtension(name);
+        return string.Equals(ext, ".svg", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ext, ".png", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ext, ".webp", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

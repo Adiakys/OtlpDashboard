@@ -8,15 +8,19 @@
  * dark-mode behaviour without library theming.
  */
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import type { ServiceMapDto } from '~/services/types'
 import {
   useForceLayout,
   type PositionedEdge,
-  type PositionedNode
+  type PositionedNode,
+  type ResolvedServiceMapDto
 } from '../composables/useForceLayout'
 
 const props = defineProps<{
-  data: ServiceMapDto
+  /** Service-map view data with iconUrl already resolved per node.
+   *  The page enriches the wire DTO via the icon resolver in a
+   *  reactive `computed` — so when packs load asynchronously a
+   *  fresh data object reaches us and the layout watcher rebuilds. */
+  data: ResolvedServiceMapDto
   selected?: string | null
 }>()
 
@@ -94,6 +98,17 @@ function nodeColor(n: PositionedNode): string {
   if (rate >= 0.05) return 'var(--color-rust-500)'
   if (rate >= 0.01) return 'var(--color-amber-500)'
   return 'var(--color-sage-500)'
+}
+
+// Icons render at the full node diameter minus the stroke width on
+// both sides, so the glyph fills the inside of the colored ring
+// (or the rect for dependency nodes) without overlapping the stroke.
+// Service nodes additionally clip to a circle in CSS so logos whose
+// SVG content extends to the viewBox corners (e.g. Devicon's Redis
+// cubes) stay inside the disc instead of spilling diagonally.
+const NODE_STROKE_INSET = 2
+function iconSize(n: PositionedNode): number {
+  return Math.max(0, nodeRadius(n) * 2 - NODE_STROKE_INSET * 2)
 }
 
 function edgeColor(e: PositionedEdge): string {
@@ -311,8 +326,8 @@ watch(() => props.data.nodes.length, () => {
               />
               <circle
                 :r="nodeRadius(n)"
-                :fill="nodeColor(n)"
-                fill-opacity="0.18"
+                :fill="n.iconUrl ? 'var(--ui-bg)' : nodeColor(n)"
+                :fill-opacity="n.iconUrl ? 1 : 0.18"
                 :stroke="nodeColor(n)"
                 stroke-width="2"
               />
@@ -338,13 +353,25 @@ watch(() => props.data.nodes.length, () => {
                 :height="nodeRadius(n) * 2"
                 rx="4"
                 ry="4"
-                :fill="nodeColor(n)"
-                fill-opacity="0.18"
+                :fill="n.iconUrl ? 'var(--ui-bg)' : nodeColor(n)"
+                :fill-opacity="n.iconUrl ? 1 : 0.18"
                 :stroke="nodeColor(n)"
                 stroke-width="2"
                 stroke-dasharray="3 2"
               />
             </template>
+
+            <image
+              v-if="n.iconUrl"
+              :href="n.iconUrl"
+              :x="-iconSize(n) / 2"
+              :y="-iconSize(n) / 2"
+              :width="iconSize(n)"
+              :height="iconSize(n)"
+              preserveAspectRatio="xMidYMid meet"
+              class="vellum-svc-map__icon"
+              :class="{ 'vellum-svc-map__icon--clip-circle': n.kind === 'service' }"
+            />
 
             <text
               text-anchor="middle"
@@ -353,6 +380,7 @@ watch(() => props.data.nodes.length, () => {
               :class="{ 'vellum-svc-map__label--unnamed': isUnnamedNode(n.service) }"
             >{{ displayName(n.service) }}</text>
             <text
+              v-if="!n.iconUrl"
               text-anchor="middle"
               y="4"
               class="vellum-svc-map__count"
@@ -411,5 +439,16 @@ watch(() => props.data.nodes.length, () => {
   fill: var(--ui-text-muted);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+.vellum-svc-map__icon {
+  /* Pointer events fall through to the parent <g> so drag/click still
+     work when the cursor is on the icon itself. */
+  pointer-events: none;
+}
+.vellum-svc-map__icon--clip-circle {
+  /* Service nodes are circles; clip the square <image> to the same
+     disc so logos that extend to the viewBox corners (e.g. Devicon
+     Redis) stay inside the stroke ring. */
+  clip-path: circle(50%);
 }
 </style>

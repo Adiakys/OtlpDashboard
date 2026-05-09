@@ -52,11 +52,17 @@ internal sealed class SqlServerJsonAttributeFunctionCustomizer : RelationalModel
         SqlExpression jsonColumn, SqlExpression key, RelationalTypeMapping? stringMapping)
     {
         var path = ConcatPath(key, stringMapping);
+        // argumentsPropagateNullability is false: JSON_VALUE returns
+        // NULL when the path doesn't match, independently of whether
+        // the arguments are non-null. With propagation enabled EF would
+        // simplify `... IS NULL` predicates to false (since the column
+        // and path are non-nullable), breaking the priority-pick
+        // synthesis in EfCoreServiceMapReader.
         return new SqlFunctionExpression(
             functionName: "JSON_VALUE",
             arguments: [jsonColumn, path],
             nullable: true,
-            argumentsPropagateNullability: [true, true],
+            argumentsPropagateNullability: [false, false],
             type: typeof(string),
             typeMapping: stringMapping);
     }

@@ -51,9 +51,23 @@ export interface RawBundledDashboard {
   widgets: RawBundledDashboardWidget[]
 }
 
+export interface RawBundledIconMatch {
+  serviceName?: string | null
+  namePattern?: string | null
+}
+
+export interface RawBundledIcon {
+  packId: string
+  id: string
+  name: string
+  imageUrl: string
+  match: RawBundledIconMatch[]
+}
+
 export interface DemoBundle {
   dashboards: RawBundledDashboard[]
   libraries: RawBundledLibrary[]
+  icons: RawBundledIcon[]
 }
 
 export const DEMO_BUNDLE: DemoBundle = bundleData as DemoBundle

@@ -397,6 +397,56 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetServiceMap_PicksHigherPriorityAttributeWhenMultipleSet()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 9, 16, 9, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var hostService = $"map-host-{suffix}";
+
+        // Real-world EF Core / Npgsql shape: the same Client span carries
+        // *both* a kind attribute (`db.system=postgresql`) and the
+        // generic peer-service slot, with peer.service often holding the
+        // port number. The new per-span priority logic must pick
+        // `db.system` (kind discriminators come ahead of the legacy
+        // `peer.service` slot in ServiceMapOptions.DependencyAttributes)
+        // and emit a single dep node, *not* one node per attribute.
+        var portMarker = $"5432-{suffix}";
+        var systemMarker = $"postgresql-{suffix}";
+        await SeedClientSpanWithAttributesAsync(
+            client, hostService, anchor, RandomBytes(16), RandomBytes(8),
+            name: $"db.query.{suffix}",
+            attributes:
+            [
+                new KeyValuePair<string, AnyValue>("db.system", new AnyValue { StringValue = systemMarker }),
+                new KeyValuePair<string, AnyValue>("peer.service", new AnyValue { StringValue = portMarker })
+            ]);
+
+        await WaitForAsync(async ctx =>
+            await ctx.Spans.CountAsync(s => s.Name.StartsWith($"db.query.{suffix}")) == 1);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var response = await client.GetFromJsonAsync<ServiceMapApiResponse>(
+            new Uri($"/api/v1/service-map?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        response.ShouldNotBeNull();
+        // Higher-priority key wins: the dep node is named after
+        // db.system, and `attributeKey` confirms that's the chosen
+        // attribute (the SPA uses it for the drill-down filter).
+        response!.Nodes.ShouldContain(n => n.Service == systemMarker && n.Kind == "dependency" && n.AttributeKey == "db.system");
+        // Lower-priority key is suppressed: no "5432-…" node, no edge
+        // pointing at it. A naive parallel-query implementation would
+        // produce both — the test guards against regression.
+        response.Nodes.ShouldNotContain(n => n.Service == portMarker);
+        response.Edges.ShouldContain(e => e.FromService == hostService && e.ToService == systemMarker);
+        response.Edges.ShouldNotContain(e => e.ToService == portMarker);
+    }
+
+    [Fact]
     public async Task GetServiceMap_KeepsResourceWithEmptyServiceName()
     {
         using var client = _fixture.CreateClient();

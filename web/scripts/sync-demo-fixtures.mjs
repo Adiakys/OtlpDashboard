@@ -57,10 +57,23 @@ function loadLibrary(libRoot) {
   }
 }
 
-const bundle = { dashboards: [], libraries: [] }
+// Icons are copied to web/public/icons/<packId>/<iconId>/<filename> at
+// bundle time and surfaced under the same path the real backend's pack
+// asset endpoint would serve them from. Keeping the URL shape close to
+// the production one means the SPA's icon resolver doesn't need a
+// demo-mode branch.
+const PUBLIC_ICONS_DIR = path.join(__dirname, '..', 'public', 'icons')
+
+const bundle = { dashboards: [], libraries: [], icons: [] }
 const seenLibIds = new Set()
 
 if (fs.existsSync(PACKS_DIR)) {
+  // Wipe the previous demo icon layout — pack additions/removals shouldn't
+  // leave stale SVGs lying around between builds.
+  if (fs.existsSync(PUBLIC_ICONS_DIR)) {
+    fs.rmSync(PUBLIC_ICONS_DIR, { recursive: true, force: true })
+  }
+
   for (const packDir of listDirs(PACKS_DIR)) {
     const packRoot = path.join(PACKS_DIR, packDir)
     const packJsonPath = path.join(packRoot, 'pack.json')
@@ -81,6 +94,30 @@ if (fs.existsSync(PACKS_DIR)) {
       if (!fs.existsSync(dashPath)) continue
       bundle.dashboards.push(readJson(dashPath))
     }
+
+    for (const iconRef of pack.icons ?? []) {
+      const iconRoot = path.join(packRoot, iconRef.path)
+      const iconJsonPath = path.join(iconRoot, 'icon.json')
+      if (!fs.existsSync(iconJsonPath)) continue
+      const desc = readJson(iconJsonPath)
+      const srcImage = path.join(iconRoot, desc.image)
+      if (!fs.existsSync(srcImage)) continue
+
+      // Mirror the shape of the production asset URL so the SPA
+      // resolver builds one path that works in both modes.
+      const relUrl = `/icons/${pack.id}/${iconRef.path.split('/').pop()}/${desc.image}`
+      const dstPath = path.join(__dirname, '..', 'public', relUrl.slice(1))
+      fs.mkdirSync(path.dirname(dstPath), { recursive: true })
+      fs.copyFileSync(srcImage, dstPath)
+
+      bundle.icons.push({
+        packId: pack.id,
+        id: desc.id,
+        name: desc.name,
+        imageUrl: relUrl,
+        match: desc.match
+      })
+    }
   }
 }
 
@@ -90,5 +127,6 @@ fs.writeFileSync(OUT_FILE, JSON.stringify(bundle, null, 2) + '\n')
 const widgetCount = bundle.libraries.reduce((s, l) => s + l.widgets.length, 0)
 console.log(
   `[sync-demo-fixtures] wrote ${path.relative(REPO_ROOT, OUT_FILE)} ` +
-    `(${bundle.dashboards.length} dashboards, ${bundle.libraries.length} libraries, ${widgetCount} widgets)`
+    `(${bundle.dashboards.length} dashboards, ${bundle.libraries.length} libraries, ` +
+    `${widgetCount} widgets, ${bundle.icons.length} icons)`
 )

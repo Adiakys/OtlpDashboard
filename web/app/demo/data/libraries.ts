@@ -80,6 +80,18 @@ export const DEMO_PACKS: PackDto[] = [
     installedAt: null,
     removable: false,
     libraries: DEMO_LIBRARIES,
-    dashboards: DEMO_BUNDLE.dashboards.map(d => ({ id: d.name, builtin: true }))
+    dashboards: DEMO_BUNDLE.dashboards.map(d => ({ id: d.name, builtin: true })),
+    // Icons in the bundle were emitted with their original `packId`
+    // (e.g. "default") because the sync script preserves provenance.
+    // The synthetic demo pack collapses every library/dashboard into a
+    // single `demo` pack, so we have to re-stamp icons under the same
+    // id and keep the imageUrl untouched (the file already lives at
+    // /icons/<originalPackId>/...).
+    icons: DEMO_BUNDLE.icons.map(icon => ({
+      id: icon.id,
+      name: icon.name,
+      imageUrl: icon.imageUrl,
+      match: icon.match
+    }))
   }
 ]
