@@ -41,7 +41,9 @@ internal static class DashboardServicesExtensions
         // Dashboard:Mcp:Enabled at endpoint-mapping time).
         builder.Services.AddDashboardMcp();
 
-        builder.Services.AddHealthChecks();
+        builder.Services
+            .AddHealthChecks()
+            .AddTelemetrySinkHealthCheck();
 
         return builder;
     }

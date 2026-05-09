@@ -17,19 +17,23 @@ public sealed class EfCoreTraceSink : ITraceSink
 {
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
     private readonly ResourceCache _resourceCache;
+    private readonly TelemetrySinkMetrics _metrics;
     private readonly ILogger<EfCoreTraceSink> _logger;
 
     public EfCoreTraceSink(
         IDbContextFactory<TelemetryDbContext> contextFactory,
         ResourceCache resourceCache,
+        TelemetrySinkMetrics metrics,
         ILogger<EfCoreTraceSink> logger)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentNullException.ThrowIfNull(resourceCache);
+        ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(logger);
 
         _contextFactory = contextFactory;
         _resourceCache = resourceCache;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -73,8 +77,11 @@ public sealed class EfCoreTraceSink : ITraceSink
 
         try
         {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await BoundedRetry
+                .ExecuteAsync(ct => context.SaveChangesAsync(ct), cancellationToken)
+                .ConfigureAwait(false);
             ResourceUpserter.CachePending(_resourceCache, pendingCache);
+            _metrics.RecordTraceSuccess(spanCount);
             _logger.TracesPersisted(resourcesByHash.Count, spanCount);
         }
         catch (OperationCanceledException)
@@ -83,6 +90,10 @@ public sealed class EfCoreTraceSink : ITraceSink
         }
         catch (Exception ex)
         {
+            // Last-resort swallow: rethrowing would crash the BackgroundService
+            // and lose every batch still in the channel. The drop is now
+            // observable through TelemetrySinkMetrics + /healthz.
+            _metrics.RecordTraceDrop(spanCount);
             _logger.TracesBatchFailed(ex, spanCount);
         }
     }
@@ -95,6 +106,6 @@ internal static partial class EfCoreTraceSinkLogs
     public static partial void TracesPersisted(this ILogger logger, int resources, int spans);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Error,
-        Message = "EfCoreTraceSink failed to persist batch of {Spans} spans")]
+        Message = "EfCoreTraceSink dropped batch of {Spans} spans after exhausting retries")]
     public static partial void TracesBatchFailed(this ILogger logger, Exception exception, int spans);
 }

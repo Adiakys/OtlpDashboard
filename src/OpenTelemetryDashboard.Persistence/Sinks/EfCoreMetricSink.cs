@@ -23,22 +23,26 @@ public sealed class EfCoreMetricSink : IMetricSink
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
     private readonly ResourceCache _resourceCache;
     private readonly InstrumentCache _instrumentCache;
+    private readonly TelemetrySinkMetrics _metrics;
     private readonly ILogger<EfCoreMetricSink> _logger;
 
     public EfCoreMetricSink(
         IDbContextFactory<TelemetryDbContext> contextFactory,
         ResourceCache resourceCache,
         InstrumentCache instrumentCache,
+        TelemetrySinkMetrics metrics,
         ILogger<EfCoreMetricSink> logger)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentNullException.ThrowIfNull(resourceCache);
         ArgumentNullException.ThrowIfNull(instrumentCache);
+        ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(logger);
 
         _contextFactory = contextFactory;
         _resourceCache = resourceCache;
         _instrumentCache = instrumentCache;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -118,9 +122,16 @@ public sealed class EfCoreMetricSink : IMetricSink
         var pendingInstrumentCache = newInstrumentByKey;
         try
         {
+            // Two SaveChanges with separate retries: the points have an FK on
+            // InstrumentId, so the dimension save must commit before the point
+            // Add() loop runs. Wrapping both in a single outer retry would
+            // cause double-Add of the point rows on the second attempt; the
+            // staged retry keeps the Add() pure once-only.
             if (newInstrumentByKey.Count > 0)
             {
-                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await BoundedRetry
+                    .ExecuteAsync(ct => context.SaveChangesAsync(ct), cancellationToken)
+                    .ConfigureAwait(false);
                 foreach (var (key, record) in newInstrumentByKey)
                 {
                     idByKey[key] = record.Id;
@@ -136,7 +147,9 @@ public sealed class EfCoreMetricSink : IMetricSink
                 }
             }
 
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await BoundedRetry
+                .ExecuteAsync(ct => context.SaveChangesAsync(ct), cancellationToken)
+                .ConfigureAwait(false);
 
             ResourceUpserter.CachePending(_resourceCache, pendingResourceCache);
             foreach (var (key, record) in pendingInstrumentCache)
@@ -148,6 +161,7 @@ public sealed class EfCoreMetricSink : IMetricSink
                 _instrumentCache.Set(key, id);
             }
 
+            _metrics.RecordMetricSuccess(sampleCount);
             _logger.MetricsPersisted(resourcesByHash.Count, idByKey.Count, sampleCount);
         }
         catch (OperationCanceledException)
@@ -156,6 +170,9 @@ public sealed class EfCoreMetricSink : IMetricSink
         }
         catch (Exception ex)
         {
+            // See EfCoreTraceSink for the swallow rationale; drop is observable
+            // through TelemetrySinkMetrics + /healthz.
+            _metrics.RecordMetricDrop(sampleCount);
             _logger.MetricsBatchFailed(ex, sampleCount);
         }
     }
@@ -243,6 +260,6 @@ internal static partial class EfCoreMetricSinkLogs
     public static partial void MetricsPersisted(this ILogger logger, int resources, int instruments, int points);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Error,
-        Message = "EfCoreMetricSink failed to persist batch of {Points} points")]
+        Message = "EfCoreMetricSink dropped batch of {Points} points after exhausting retries")]
     public static partial void MetricsBatchFailed(this ILogger logger, Exception exception, int points);
 }

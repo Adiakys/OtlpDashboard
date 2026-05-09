@@ -2,10 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetryDashboard.Core.Abstractions;
 using OpenTelemetryDashboard.Core.Abstractions.Retention;
 using OpenTelemetryDashboard.Dashboards.Storage;
 using OpenTelemetryDashboard.Persistence.Demo;
+using OpenTelemetryDashboard.Persistence.HealthChecks;
 using OpenTelemetryDashboard.Persistence.Ingestion;
 using OpenTelemetryDashboard.Persistence.Readers;
 using OpenTelemetryDashboard.Persistence.Retention;
@@ -57,6 +59,11 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(_ => new ResourceCache(resourceCacheSize));
         services.AddSingleton(_ => new InstrumentCache());
+
+        // Sink-side counters drive both per-batch logs ("dropped X spans") and
+        // the TelemetrySinkHealthCheck. Single shared instance across signals.
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<TelemetrySinkMetrics>();
 
         // Service-map dependency-synthesis keys. Bound here (not in
         // the host) because the service-map reader is the only
@@ -119,5 +126,19 @@ public static class ServiceCollectionExtensions
 
         services.AddHostedService<TelemetryRetentionHost>();
         return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="TelemetrySinkHealthCheck"/> against the standard
+    /// ASP.NET Core health-checks pipeline so <c>/healthz</c> degrades when
+    /// any signal sink has dropped a batch in the recent window.
+    /// </summary>
+    public static IHealthChecksBuilder AddTelemetrySinkHealthCheck(
+        this IHealthChecksBuilder builder,
+        string name = "telemetry-sink",
+        HealthStatus failureStatus = HealthStatus.Degraded)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.AddCheck<TelemetrySinkHealthCheck>(name, failureStatus);
     }
 }

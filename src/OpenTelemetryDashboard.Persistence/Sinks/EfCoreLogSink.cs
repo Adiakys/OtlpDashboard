@@ -16,19 +16,23 @@ public sealed class EfCoreLogSink : ILogSink
 {
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
     private readonly ResourceCache _resourceCache;
+    private readonly TelemetrySinkMetrics _metrics;
     private readonly ILogger<EfCoreLogSink> _logger;
 
     public EfCoreLogSink(
         IDbContextFactory<TelemetryDbContext> contextFactory,
         ResourceCache resourceCache,
+        TelemetrySinkMetrics metrics,
         ILogger<EfCoreLogSink> logger)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentNullException.ThrowIfNull(resourceCache);
+        ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(logger);
 
         _contextFactory = contextFactory;
         _resourceCache = resourceCache;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -70,8 +74,11 @@ public sealed class EfCoreLogSink : ILogSink
 
         try
         {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await BoundedRetry
+                .ExecuteAsync(ct => context.SaveChangesAsync(ct), cancellationToken)
+                .ConfigureAwait(false);
             ResourceUpserter.CachePending(_resourceCache, pendingCache);
+            _metrics.RecordLogSuccess(logCount);
             _logger.LogsPersisted(resourcesByHash.Count, logCount);
         }
         catch (OperationCanceledException)
@@ -80,6 +87,9 @@ public sealed class EfCoreLogSink : ILogSink
         }
         catch (Exception ex)
         {
+            // See EfCoreTraceSink for the swallow rationale; drop is observable
+            // through TelemetrySinkMetrics + /healthz.
+            _metrics.RecordLogDrop(logCount);
             _logger.LogsBatchFailed(ex, logCount);
         }
     }
@@ -92,6 +102,6 @@ internal static partial class EfCoreLogSinkLogs
     public static partial void LogsPersisted(this ILogger logger, int resources, int logs);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Error,
-        Message = "EfCoreLogSink failed to persist batch of {Logs} logs")]
+        Message = "EfCoreLogSink dropped batch of {Logs} logs after exhausting retries")]
     public static partial void LogsBatchFailed(this ILogger logger, Exception exception, int logs);
 }
