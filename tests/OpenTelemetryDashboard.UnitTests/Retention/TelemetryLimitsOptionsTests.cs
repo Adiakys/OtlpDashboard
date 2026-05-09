@@ -6,14 +6,20 @@ namespace OpenTelemetryDashboard.UnitTests.Retention;
 public sealed class TelemetryLimitsOptionsTests
 {
     [Fact]
-    public void Defaults_Are_Valid_And_Retention_Is_Disabled()
+    public void Defaults_Apply_Bounded_Retention()
     {
+        // Out-of-the-box safety: keeping retention=0 by default would let
+        // every fresh deploy fill the disk silently. The shipping defaults
+        // target a "debug + recent forensics" workload (logs are kept the
+        // longest because the dashboard is investigation-first; traces and
+        // metrics rotate weekly because high-cardinality spans and split-by
+        // attributes inflate fast).
         var options = new TelemetryLimitsOptions();
 
         Validate(options).ShouldBeEmpty();
-        options.MaxLogDays.ShouldBe(0.0);
-        options.MaxTraceDays.ShouldBe(0.0);
-        options.MaxMetricDays.ShouldBe(0.0);
+        options.MaxLogDays.ShouldBe(30.0);
+        options.MaxTraceDays.ShouldBe(7.0);
+        options.MaxMetricDays.ShouldBe(7.0);
         options.SweepIntervalMinutes.ShouldBe(60);
     }
 

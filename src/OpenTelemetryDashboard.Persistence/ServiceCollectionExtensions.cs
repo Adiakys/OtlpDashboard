@@ -146,4 +146,18 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(builder);
         return builder.AddCheck<TelemetrySinkHealthCheck>(name, failureStatus);
     }
+
+    /// <summary>
+    /// Registers <see cref="RetentionPostureHealthCheck"/> so <c>/healthz</c>
+    /// flags <c>Degraded</c> when any of the configured retention windows
+    /// is <c>0</c> (records kept indefinitely).
+    /// </summary>
+    public static IHealthChecksBuilder AddRetentionPostureHealthCheck(
+        this IHealthChecksBuilder builder,
+        string name = "retention-posture",
+        HealthStatus failureStatus = HealthStatus.Degraded)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.AddCheck<RetentionPostureHealthCheck>(name, failureStatus);
+    }
 }
