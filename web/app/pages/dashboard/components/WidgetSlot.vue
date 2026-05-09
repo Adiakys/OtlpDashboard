@@ -34,14 +34,21 @@ const component = computed(() => resolveWidgetComponent(definition.value))
  * Extra props handed to the component when its engine reads metadata
  * off the definition (currently `spec` for the HTML engine: template,
  * styles, dataBindings live on the def, not on the per-instance config).
+ *
+ * The per-instance `config.title` wins over the definition's name so a
+ * user override in the config drawer (or a baked-in override from a
+ * built-in dashboard JSON) actually shows up in the header — matches
+ * the behaviour preset widgets already get for free via their own
+ * `config.title || def.name` fallback.
  */
 const engineProps = computed<Record<string, unknown>>(() => {
   const def = definition.value
   if (!def) return {}
   if (def.engine === 'spec') {
+    const cfgTitle = (props.item.config as { title?: string }).title
     return {
       spec: def.spec ?? null,
-      title: def.name,
+      title: cfgTitle && cfgTitle.length > 0 ? cfgTitle : def.name,
       icon: def.icon
     }
   }

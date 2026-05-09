@@ -1,91 +1,322 @@
 {
   "version": 1,
   "id": "00000000-0000-0000-0000-000000000001",
-  "name": "Test stack overview",
+  "name": "Demo stack overview",
   "widgets": [
     {
       "id": "c4d51234-1234-5678-90ab-000000000001",
       "kind": "std:text",
-      "x": 0, "y": 0, "w": 12, "h": 2,
+      "x": 0, "y": 0, "w": 12, "h": 3,
       "config": {
-        "markdown": "## OpenTelemetry test stack\n\nDashboard pre-impaginata e **pre-bindata** sul compose di test (sample-server + sample-client + postgres + redis). Ogni widget di libreria definisce i propri path metrica e accetta un parametro `service` — al primo tick di telemetria si popola da solo.\n\n*Le tue modifiche sono persistenti — questa default non viene riscritta dopo che la modifichi.*",
+        "markdown": "## OpenTelemetry demo stack\n\nLa pipeline di compose include **2 repliche di `sample-server`** (`server-1`, `server-2`), **1 `sample-client`** (`client-1`), **PostgreSQL** (3 DB osservati: cluster `postgres:5432`, applicativo `sampleapp`, telemetria `telemetry`) e **Redis**. Ogni widget di questa dashboard è bindato sull'istanza giusta — un'occhiata e leggi tutto lo stato dello stack.\n\n*Le tue modifiche sono persistenti: questa default non viene riscritta dopo che la modifichi.*",
         "align": "left"
       }
     },
 
     {
-      "id": "c4d51234-1234-5678-90ab-000000000002",
+      "id": "c4d51234-1234-5678-90ab-000000000010",
       "kind": "library:dotnet/runtime-overview",
-      "x": 0, "y": 2, "w": 6, "h": 5,
+      "x": 0, "y": 3, "w": 4, "h": 4,
       "config": {
-        "parameters": { "service": "sample-server" },
+        "parameters": { "service": "sample-server", "instance": "server-1" },
         "range": "last-15m",
-        "title": ".NET runtime — sample-server"
+        "title": "sample-server / server-1",
+        "bindings": {}
       }
     },
     {
-      "id": "c4d51234-1234-5678-90ab-00000000000b",
-      "kind": "library:postgres/db-load",
-      "x": 6, "y": 2, "w": 6, "h": 5,
+      "id": "c4d51234-1234-5678-90ab-000000000011",
+      "kind": "library:dotnet/runtime-overview",
+      "x": 4, "y": 3, "w": 4, "h": 4,
       "config": {
-        "parameters": { "service": "postgresql" },
+        "parameters": { "service": "sample-server", "instance": "server-2" },
         "range": "last-15m",
-        "title": "PostgreSQL load"
+        "title": "sample-server / server-2",
+        "bindings": {}
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000012",
+      "kind": "library:dotnet/runtime-overview",
+      "x": 8, "y": 3, "w": 4, "h": 4,
+      "config": {
+        "parameters": { "service": "sample-client", "instance": "client-1" },
+        "range": "last-15m",
+        "title": "sample-client / client-1",
+        "bindings": {}
       }
     },
 
     {
-      "id": "c4d51234-1234-5678-90ab-000000000003",
+      "id": "c4d51234-1234-5678-90ab-000000000020",
       "kind": "library:postgres/postgres-server-card",
       "x": 0, "y": 7, "w": 12, "h": 4,
       "config": {
-        "parameters": { "service": "postgresql" },
+        "parameters": { "service": "postgresql", "instance": "telemetry" },
         "range": "last-15m",
-        "title": "PostgreSQL cluster"
+        "title": "PostgreSQL — telemetry DB (overrides per cluster-level)",
+        "bindings": {
+          "dbCount": {
+            "resourceHash": "",
+            "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+            "instrumentName": "postgresql.database.count",
+            "kind": "Sum",
+            "serviceName": "postgresql",
+            "serviceInstanceId": "postgres:5432"
+          }
+        }
       }
     },
 
     {
-      "id": "c4d51234-1234-5678-90ab-000000000004",
-      "kind": "library:postgres/connection-saturation-gauge",
-      "x": 0, "y": 11, "w": 4, "h": 4,
+      "id": "c4d51234-1234-5678-90ab-000000000030",
+      "kind": "std:metric-line",
+      "x": 0, "y": 11, "w": 6, "h": 3,
       "config": {
-        "parameters": { "service": "postgresql" },
-        "range": "last-15m"
+        "title": "Server reads (rate) — server-1 vs server-2",
+        "metrics": [
+          {
+            "resourceHash": "",
+            "scopeName": "SampleServer",
+            "instrumentName": "sample_server.counter.reads",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-1"
+          },
+          {
+            "resourceHash": "",
+            "scopeName": "SampleServer",
+            "instrumentName": "sample_server.counter.reads",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-2"
+          }
+        ],
+        "range": "last-15m",
+        "splitBy": "service.instance.id",
+        "unitKind": "ops",
+        "decimals": 1
       }
     },
     {
-      "id": "c4d51234-1234-5678-90ab-000000000005",
-      "kind": "library:dotnet/gc-pressure-meter",
-      "x": 4, "y": 11, "w": 4, "h": 4,
+      "id": "c4d51234-1234-5678-90ab-000000000031",
+      "kind": "std:metric-line",
+      "x": 6, "y": 11, "w": 6, "h": 3,
       "config": {
-        "parameters": { "service": "sample-server" },
-        "range": "last-15m"
-      }
-    },
-    {
-      "id": "c4d51234-1234-5678-90ab-000000000006",
-      "kind": "library:postgres/transaction-pulse",
-      "x": 8, "y": 11, "w": 4, "h": 4,
-      "config": {
-        "parameters": { "service": "postgresql" },
-        "range": "last-1h"
+        "title": "Server mutations (rate) — server-1 vs server-2",
+        "metrics": [
+          {
+            "resourceHash": "",
+            "scopeName": "SampleServer",
+            "instrumentName": "sample_server.counter.mutations",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-1"
+          },
+          {
+            "resourceHash": "",
+            "scopeName": "SampleServer",
+            "instrumentName": "sample_server.counter.mutations",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-2"
+          }
+        ],
+        "range": "last-15m",
+        "splitBy": "service.instance.id",
+        "unitKind": "ops",
+        "decimals": 1
       }
     },
 
     {
-      "id": "c4d51234-1234-5678-90ab-000000000007",
+      "id": "c4d51234-1234-5678-90ab-000000000040",
+      "kind": "std:metric-stat",
+      "x": 0, "y": 14, "w": 4, "h": 3,
+      "config": {
+        "title": "Client iterations (rate)",
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "SampleClient",
+          "instrumentName": "sample_client.iterations",
+          "kind": "Sum",
+          "serviceName": "sample-client",
+          "serviceInstanceId": "client-1"
+        },
+        "range": "last-15m",
+        "showSparkline": true,
+        "calc": "last",
+        "unitKind": "ops",
+        "decimals": 1
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000041",
+      "kind": "std:metric-heatmap",
+      "x": 4, "y": 14, "w": 8, "h": 3,
+      "config": {
+        "title": "Client iteration latency (heatmap)",
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "SampleClient",
+          "instrumentName": "sample_client.iteration_latency",
+          "kind": "Histogram",
+          "serviceName": "sample-client",
+          "serviceInstanceId": "client-1"
+        },
+        "range": "last-15m",
+        "unitKind": "ms",
+        "decimals": 0
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000050",
+      "kind": "std:metric-line",
+      "x": 0, "y": 17, "w": 6, "h": 3,
+      "config": {
+        "title": "HTTP active requests (server-1 + server-2)",
+        "metrics": [
+          {
+            "resourceHash": "",
+            "scopeName": "Microsoft.AspNetCore.Hosting",
+            "instrumentName": "http.server.active_requests",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-1"
+          },
+          {
+            "resourceHash": "",
+            "scopeName": "Microsoft.AspNetCore.Hosting",
+            "instrumentName": "http.server.active_requests",
+            "kind": "Sum",
+            "serviceName": "sample-server",
+            "serviceInstanceId": "server-2"
+          }
+        ],
+        "range": "last-15m",
+        "splitBy": "service.instance.id",
+        "unitKind": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000051",
+      "kind": "std:metric-heatmap",
+      "x": 6, "y": 17, "w": 6, "h": 3,
+      "config": {
+        "title": "HTTP request duration — server-1 (heatmap)",
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "Microsoft.AspNetCore.Hosting",
+          "instrumentName": "http.server.request.duration",
+          "kind": "Histogram",
+          "serviceName": "sample-server",
+          "serviceInstanceId": "server-1"
+        },
+        "range": "last-15m",
+        "unitKind": "ms",
+        "decimals": 0
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000060",
+      "kind": "library:postgres/db-load",
+      "x": 0, "y": 20, "w": 6, "h": 4,
+      "config": {
+        "parameters": { "service": "postgresql", "instance": "telemetry" },
+        "range": "last-15m",
+        "title": "PostgreSQL — telemetry DB",
+        "bindings": {
+          "max": {
+            "resourceHash": "",
+            "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
+            "instrumentName": "postgresql.connection.max",
+            "kind": "Sum",
+            "serviceName": "postgresql",
+            "serviceInstanceId": "postgres:5432"
+          }
+        }
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000061",
       "kind": "library:postgres/db-scoreboard",
-      "x": 0, "y": 15, "w": 6, "h": 4,
+      "x": 6, "y": 20, "w": 6, "h": 4,
       "config": {
-        "parameters": { "service": "postgresql" },
-        "range": "last-15m"
+        "parameters": { "service": "postgresql", "instance": "telemetry" },
+        "range": "last-15m",
+        "title": "PostgreSQL — telemetry DB scoreboard",
+        "bindings": {}
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000070",
+      "kind": "std:metric-stat",
+      "x": 0, "y": 24, "w": 3, "h": 3,
+      "config": {
+        "title": "Redis memory used",
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/redisreceiver",
+          "instrumentName": "redis.memory.used",
+          "kind": "Gauge",
+          "serviceName": "redis"
+        },
+        "range": "last-15m",
+        "showSparkline": true,
+        "calc": "last",
+        "unitKind": "bytes",
+        "decimals": 1
       }
     },
     {
-      "id": "c4d51234-1234-5678-90ab-000000000008",
+      "id": "c4d51234-1234-5678-90ab-000000000071",
+      "kind": "std:metric-stat",
+      "x": 3, "y": 24, "w": 3, "h": 3,
+      "config": {
+        "title": "Redis clients connected",
+        "metric": {
+          "resourceHash": "",
+          "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/redisreceiver",
+          "instrumentName": "redis.clients.connected",
+          "kind": "Sum",
+          "serviceName": "redis"
+        },
+        "range": "last-15m",
+        "showSparkline": true,
+        "calc": "last",
+        "unitKind": "none",
+        "decimals": 0
+      }
+    },
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000072",
+      "kind": "std:metric-line",
+      "x": 6, "y": 24, "w": 6, "h": 3,
+      "config": {
+        "title": "Redis commands processed (rate)",
+        "metrics": [
+          {
+            "resourceHash": "",
+            "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/redisreceiver",
+            "instrumentName": "redis.commands.processed",
+            "kind": "Sum",
+            "serviceName": "redis"
+          }
+        ],
+        "range": "last-15m",
+        "unitKind": "ops",
+        "decimals": 1
+      }
+    },
+
+    {
+      "id": "c4d51234-1234-5678-90ab-000000000080",
       "kind": "std:recent-traces",
-      "x": 6, "y": 15, "w": 6, "h": 4,
+      "x": 0, "y": 27, "w": 6, "h": 5,
       "config": {
         "range": "last-1h",
         "service": null,
@@ -93,48 +324,15 @@
         "limit": 25
       }
     },
-
     {
-      "id": "c4d51234-1234-5678-90ab-000000000009",
-      "kind": "std:metric-pie",
-      "x": 0, "y": 19, "w": 4, "h": 4,
-      "config": {
-        "metric": {
-          "resourceHash": "",
-          "scopeName": "System.Runtime",
-          "instrumentName": "dotnet.gc.collections",
-          "kind": "Sum",
-          "serviceName": "sample-server"
-        },
-        "range": "last-1h",
-        "splitBy": "gc.heap.generation",
-        "calc": "last",
-        "unitKind": "none",
-        "decimals": 0,
-        "donut": true,
-        "showLegend": true
-      }
-    },
-    {
-      "id": "c4d51234-1234-5678-90ab-00000000000a",
+      "id": "c4d51234-1234-5678-90ab-000000000081",
       "kind": "std:logs-stream",
-      "x": 4, "y": 19, "w": 8, "h": 4,
+      "x": 6, "y": 27, "w": 6, "h": 5,
       "config": {
         "range": "last-15m",
         "service": null,
         "minSeverity": "all",
         "limit": 50
-      }
-    },
-    {
-      "id": "c4d51234-1234-5678-90ab-00000000000c",
-      "kind": "std:top-traces",
-      "x": 0, "y": 23, "w": 12, "h": 5,
-      "config": {
-        "range": "last-1h",
-        "service": null,
-        "metric": "count",
-        "limit": 10
       }
     }
   ]
