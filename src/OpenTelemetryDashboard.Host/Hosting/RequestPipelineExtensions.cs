@@ -43,6 +43,11 @@ internal static class RequestPipelineExtensions
         app.UseDefaultFiles();
         app.UseStaticFiles();
 
+        // CORS sits before auth so preflight (OPTIONS) responses don't get
+        // bounced by the 401 short-circuit. The default policy is empty
+        // unless Dashboard:Cors:AllowedOrigins is populated.
+        app.UseCors();
+
         app.UseAuthentication();
         app.UseAuthorization();
 
