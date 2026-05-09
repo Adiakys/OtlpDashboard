@@ -23,6 +23,7 @@ export function expandMetricTemplate(
   const instrumentName = substitute(template.instrumentName, parameters)
   const kind = substitute(template.kind, parameters)
   const serviceName = substitute(template.serviceName ?? '', parameters)
+  const serviceInstanceId = substitute(template.serviceInstanceId ?? '', parameters)
 
   if (!scopeName || !instrumentName || !kind) return null
 
@@ -31,7 +32,8 @@ export function expandMetricTemplate(
     scopeName,
     instrumentName,
     kind,
-    serviceName: serviceName === '' ? null : serviceName
+    serviceName: serviceName === '' ? null : serviceName,
+    serviceInstanceId: serviceInstanceId === '' ? null : serviceInstanceId
   }
 }
 
@@ -104,6 +106,7 @@ export function expandMetricBinding(
   const instrumentName = substitute(binding.instrumentName, parameters)
   const kind = substitute(binding.kind, parameters)
   const serviceNameRaw = substitute(binding.serviceName ?? '', parameters)
+  const serviceInstanceIdRaw = substitute(binding.serviceInstanceId ?? '', parameters)
 
   if (!scopeName || !instrumentName || !kind) return null
 
@@ -112,7 +115,8 @@ export function expandMetricBinding(
     scopeName,
     instrumentName,
     kind,
-    serviceName: serviceNameRaw === '' ? null : serviceNameRaw
+    serviceName: serviceNameRaw === '' ? null : serviceNameRaw,
+    serviceInstanceId: serviceInstanceIdRaw === '' ? null : serviceInstanceIdRaw
   }
 }
 

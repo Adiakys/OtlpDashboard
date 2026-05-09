@@ -102,6 +102,13 @@ export interface MetricBinding {
   kind: string
   /** Display-only fallback so the SPA doesn't show a blank label while the instrument list is loading. */
   serviceName?: string | null
+  /** Optional `service.instance.id` pin. When set, the catalog resolver
+   *  binds only to the instrument carrying this exact instance id —
+   *  necessary to distinguish two replicas of the same `service.name`
+   *  that emit the same metric. When unset and the logical key matches
+   *  more than one instrument, the resolver returns an "ambiguous"
+   *  status and the widget surfaces a warning. */
+  serviceInstanceId?: string | null
   /** Display-only fallback for unit and description. */
   unit?: string | null
   description?: string | null

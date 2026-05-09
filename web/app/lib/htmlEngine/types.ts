@@ -107,6 +107,11 @@ export interface MetricTemplate {
   instrumentName: string
   kind: string
   serviceName?: string | null
+  /** Optional `service.instance.id` pin (with `${param}` placeholder
+   *  support). Pairs with a `service_instance_id`-typed parameter so a
+   *  multi-replica deployment can disambiguate which instance the
+   *  widget binds to. */
+  serviceInstanceId?: string | null
 }
 
 /**

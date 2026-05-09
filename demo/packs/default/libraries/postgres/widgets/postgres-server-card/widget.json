@@ -14,6 +14,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -25,12 +32,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.backends \u2014 total active connections (typically summed across DBs)",
+        "description": "postgresql.backends — total active connections (typically summed across DBs)",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.backends",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -38,12 +46,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.database.count \u2014 number of databases on the cluster",
+        "description": "postgresql.database.count — number of databases on the cluster",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.database.count",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -51,12 +60,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.table.count \u2014 total tables (often summed across DBs)",
+        "description": "postgresql.table.count — total tables (often summed across DBs)",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.table.count",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -64,12 +74,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "bytes",
-        "description": "postgresql.db_size \u2014 sum across DBs for total cluster footprint",
+        "description": "postgresql.db_size — sum across DBs for total cluster footprint",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.db_size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -77,12 +88,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "seconds",
-        "description": "postgresql.wal.age \u2014 seconds since the oldest WAL was written",
+        "description": "postgresql.wal.age — seconds since the oldest WAL was written",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.wal.age",
           "kind": "Gauge",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -104,12 +116,13 @@
             "color": "#E27A3F"
           }
         ],
-        "description": "postgresql.replication.data_delay \u2014 seconds the replica is behind. Drives the status LED color.",
+        "description": "postgresql.replication.data_delay — seconds the replica is behind. Drives the status LED color.",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.replication.data_delay",
           "kind": "Gauge",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

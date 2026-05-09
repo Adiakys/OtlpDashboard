@@ -14,6 +14,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -40,12 +47,13 @@
             "color": "#E27A3F"
           }
         ],
-        "description": "postgresql.backends split by postgresql.database.name \u2014 one entry per DB",
+        "description": "postgresql.backends split by postgresql.database.name — one entry per DB",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.backends",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

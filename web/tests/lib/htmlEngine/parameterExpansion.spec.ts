@@ -20,7 +20,8 @@ describe('expandMetricTemplate', () => {
       scopeName: 'System.Runtime',
       instrumentName: 'dotnet.gc.last_collection.heap.size',
       kind: 'Sum',
-      serviceName: 'sample-server'
+      serviceName: 'sample-server',
+      serviceInstanceId: null
     })
   })
 
@@ -30,8 +31,34 @@ describe('expandMetricTemplate', () => {
       scopeName: 'System.Runtime',
       instrumentName: 'dotnet.gc.last_collection.heap.size',
       kind: 'Sum',
-      serviceName: null
+      serviceName: null,
+      serviceInstanceId: null
     })
+  })
+
+  it('substitutes ${instance} into serviceInstanceId when both are provided', () => {
+    const t: MetricTemplate = {
+      scopeName: 'System.Runtime',
+      instrumentName: 'x',
+      kind: 'Sum',
+      serviceName: '${service}',
+      serviceInstanceId: '${instance}'
+    }
+    const out = expandMetricTemplate(t, { service: 'sample-server', instance: 'server-1' })
+    expect(out?.serviceName).toBe('sample-server')
+    expect(out?.serviceInstanceId).toBe('server-1')
+  })
+
+  it('treats an empty serviceInstanceId substitution as null (unpinned)', () => {
+    const t: MetricTemplate = {
+      scopeName: 's',
+      instrumentName: 'x',
+      kind: 'Sum',
+      serviceName: '${service}',
+      serviceInstanceId: '${instance}'
+    }
+    const out = expandMetricTemplate(t, { service: 'sample-server', instance: '' })
+    expect(out?.serviceInstanceId).toBeNull()
   })
 
   it('returns null when a required field would be empty after substitution', () => {

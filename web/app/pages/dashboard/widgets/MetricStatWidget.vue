@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { AgChartOptions } from 'ag-charts-community'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
+import WidgetWarningChip from '../components/WidgetWarningChip.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
 import { useSingleMetric } from '../composables/useSingleMetric'
 import { useReducedScalar } from '../composables/useReducedScalar'
@@ -30,7 +31,7 @@ const colorMode = useColorMode()
 
 const metrics = useSingleMetric(() => props.config.metric, () => props.config.parameters)
 const range = computed(() => props.config.range)
-const { series, loading, error, hasLoaded } = useWidgetSeries(
+const { series, loading, error, warnings, hasLoaded } = useWidgetSeries(
   $metricsService, metrics, range, () => props.liveTick
 )
 
@@ -137,6 +138,9 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #header-end>
+      <WidgetWarningChip :warnings="warnings" />
+    </template>
     <template #preview>
       <div class="vellum-preview-stat">
         <span class="vellum-preview-stat__value">42.0</span>

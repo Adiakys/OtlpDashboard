@@ -15,6 +15,13 @@
       "label": "Application",
       "required": true,
       "default": "sample-server"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -23,7 +30,8 @@
       "scopeName": "System.Runtime",
       "instrumentName": "dotnet.assembly.count",
       "kind": "Sum",
-      "serviceName": "${service}"
+      "serviceName": "${service}",
+      "serviceInstanceId": "${instance}"
     },
     "range": "last-15m",
     "showSparkline": false,

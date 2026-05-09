@@ -1,6 +1,6 @@
 {
   "name": "ThreadPool queue length",
-  "description": "Pending work items in the thread-pool queue. Sustained values > 0 mean the runtime is starving for threads. Bound to dotnet.thread_pool.queue.length. Thresholds: green \u2264 1, amber > 5, red > 50.",
+  "description": "Pending work items in the thread-pool queue. Sustained values > 0 mean the runtime is starving for threads. Bound to dotnet.thread_pool.queue.length. Thresholds: green ≤ 1, amber > 5, red > 50.",
   "icon": "i-ph-queue",
   "defaultSize": {
     "w": 3,
@@ -15,6 +15,13 @@
       "label": "Application",
       "required": true,
       "default": "sample-server"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -23,7 +30,8 @@
       "scopeName": "System.Runtime",
       "instrumentName": "dotnet.thread_pool.queue.length",
       "kind": "Sum",
-      "serviceName": "${service}"
+      "serviceName": "${service}",
+      "serviceInstanceId": "${instance}"
     },
     "range": "last-15m",
     "showSparkline": true,

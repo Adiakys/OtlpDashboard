@@ -15,8 +15,9 @@ import { STATE_INSTRUMENT_CATALOG } from './composables/stateKeys'
  *     hash (e.g. layout imported from another instance, or instrument was
  *     re-emitted after a restart). {@link resolve} maps a stored binding to
  *     the matching live instrument by logical identity
- *     (`serviceName + scopeName + instrumentName + kind`) — widgets self-heal
- *     as soon as the metric appears in the catalog.
+ *     (`serviceName + scopeName + instrumentName + kind` plus optional
+ *     `service.instance.id`) — widgets self-heal as soon as the metric
+ *     appears in the catalog.
  *
  * State is module-scoped (single MetricsService singleton per app) so the
  * cache survives across composable invocations within the same client run.
@@ -29,6 +30,25 @@ interface CatalogState {
 }
 
 let inflight: Promise<void> | null = null
+
+/**
+ * Outcome of a {@link resolve} call.
+ *
+ * - `resolved`: the binding pins exactly one live instrument; the
+ *   returned `binding` carries the live `resourceHash`.
+ * - `ambiguous`: the logical key matched more than one instrument and
+ *   either no `serviceInstanceId` was pinned, or the pinned id is not
+ *   present. Widgets render a warning instead of arbitrarily picking
+ *   one of the available instances. `available` lists the
+ *   `serviceInstanceId` values the user can choose from.
+ * - `no-match`: zero instruments match the logical key. Widgets show
+ *   their normal "no data" empty state — typical for a fresh dashboard
+ *   where the metric hasn't been emitted yet.
+ */
+export type Resolution =
+  | { kind: 'resolved'; binding: MetricBinding }
+  | { kind: 'ambiguous'; requestedId: string | null; available: string[] }
+  | { kind: 'no-match' }
 
 export function useInstrumentCatalog(metrics: MetricsService) {
   const state = useState<CatalogState>(STATE_INSTRUMENT_CATALOG, () => ({
@@ -66,43 +86,60 @@ export function useInstrumentCatalog(metrics: MetricsService) {
   }
 
   /**
-   * Map a stored binding to a binding whose `resourceHash` is guaranteed to
-   * point at a live instrument. Returns `null` when no instrument matches —
-   * the widget should treat that case as "no data yet" and let the next
-   * catalog refresh re-attempt.
+   * Map a stored binding to a live instrument with three explicit outcomes
+   * (see {@link Resolution}). Resolution rules:
    *
-   * Match strategy:
-   *   1. Fast path — the stored hash + logical key already pin a known
-   *      instrument: return the binding unchanged.
-   *   2. Slow path — find any instrument with the same logical key and
-   *      return a re-bound copy with the live `resourceHash`.
+   *  1. Filter the catalog by the logical key
+   *     `(scopeName, instrumentName, kind, serviceName)`.
+   *  2. If zero matches: `no-match`.
+   *  3. If `serviceInstanceId` is pinned on the binding:
+   *     - exact match found → `resolved`
+   *     - no exact match     → `ambiguous` (the configured id is gone)
+   *  4. If `serviceInstanceId` is unset:
+   *     - exactly one match  → `resolved` (single-instance services keep
+   *                            working without explicit pinning)
+   *     - more than one match → `ambiguous` (forces the user to pick one)
    *
-   * `serviceName` is honored when present on the binding; older exports
-   * without it fall back to a service-agnostic match rather than failing.
+   * The "ambiguous" branch deliberately refuses to silently pick the
+   * first match — that was the bug the explicit instance pin is here to
+   * fix. Widgets render a non-blocking warning instead.
    */
-  function resolve(binding: MetricBinding): MetricBinding | null {
+  function resolve(binding: MetricBinding): Resolution {
     const instruments = state.value.instruments
-    if (instruments.length === 0) return null
+    if (instruments.length === 0) return { kind: 'no-match' }
 
-    const exact = instruments.find(i =>
-      i.resourceHash === binding.resourceHash
-      && i.scopeName === binding.scopeName
-      && i.name === binding.instrumentName
-      && i.kind === binding.kind
-    )
-    if (exact) return binding
+    const expectedService = binding.serviceName ?? null
+    const expectedInstance = binding.serviceInstanceId ?? null
 
-    const logical = findByLogicalKey(instruments, binding)
-    if (!logical) return null
+    const matches: InstrumentDto[] = []
+    for (const i of instruments) {
+      if (i.scopeName !== binding.scopeName) continue
+      if (i.name !== binding.instrumentName) continue
+      if (i.kind !== binding.kind) continue
+      if (expectedService !== null && i.serviceName !== expectedService) continue
+      matches.push(i)
+    }
+
+    if (matches.length === 0) return { kind: 'no-match' }
+
+    if (expectedInstance !== null) {
+      const exact = matches.find(i => i.serviceInstanceId === expectedInstance)
+      if (exact) return { kind: 'resolved', binding: bindingFromInstrument(exact) }
+      return {
+        kind: 'ambiguous',
+        requestedId: expectedInstance,
+        available: collectInstanceIds(matches)
+      }
+    }
+
+    if (matches.length === 1) {
+      return { kind: 'resolved', binding: bindingFromInstrument(matches[0]!) }
+    }
 
     return {
-      resourceHash: logical.resourceHash,
-      scopeName: logical.scopeName,
-      instrumentName: logical.name,
-      kind: logical.kind,
-      serviceName: logical.serviceName,
-      unit: logical.unit,
-      description: logical.description
+      kind: 'ambiguous',
+      requestedId: null,
+      available: collectInstanceIds(matches)
     }
   }
 
@@ -116,14 +153,27 @@ export function useInstrumentCatalog(metrics: MetricsService) {
   }
 }
 
-function findByLogicalKey(instruments: InstrumentDto[], binding: MetricBinding): InstrumentDto | null {
-  const expectedService = binding.serviceName ?? null
-  for (const i of instruments) {
-    if (i.scopeName !== binding.scopeName) continue
-    if (i.name !== binding.instrumentName) continue
-    if (i.kind !== binding.kind) continue
-    if (expectedService !== null && i.serviceName !== expectedService) continue
-    return i
+/** Project an InstrumentDto back into a MetricBinding shape. Carries
+ *  `serviceInstanceId` along so consumers can render it. */
+function bindingFromInstrument(i: InstrumentDto): MetricBinding {
+  return {
+    resourceHash: i.resourceHash,
+    scopeName: i.scopeName,
+    instrumentName: i.name,
+    kind: i.kind,
+    serviceName: i.serviceName,
+    serviceInstanceId: i.serviceInstanceId,
+    unit: i.unit,
+    description: i.description
   }
-  return null
+}
+
+/** Stable, deduped list of non-null `serviceInstanceId`s, sorted for a
+ *  deterministic warning message. */
+function collectInstanceIds(matches: InstrumentDto[]): string[] {
+  const ids = new Set<string>()
+  for (const m of matches) {
+    if (m.serviceInstanceId) ids.add(m.serviceInstanceId)
+  }
+  return [...ids].sort()
 }

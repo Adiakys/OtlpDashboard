@@ -13,6 +13,13 @@
       "type": "service_name",
       "label": "Application",
       "required": true
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -29,7 +36,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.gc.last_collection.heap.size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -42,7 +50,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -69,7 +78,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.thread_pool.thread.count",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -82,7 +92,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.exceptions",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -95,7 +106,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.gc.collections",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -122,7 +134,8 @@
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.monitor.lock_contentions",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

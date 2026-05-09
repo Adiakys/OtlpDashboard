@@ -68,6 +68,8 @@ const { width, height } = useElementSize(() => bodyEl.value)
         {{ title }}
       </span>
 
+      <slot name="header-end" />
+
       <template v-if="isEditing">
         <UButton
           icon="i-ph-gear-six"

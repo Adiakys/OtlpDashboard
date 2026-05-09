@@ -1,6 +1,6 @@
 {
   "name": "Temp files I/O",
-  "description": "Cumulative bytes written to temp files. Bound to postgresql.temp.io \u2014 pairs with temp_files for spotting sort/hash spills.",
+  "description": "Cumulative bytes written to temp files. Bound to postgresql.temp.io — pairs with temp_files for spotting sort/hash spills.",
   "icon": "i-ph-download",
   "defaultSize": {
     "w": 3,
@@ -15,6 +15,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -23,7 +30,8 @@
       "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
       "instrumentName": "postgresql.temp.io",
       "kind": "Sum",
-      "serviceName": "${service}"
+      "serviceName": "${service}",
+      "serviceInstanceId": "${instance}"
     },
     "range": "last-1h",
     "showSparkline": true,

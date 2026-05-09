@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import BaseWidget from '../components/BaseWidget.vue'
+import WidgetWarningChip from '../components/WidgetWarningChip.vue'
 import { useWidgetSeries } from '../useWidgetSeries'
 import { TEMPLATE_HELPERS } from '~/lib/htmlEngine/helpers'
 import { renderTemplate } from '~/lib/htmlEngine/templateRenderer'
@@ -86,7 +87,7 @@ const metricsForFetch = computed(() => metricPairs.value.map(p => p.metric))
 // All bindings ask for attributes — the splitBy logic below needs them
 // and the cost is bounded for the small N a single template requires.
 const range = computed(() => props.config.range ?? 'last-1h')
-const { series, loading, error, hasLoaded } = useWidgetSeries(
+const { series, loading, error, warnings, hasLoaded } = useWidgetSeries(
   $metricsService, metricsForFetch, range, () => props.liveTick,
   { includeAttributes: true }
 )
@@ -232,6 +233,9 @@ const placeholderText = computed(() => {
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #header-end>
+      <WidgetWarningChip :warnings="warnings" />
+    </template>
     <template #preview>
       <div class="vellum-preview-html">
         <div class="vellum-preview-html__chip" />

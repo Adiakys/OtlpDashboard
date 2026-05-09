@@ -1,6 +1,6 @@
 {
   "name": "Exceptions thrown",
-  "description": "Cumulative number of managed exceptions thrown. The widget binds to dotnet.exceptions automatically \u2014 pick the application. The line variant lets you spot bursts.",
+  "description": "Cumulative number of managed exceptions thrown. The widget binds to dotnet.exceptions automatically — pick the application. The line variant lets you spot bursts.",
   "icon": "i-ph-warning-circle",
   "defaultSize": {
     "w": 6,
@@ -15,6 +15,13 @@
       "label": "Application",
       "required": true,
       "default": "sample-server"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -26,7 +33,8 @@
       "scopeName": "System.Runtime",
       "instrumentName": "dotnet.exceptions",
       "kind": "Sum",
-      "serviceName": "${service}"
+      "serviceName": "${service}",
+      "serviceInstanceId": "${instance}"
     }
   }
 }

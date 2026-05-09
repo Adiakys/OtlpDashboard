@@ -15,6 +15,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -23,7 +30,8 @@
       "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
       "instrumentName": "postgresql.table.size",
       "kind": "Sum",
-      "serviceName": "${service}"
+      "serviceName": "${service}",
+      "serviceInstanceId": "${instance}"
     },
     "range": "last-15m",
     "splitBy": "postgresql.table.name",

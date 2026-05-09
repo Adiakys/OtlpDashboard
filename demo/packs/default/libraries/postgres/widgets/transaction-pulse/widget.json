@@ -14,6 +14,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -25,12 +32,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.commits \u2014 cumulative committed transactions",
+        "description": "postgresql.commits — cumulative committed transactions",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.commits",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -52,12 +60,13 @@
             "color": "#E27A3F"
           }
         ],
-        "description": "postgresql.rollbacks \u2014 cumulative rolled-back transactions",
+        "description": "postgresql.rollbacks — cumulative rolled-back transactions",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.rollbacks",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -79,12 +88,13 @@
             "color": "#E27A3F"
           }
         ],
-        "description": "postgresql.deadlocks \u2014 cumulative deadlocks. Drives the row's pulsing dot color.",
+        "description": "postgresql.deadlocks — cumulative deadlocks. Drives the row's pulsing dot color.",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.deadlocks",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

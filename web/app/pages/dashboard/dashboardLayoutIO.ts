@@ -162,6 +162,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function findInstrument(instruments: InstrumentDto[], binding: MetricBinding): InstrumentDto | null {
   const expectedService = binding.serviceName ?? null
+  const expectedInstance = binding.serviceInstanceId ?? null
+  let serviceFallback: InstrumentDto | null = null
   for (const i of instruments) {
     if (i.scopeName !== binding.scopeName) continue
     if (i.name !== binding.instrumentName) continue
@@ -169,9 +171,18 @@ function findInstrument(instruments: InstrumentDto[], binding: MetricBinding): I
     // Older exports (pre-serviceName field) match service-agnostically rather
     // than not at all.
     if (expectedService !== null && i.serviceName !== expectedService) continue
+    // When the import pins an instance id, prefer the matching one;
+    // remember the first service-only match in case the pinned id isn't
+    // present in the live catalog (covers re-deploys that change the
+    // instance id but keep the service name stable).
+    if (expectedInstance !== null) {
+      if (i.serviceInstanceId === expectedInstance) return i
+      serviceFallback ??= i
+      continue
+    }
     return i
   }
-  return null
+  return serviceFallback
 }
 
 function bindingFromInstrument(instrument: InstrumentDto): MetricBinding {
@@ -181,6 +192,7 @@ function bindingFromInstrument(instrument: InstrumentDto): MetricBinding {
     instrumentName: instrument.name,
     kind: instrument.kind,
     serviceName: instrument.serviceName,
+    serviceInstanceId: instrument.serviceInstanceId,
     unit: instrument.unit,
     description: instrument.description
   }

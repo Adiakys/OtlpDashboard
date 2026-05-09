@@ -2,7 +2,10 @@
   "name": "Database load",
   "description": "Hero panel: stylised database cylinder whose liquid level tracks connection saturation (backends ÷ max), color-shifting sage → amber → rust. Side rail surfaces three at-a-glance KPIs (connections, total size, deadlocks).",
   "icon": "i-ph-database",
-  "defaultSize": { "w": 6, "h": 5 },
+  "defaultSize": {
+    "w": 6,
+    "h": 5
+  },
   "engine": "spec",
   "parameters": [
     {
@@ -11,6 +14,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -27,7 +37,8 @@
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.backends",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -40,7 +51,8 @@
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.connection.max",
           "kind": "Gauge",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -53,7 +65,8 @@
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.db_size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -62,16 +75,26 @@
         "calc": "last",
         "unitKind": "none",
         "thresholds": [
-          { "value": 0, "color": "#7AAA7A" },
-          { "value": 1, "color": "#D9B566" },
-          { "value": 10, "color": "#E27A3F" }
+          {
+            "value": 0,
+            "color": "#7AAA7A"
+          },
+          {
+            "value": 1,
+            "color": "#D9B566"
+          },
+          {
+            "value": 10,
+            "color": "#E27A3F"
+          }
         ],
         "description": "postgresql.deadlocks — cumulative deadlocks. Anything above zero is worth investigating.",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.deadlocks",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

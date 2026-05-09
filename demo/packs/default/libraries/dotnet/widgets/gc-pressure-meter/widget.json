@@ -13,6 +13,13 @@
       "type": "service_name",
       "label": "Application",
       "required": true
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -38,12 +45,13 @@
             "color": "#E27A3F"
           }
         ],
-        "description": "dotnet.gc.last_collection.heap.size \u2014 current managed heap",
+        "description": "dotnet.gc.last_collection.heap.size — current managed heap",
         "metric": {
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.gc.last_collection.heap.size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -51,12 +59,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "bytes",
-        "description": "dotnet.gc.last_collection.memory.committed_size \u2014 used as the meter's max",
+        "description": "dotnet.gc.last_collection.memory.committed_size — used as the meter's max",
         "metric": {
           "scopeName": "System.Runtime",
           "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]

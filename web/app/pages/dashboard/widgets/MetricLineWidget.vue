@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import AppChart from '~/components/data/AppChart.vue'
 import BaseWidget from '../components/BaseWidget.vue'
+import WidgetWarningChip from '../components/WidgetWarningChip.vue'
 import { buildChartOptions, pickChartType, type ChartType } from '~/lib/agcharts/chartStrategy'
 import { useWidgetSeries } from '../useWidgetSeries'
 import { normalizeSplitBy } from '../composables/normalizeSplitBy'
@@ -32,7 +33,7 @@ const colorMode = useColorMode()
 // drives the chart cleanly without firing 404-bound requests.
 const metrics = computed(() => expandMetricBindings(props.config.metrics, props.config.parameters))
 const range = computed(() => props.config.range)
-const { series, loading, error, hasLoaded } = useWidgetSeries(
+const { series, loading, error, warnings, hasLoaded } = useWidgetSeries(
   $metricsService, metrics, range, () => props.liveTick,
   { includeAttributes: true }
 )
@@ -104,6 +105,9 @@ const showSkeleton = computed(() => isConfigured.value && !hasLoaded.value && lo
     @edit="$emit('edit')"
     @remove="$emit('remove')"
   >
+    <template #header-end>
+      <WidgetWarningChip :warnings="warnings" />
+    </template>
     <template #preview>
       <svg class="vellum-preview-line" viewBox="0 0 100 36" preserveAspectRatio="none">
         <polyline points="0,28 14,22 28,25 42,15 56,18 70,9 84,12 100,5"

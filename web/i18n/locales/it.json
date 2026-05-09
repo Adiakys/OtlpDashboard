@@ -149,6 +149,11 @@
     "widgets": {
       "notConfigured": "Apri la configurazione per scegliere una metrica.",
       "noData": "Nessun dato nell'intervallo selezionato.",
+      "ambiguousService": "Più istanze stanno emettendo questa metrica. Apri la configurazione e scegline una per associare il widget.",
+      "ambiguousServiceTitle": "Più istanze di '{service}'",
+      "instanceNotFound": "L'istanza '{id}' non sta emettendo questa metrica. Disponibili: {available}.",
+      "instanceNotFoundShort": "Istanza '{id}' non trovata",
+      "warningChipLabel": "Configurazione richiesta",
       "notAvailable": "Widget '{kind}' non disponibile",
       "engineSpecUnavailable": "Engine template non ancora disponibile",
       "engineCompositeUnavailable": "Engine composite non ancora disponibile",

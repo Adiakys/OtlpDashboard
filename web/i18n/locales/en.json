@@ -149,6 +149,11 @@
     "widgets": {
       "notConfigured": "Open the configuration to choose a metric.",
       "noData": "No data in the selected range.",
+      "ambiguousService": "Multiple instances are emitting this metric. Open the configuration and pick one to bind the widget.",
+      "ambiguousServiceTitle": "Multiple instances of '{service}'",
+      "instanceNotFound": "Instance '{id}' is not currently emitting this metric. Available: {available}.",
+      "instanceNotFoundShort": "Instance '{id}' not found",
+      "warningChipLabel": "Configuration needed",
       "notAvailable": "Widget '{kind}' not available",
       "engineSpecUnavailable": "Template engine not yet available",
       "engineCompositeUnavailable": "Composite engine not yet available",

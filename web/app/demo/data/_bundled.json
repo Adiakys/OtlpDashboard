@@ -212,6 +212,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -220,7 +227,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.assembly.count",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": false,
@@ -247,6 +255,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -258,7 +273,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.exceptions",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             }
           }
         },
@@ -280,6 +296,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -291,7 +314,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.gc.heap.total_allocated",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             }
           }
         },
@@ -313,6 +337,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -321,7 +352,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.gc.collections",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "splitBy": "gc.heap.generation",
@@ -352,6 +384,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -360,7 +399,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -387,6 +427,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -395,7 +442,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.gc.last_collection.heap.size",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -420,6 +468,13 @@
               "type": "service_name",
               "label": "Application",
               "required": true
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -450,7 +505,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.gc.last_collection.heap.size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -463,7 +519,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -487,6 +544,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -495,7 +559,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.jit.compiled_methods",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -522,6 +587,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -530,7 +602,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.monitor.lock_contentions",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -555,6 +628,13 @@
               "type": "service_name",
               "label": "Application",
               "required": true
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -571,7 +651,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.gc.last_collection.heap.size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -584,7 +665,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.gc.last_collection.memory.committed_size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -611,7 +693,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.thread_pool.thread.count",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -624,7 +707,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.exceptions",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -637,7 +721,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.gc.collections",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -664,7 +749,8 @@
                   "scopeName": "System.Runtime",
                   "instrumentName": "dotnet.monitor.lock_contentions",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -688,6 +774,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -696,7 +789,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.thread_pool.queue.length",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -737,6 +831,13 @@
               "label": "Application",
               "required": true,
               "default": "sample-server"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -745,7 +846,8 @@
               "scopeName": "System.Runtime",
               "instrumentName": "dotnet.thread_pool.thread.count",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -781,6 +883,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -789,7 +898,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.backends",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -816,6 +926,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -824,7 +941,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.bgwriter.checkpoint.count",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "showSparkline": true,
@@ -851,6 +969,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -860,14 +985,16 @@
                 "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                 "instrumentName": "postgresql.blks_hit",
                 "kind": "Sum",
-                "serviceName": "${service}"
+                "serviceName": "${service}",
+                "serviceInstanceId": "${instance}"
               },
               {
                 "resourceHash": "",
                 "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                 "instrumentName": "postgresql.blks_read",
                 "kind": "Sum",
-                "serviceName": "${service}"
+                "serviceName": "${service}",
+                "serviceInstanceId": "${instance}"
               }
             ],
             "range": "last-1h",
@@ -892,6 +1019,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -903,7 +1037,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.commits",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             }
           }
         },
@@ -924,6 +1059,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -940,7 +1082,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.backends",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -953,7 +1096,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.connection.max",
                   "kind": "Gauge",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -976,6 +1120,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -992,7 +1143,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.backends",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1005,7 +1157,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.connection.max",
                   "kind": "Gauge",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1018,7 +1171,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.db_size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1045,7 +1199,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.deadlocks",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -1068,6 +1223,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -1099,7 +1261,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.backends",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -1123,6 +1286,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1131,7 +1301,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.db_size",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -1158,6 +1329,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1166,7 +1344,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.dead_rows",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -1207,6 +1386,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1215,7 +1401,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.deadlocks",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "showSparkline": true,
@@ -1256,6 +1443,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1264,7 +1458,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.live_rows",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -1291,6 +1486,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1299,7 +1501,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.operations",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "splitBy": "operation",
@@ -1329,6 +1532,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -1345,7 +1555,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.backends",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1358,7 +1569,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.database.count",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1371,7 +1583,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.table.count",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1384,7 +1597,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.db_size",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1397,7 +1611,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.wal.age",
                   "kind": "Gauge",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1424,7 +1639,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.replication.data_delay",
                   "kind": "Gauge",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -1448,6 +1664,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1456,7 +1679,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.replication.data_delay",
               "kind": "Gauge",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,
@@ -1497,6 +1721,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1508,7 +1739,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.rollbacks",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             }
           }
         },
@@ -1530,6 +1762,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1538,7 +1777,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.table.size",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "splitBy": "postgresql.table.name",
@@ -1569,6 +1809,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1577,7 +1824,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.temp_files",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "showSparkline": true,
@@ -1604,6 +1852,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1612,7 +1867,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.temp.io",
               "kind": "Sum",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-1h",
             "showSparkline": true,
@@ -1638,6 +1894,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "spec": {
@@ -1654,7 +1917,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.commits",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1681,7 +1945,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.rollbacks",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               },
               {
@@ -1708,7 +1973,8 @@
                   "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
                   "instrumentName": "postgresql.deadlocks",
                   "kind": "Sum",
-                  "serviceName": "${service}"
+                  "serviceName": "${service}",
+                  "serviceInstanceId": "${instance}"
                 }
               }
             ]
@@ -1732,6 +1998,13 @@
               "label": "Service",
               "required": true,
               "default": "postgresql"
+            },
+            {
+              "name": "instance",
+              "type": "service_instance_id",
+              "label": "Instance",
+              "dependsOn": "service",
+              "description": "Pin a specific service.instance.id when the service has multiple replicas."
             }
           ],
           "defaultConfig": {
@@ -1740,7 +2013,8 @@
               "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
               "instrumentName": "postgresql.wal.age",
               "kind": "Gauge",
-              "serviceName": "${service}"
+              "serviceName": "${service}",
+              "serviceInstanceId": "${instance}"
             },
             "range": "last-15m",
             "showSparkline": true,

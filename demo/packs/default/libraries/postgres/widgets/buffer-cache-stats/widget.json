@@ -1,6 +1,6 @@
 {
   "name": "Buffer cache hit/read",
-  "description": "Two-line plot of shared-buffer hits vs disk reads. Bound to postgresql.blks_hit + postgresql.blks_read \u2014 divergence between the two = cache pressure.",
+  "description": "Two-line plot of shared-buffer hits vs disk reads. Bound to postgresql.blks_hit + postgresql.blks_read — divergence between the two = cache pressure.",
   "icon": "i-ph-database",
   "defaultSize": {
     "w": 6,
@@ -15,6 +15,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "defaultConfig": {
@@ -24,14 +31,16 @@
         "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
         "instrumentName": "postgresql.blks_hit",
         "kind": "Sum",
-        "serviceName": "${service}"
+        "serviceName": "${service}",
+        "serviceInstanceId": "${instance}"
       },
       {
         "resourceHash": "",
         "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
         "instrumentName": "postgresql.blks_read",
         "kind": "Sum",
-        "serviceName": "${service}"
+        "serviceName": "${service}",
+        "serviceInstanceId": "${instance}"
       }
     ],
     "range": "last-1h",

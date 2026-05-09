@@ -14,6 +14,13 @@
       "label": "Service",
       "required": true,
       "default": "postgresql"
+    },
+    {
+      "name": "instance",
+      "type": "service_instance_id",
+      "label": "Instance",
+      "dependsOn": "service",
+      "description": "Pin a specific service.instance.id when the service has multiple replicas."
     }
   ],
   "spec": {
@@ -25,12 +32,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.backends \u2014 active backend processes (one DB or summed)",
+        "description": "postgresql.backends — active backend processes (one DB or summed)",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.backends",
           "kind": "Sum",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       },
       {
@@ -38,12 +46,13 @@
         "type": "metric",
         "calc": "last",
         "unitKind": "none",
-        "description": "postgresql.connection.max \u2014 configured max_connections (cluster-wide)",
+        "description": "postgresql.connection.max — configured max_connections (cluster-wide)",
         "metric": {
           "scopeName": "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver",
           "instrumentName": "postgresql.connection.max",
           "kind": "Gauge",
-          "serviceName": "${service}"
+          "serviceName": "${service}",
+          "serviceInstanceId": "${instance}"
         }
       }
     ]
