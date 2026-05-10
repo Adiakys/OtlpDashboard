@@ -68,28 +68,42 @@ overridden by environment variables using double underscores
 
 ### Auth tokens
 
-Both endpoints are **public by default**. Set either token to require auth:
+Two static bearer tokens gate the surface:
 
 | Variable                       | Protects                                          |
 |--------------------------------|---------------------------------------------------|
 | `DASHBOARD__BROWSERTOKEN`      | The SPA + read API (`/api/v1/...`) + MCP (`/mcp`) |
 | `DASHBOARD__OTLP__APIKEY`      | OTLP ingestion (gRPC + HTTP)                      |
 
-The SPA prompts for the browser token on `/login` and stores it in memory
-(30 min idle TTL). OTLP clients send the API key as
+**Posture by environment:**
+
+- **Development** — empty tokens degrade to allow-all so the existing
+  integration tests and local dev keep running without setup.
+- **Production** — missing tokens **fail closed**: the host refuses to
+  start. Either set both tokens, or opt in to public access explicitly
+  with `DASHBOARD__AUTH__ALLOWANONYMOUS=true` (surfaced as `Degraded`
+  on `/healthz` so SREs see the posture).
+
+The SPA's `/login` form exchanges the password for an HttpOnly +
+SameSite=Strict session cookie via `POST /api/v1/auth/login`; JS never
+sees the token after the exchange. `POST /api/v1/auth/logout` clears
+the cookie. OTLP clients send the API key as
 `Authorization: Bearer <token>` or as the `x-otlp-api-key` header.
 
 ### Retention (max days)
 
-Background job that drops rows older than the configured age. `0` (default)
-disables retention for that signal.
+Background job that drops rows older than the configured age. Defaults
+target a "debug + recent forensics" workload — logs hold a month so
+last-week incidents stay investigable; traces and metrics rotate
+weekly because high-cardinality spans and split-by metric attributes
+inflate fast.
 
 ```jsonc
 "Dashboard": {
   "TelemetryLimits": {
-    "MaxLogDays": 14,
-    "MaxTraceDays": 7,
-    "MaxMetricDays": 30,
+    "MaxLogDays": 30,    // default
+    "MaxTraceDays": 7,   // default
+    "MaxMetricDays": 7,  // default
     "SweepIntervalMinutes": 60
   }
 }
@@ -98,14 +112,17 @@ disables retention for that signal.
 Or via env vars:
 
 ```bash
-Dashboard__TelemetryLimits__MaxLogDays=14
+Dashboard__TelemetryLimits__MaxLogDays=30
 Dashboard__TelemetryLimits__MaxTraceDays=7
-Dashboard__TelemetryLimits__MaxMetricDays=30
+Dashboard__TelemetryLimits__MaxMetricDays=7
 Dashboard__TelemetryLimits__SweepIntervalMinutes=60
 ```
 
-The sweep runs each `SweepIntervalMinutes` per signal independently — a
-failure on one kind doesn't stop the others.
+A value of `0` disables retention for that signal (records are kept
+indefinitely) — `/healthz` then reports `Degraded` so an unbounded
+window can't hide silently. The sweep runs each `SweepIntervalMinutes`
+per signal independently — a failure on one kind doesn't stop the
+others.
 
 ### Storage provider
 
@@ -172,7 +189,7 @@ Built on the official `ModelContextProtocol.AspNetCore` SDK
 Dashboards are made of widgets dropped onto a 12-column grid. Three sources:
 
 - **`std`** — built into the bundle (Stat, Line, Sparkline, Gauge, Bar gauge,
-  Pie, Heatmap, Recent traces, Logs stream, Text).
+  Pie, Heatmap, Recent traces, Top traces, Logs stream, Text).
 - **`custom`** — preset of a builtin saved by the user, persisted in the DB.
 - **`<library>`** — read-only widgets shipped by an installed library
   (filesystem or installed from a Git repo).
@@ -330,7 +347,7 @@ Each `widgets/<kindId>/widget.json` declares one widget. Two engines:
 
 `baseKind` is one of: `metric-stat`, `metric-line`, `metric-sparkline`,
 `metric-gauge`, `metric-bar-gauge`, `metric-pie`, `metric-heatmap`,
-`recent-traces`, `logs-stream`, `text`. The shape of `defaultConfig`
+`recent-traces`, `top-traces`, `logs-stream`, `text`. The shape of `defaultConfig`
 matches the corresponding form in the SPA — copy from a working instance
 (`Save as widget` produces a valid one).
 
@@ -465,11 +482,13 @@ mounted by `docker-compose.yml` as `/app/builtin-packs/default-dashboard`.
 
 | Method | Path                                  | Purpose                       |
 |--------|---------------------------------------|-------------------------------|
-| GET    | `/healthz`                            | Liveness probe (anonymous)    |
+| GET    | `/healthz`                            | Liveness + readiness probe (anonymous; checks DB, sink, retention, auth posture) |
 | POST   | `/v1/{traces,logs,metrics}`           | OTLP HTTP/Protobuf ingestion  |
-| GET    | `/api/v1/traces`, `/logs`, `/metrics` | Query API (paginated)         |
-| GET/POST/PUT/DELETE | `/api/v1/dashboards`     | Dashboards CRUD               |
-| GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD     |
+| POST   | `/api/v1/auth/login`, `/logout`       | Session-cookie login / logout (anonymous) |
+| GET    | `/api/v1/info`                        | App name (anonymous); version + retention + storage provider when authenticated |
+| GET    | `/api/v1/traces`, `/logs`, `/metrics` | Query API (paginated). `/metrics/points` requires `from`/`to` |
+| GET/POST/PUT/DELETE | `/api/v1/dashboards`     | Dashboards CRUD. `DELETE` requires `?rowVersion=N` (optimistic concurrency) |
+| GET/POST/PUT/DELETE | `/api/v1/widgets/definitions` | Custom widgets CRUD. `DELETE` requires `?rowVersion=N` |
 | GET    | `/api/v1/widgets/libraries`           | Flat library list for the picker |
 | GET    | `/api/v1/packs`                       | Installed packs (libraries + dashboards) |
 | POST   | `/api/v1/packs/reload`                | Re-scan the packs paths       |
@@ -479,7 +498,11 @@ mounted by `docker-compose.yml` as `/app/builtin-packs/default-dashboard`.
 | POST/GET/DELETE | `/mcp`                       | MCP server (when `Dashboard:Mcp:Enabled`) |
 | (boot) | seed dashboards from packs            | `builtin: true` dashboards loaded after migrations, idempotent |
 
-The OpenAPI spec is generated at `/openapi/v1.json` in `Development`.
+Errors return RFC 7807 `application/problem+json` with a `traceId`
+extension for log correlation. Per-IP rate limits apply to OTLP ingest
+(200 req/s default), the read API (60 req/s), mutations (10 req/s),
+and pack install (1 concurrent globally) — tunable under
+`Dashboard:RateLimits:*`.
 
 ---
 
