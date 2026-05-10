@@ -1,12 +1,19 @@
 # Build the production image on every published GitHub Release and push
-# it to Docker Hub tagged with the release name (plus `latest` for stable
-# releases).
+# it to Docker Hub AND GitHub Container Registry (ghcr.io), tagged with
+# the release name (plus `latest` for stable releases). Pushing to GHCR
+# in parallel to Docker Hub means the image shows up under the repo's
+# Packages tab and avoids Docker Hub's anonymous-pull rate limits for
+# free-tier users.
 #
 # Required repository configuration (Settings → Secrets and variables → Actions):
 #   - vars.DOCKERHUB_USERNAME — your Docker Hub account name
 #   - vars.DOCKERHUB_IMAGE    — image name (defaults to `otlpdashboard` if unset)
 #   - secrets.DOCKERHUB_TOKEN — Docker Hub Access Token (Account Settings →
 #                               Security → New Access Token; scope: Read/Write)
+#
+# GHCR uses the built-in GITHUB_TOKEN, no extra secrets needed. The image
+# lands at `ghcr.io/<owner>/<repo-name-lowercased>` (the repo name is
+# resolved at runtime so a fork doesn't need to edit this file).
 #
 # The release tag becomes the image tag verbatim (e.g. `v1.2.3`) plus a
 # stripped semver variant (`1.2.3`). Stable releases also re-tag `latest`;
@@ -28,6 +35,8 @@ on:
 
 permissions:
   contents: read
+  # Required for ghcr.io push via GITHUB_TOKEN.
+  packages: write
 
 jobs:
   build-and-push:
@@ -58,11 +67,24 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Compute image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_IMAGE || 'otlpdashboard' }}
+          # Both registries get the same set of tags. GHCR's image path
+          # is forced lowercase because the registry rejects mixed-case
+          # repo names (a repo called `OtlpDashboard` becomes
+          # `ghcr.io/adiakys/otlpdashboard`).
+          images: |
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_IMAGE || 'otlpdashboard' }}
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
           # `flavor: latest=false` keeps `latest` off by default; the
           # `type=raw,value=latest` rule below re-adds it only on stable
           # releases (no prerelease suffix).
