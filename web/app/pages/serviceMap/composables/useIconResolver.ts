@@ -14,6 +14,12 @@ import type { PackDto, PackIconDto } from '~/services/types'
  */
 export function useIconResolver(packs: Ref<readonly PackDto[]>) {
   const regexCache = new Map<string, RegExp | null>()
+  // The pack DTO ships imageUrl as a root-absolute path
+  // (e.g. /icons/default/postgres/postgres.svg or /api/v1/packs/.../assets/...).
+  // Under a subpath deploy (Nuxt's app.baseURL like /OtlpDashboard/) we have
+  // to fold the base in front of those paths or the browser resolves them
+  // against the domain root and 404s.
+  const baseURL = (useRuntimeConfig().app.baseURL ?? '/').replace(/\/+$/, '/')
 
   // Pre-flatten `(pack, icon)` tuples so the hot resolve path is one
   // linear walk instead of two nested loops.
@@ -24,6 +30,14 @@ export function useIconResolver(packs: Ref<readonly PackDto[]>) {
     }
     return out
   })
+
+  function withBaseURL(url: string): string {
+    // Only rewrite root-absolute paths. External URLs (http://, https://,
+    // protocol-relative `//`, data: …) pass through untouched.
+    if (!url.startsWith('/') || url.startsWith('//')) return url
+    if (baseURL === '/') return url
+    return (baseURL + url.replace(/^\/+/, '')).replace(/\/{2,}/g, '/')
+  }
 
   function compile(pattern: string): RegExp | null {
     if (regexCache.has(pattern)) return regexCache.get(pattern)!
@@ -55,7 +69,7 @@ export function useIconResolver(packs: Ref<readonly PackDto[]>) {
   function resolve(service: string | null | undefined): string | null {
     if (!service) return null
     for (const entry of flat.value) {
-      if (matches(entry.icon, service)) return entry.icon.imageUrl
+      if (matches(entry.icon, service)) return withBaseURL(entry.icon.imageUrl)
     }
     return null
   }
