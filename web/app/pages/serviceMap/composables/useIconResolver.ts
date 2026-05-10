@@ -12,14 +12,22 @@ import type { PackDto, PackIconDto } from '~/services/types'
  * page rendering icons today; if another consumer arrives we can lift
  * this into a shared composable without changing the contract.
  */
-export function useIconResolver(packs: Ref<readonly PackDto[]>) {
+export function useIconResolver(
+  packs: Ref<readonly PackDto[]>,
+  /** Pass <c>useRuntimeConfig().app.baseURL</c> from the page that owns
+   *  the resolver. Defaults to <c>'/'</c> so tests and ad-hoc callers
+   *  don't need a Nuxt runtime context — Nuxt auto-imports are
+   *  resolved at compile time and not available on globalThis, so we
+   *  can't reach for them from inside this file. */
+  baseURLRaw: string = '/'
+) {
   const regexCache = new Map<string, RegExp | null>()
   // The pack DTO ships imageUrl as a root-absolute path
   // (e.g. /icons/default/postgres/postgres.svg or /api/v1/packs/.../assets/...).
   // Under a subpath deploy (Nuxt's app.baseURL like /OtlpDashboard/) we have
   // to fold the base in front of those paths or the browser resolves them
   // against the domain root and 404s.
-  const baseURL = resolveBaseURL()
+  const baseURL = (baseURLRaw || '/').replace(/\/+$/, '/')
 
   // Pre-flatten `(pack, icon)` tuples so the hot resolve path is one
   // linear walk instead of two nested loops.
@@ -79,28 +87,7 @@ export function useIconResolver(packs: Ref<readonly PackDto[]>) {
 
 /** Convenience wrapper for non-reactive callers (tests, derived
  *  data). */
-export function buildIconResolver(packs: readonly PackDto[]) {
+export function buildIconResolver(packs: readonly PackDto[], baseURL: string = '/') {
   const ref0 = ref(packs) as unknown as Ref<readonly PackDto[]>
-  return useIconResolver(ref0)
-}
-
-/** Reads <c>app.baseURL</c> via Nuxt's runtime config when available,
- *  falling back to <c>'/'</c> when the composable runs outside a Nuxt
- *  context (vitest unit tests, ad-hoc Node usage). The auto-import is
- *  declared by <c>@nuxt/schema</c> at type-check time but isn't injected
- *  into plain vitest workers — guard with a runtime check rather than
- *  forcing every test to mock the global. */
-function resolveBaseURL(): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const g = globalThis as any
-  const fn = typeof g.useRuntimeConfig === 'function'
-    ? g.useRuntimeConfig
-    : null
-  if (fn === null) return '/'
-  try {
-    const raw = fn().app?.baseURL ?? '/'
-    return raw.replace(/\/+$/, '/')
-  } catch {
-    return '/'
-  }
+  return useIconResolver(ref0, baseURL)
 }

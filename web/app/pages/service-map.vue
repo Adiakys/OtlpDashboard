@@ -29,7 +29,13 @@ $widgetService.listPacks()
   .then(list => { packs.value = list })
   .catch(() => { packs.value = [] })
 
-const { resolve: resolveIconUrl } = useIconResolver(packs)
+// Pass app.baseURL so the resolver can fold the subpath prefix into the
+// pack-supplied imageUrls (otherwise a deploy at /OtlpDashboard/ would
+// 404 against /icons/... at the domain root).
+const { resolve: resolveIconUrl } = useIconResolver(
+  packs,
+  useRuntimeConfig().app.baseURL
+)
 
 // Hide-unnamed-services preference. Persisted in localStorage so the
 // view choice survives reloads — same pattern as the histogram toggle
