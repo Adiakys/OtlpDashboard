@@ -77,13 +77,16 @@ describe('WidgetService', () => {
     expect(http.put).toHaveBeenCalledWith('/v1/widgets/definitions/id%20with%20space', req)
   })
 
-  it('deletes a definition via DELETE', async () => {
+  it('deletes a definition via DELETE with rowVersion query param', async () => {
     const http = stubHttp()
     const service = new WidgetService(http)
 
-    await service.deleteCustom('abc')
+    await service.deleteCustom('abc', 7)
 
-    expect(http.delete).toHaveBeenCalledWith('/v1/widgets/definitions/abc')
+    expect(http.delete).toHaveBeenCalledWith(
+      '/v1/widgets/definitions/abc',
+      { rowVersion: 7 }
+    )
   })
 
   it('lists libraries via GET /v1/widgets/libraries', async () => {

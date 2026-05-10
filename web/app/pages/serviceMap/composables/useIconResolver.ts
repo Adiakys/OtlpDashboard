@@ -19,7 +19,7 @@ export function useIconResolver(packs: Ref<readonly PackDto[]>) {
   // Under a subpath deploy (Nuxt's app.baseURL like /OtlpDashboard/) we have
   // to fold the base in front of those paths or the browser resolves them
   // against the domain root and 404s.
-  const baseURL = (useRuntimeConfig().app.baseURL ?? '/').replace(/\/+$/, '/')
+  const baseURL = resolveBaseURL()
 
   // Pre-flatten `(pack, icon)` tuples so the hot resolve path is one
   // linear walk instead of two nested loops.
@@ -82,4 +82,25 @@ export function useIconResolver(packs: Ref<readonly PackDto[]>) {
 export function buildIconResolver(packs: readonly PackDto[]) {
   const ref0 = ref(packs) as unknown as Ref<readonly PackDto[]>
   return useIconResolver(ref0)
+}
+
+/** Reads <c>app.baseURL</c> via Nuxt's runtime config when available,
+ *  falling back to <c>'/'</c> when the composable runs outside a Nuxt
+ *  context (vitest unit tests, ad-hoc Node usage). The auto-import is
+ *  declared by <c>@nuxt/schema</c> at type-check time but isn't injected
+ *  into plain vitest workers — guard with a runtime check rather than
+ *  forcing every test to mock the global. */
+function resolveBaseURL(): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any
+  const fn = typeof g.useRuntimeConfig === 'function'
+    ? g.useRuntimeConfig
+    : null
+  if (fn === null) return '/'
+  try {
+    const raw = fn().app?.baseURL ?? '/'
+    return raw.replace(/\/+$/, '/')
+  } catch {
+    return '/'
+  }
 }
