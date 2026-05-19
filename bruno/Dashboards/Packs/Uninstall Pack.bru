@@ -1,0 +1,16 @@
+meta {
+  name: Uninstall Pack
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/packs/{{packId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  Rimuove un pack dalla runtime root. 400 se il pack è marcato come
+  non rimovibile, 404 se non esiste.
+}

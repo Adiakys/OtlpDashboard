@@ -1,0 +1,16 @@
+meta {
+  name: List Metrics
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/metrics
+  body: none
+  auth: inherit
+}
+
+docs {
+  Elenco strumenti (instrument summaries) attualmente persistiti, scoperto
+  via `IMetricReader.ListInstrumentsAsync`.
+}

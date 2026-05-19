@@ -1,0 +1,16 @@
+meta {
+  name: Update Pack
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/packs/{{packId}}/update
+  body: none
+  auth: inherit
+}
+
+docs {
+  Fetch + reset di un pack installato via git. 400 se il pack non è
+  git-installed, 404 se non esiste.
+}

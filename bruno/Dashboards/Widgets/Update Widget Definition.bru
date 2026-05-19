@@ -1,0 +1,29 @@
+meta {
+  name: Update Widget Definition
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/widgets/definitions/{{widgetDefinitionId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Custom HTTP Latency",
+    "description": "p99 latency on http.server.duration",
+    "icon": "i-ph-chart-line",
+    "engine": "Preset",
+    "baseKind": "stat",
+    "config": {
+      "metric": "http.server.duration",
+      "agg": "p99"
+    },
+    "spec": null,
+    "defaultW": 4,
+    "defaultH": 2,
+    "rowVersion": 1
+  }
+}

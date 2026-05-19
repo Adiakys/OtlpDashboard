@@ -1,0 +1,35 @@
+meta {
+  name: Add Widget Definition
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/widgets/definitions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Custom HTTP Latency",
+    "description": "p95 latency on http.server.duration",
+    "icon": "i-ph-chart-line",
+    "engine": "Preset",
+    "baseKind": "stat",
+    "config": {
+      "metric": "http.server.duration",
+      "agg": "p95"
+    },
+    "spec": null,
+    "defaultW": 4,
+    "defaultH": 2,
+    "rowVersion": 0
+  }
+}
+
+docs {
+  - `engine`: `Preset` (richiede `baseKind`), `Spec` o `Composite` (richiedono `spec` come oggetto).
+  - `icon` deve matchare `^i-(ph|lucide)-...`.
+  - `config` ≤ 64 KiB, `spec` ≤ 256 KiB, entrambi devono essere oggetti JSON.
+}

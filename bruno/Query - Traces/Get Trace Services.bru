@@ -1,0 +1,16 @@
+meta {
+  name: Get Trace Services
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/traces/services
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+}

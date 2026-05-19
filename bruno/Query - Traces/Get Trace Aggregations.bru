@@ -1,0 +1,25 @@
+meta {
+  name: Get Trace Aggregations
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/traces/aggregations
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+  ~limit: 50
+  ~metric: service
+  ~services: my-service
+  ~attr: http.route:/foo
+}
+
+docs {
+  Aggregazioni rollup (count, error count, avg ms, max ms) raggruppate
+  per `metric` (es. `service`, `operation`).
+}

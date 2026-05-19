@@ -1,0 +1,15 @@
+meta {
+  name: Delete Widget Definition
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/widgets/definitions/{{widgetDefinitionId}}?rowVersion=1
+  body: none
+  auth: inherit
+}
+
+params:query {
+  rowVersion: 1
+}

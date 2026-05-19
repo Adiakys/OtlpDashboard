@@ -1,0 +1,36 @@
+meta {
+  name: Add Dashboard
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/dashboards
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "My Dashboard",
+    "widgets": [
+      {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "kind": "builtin:stat",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 2,
+        "config": {
+          "title": "Requests"
+        }
+      }
+    ],
+    "rowVersion": 0
+  }
+}
+
+docs {
+  Rate-limited (policy `Mutations`). `name` ≤ 32 chars, ≤ 100 widgets,
+  `config` ≤ 64 KiB e deve essere un oggetto JSON.
+}

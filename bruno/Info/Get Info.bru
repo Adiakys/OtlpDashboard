@@ -1,0 +1,17 @@
+meta {
+  name: Get Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/info
+  body: none
+  auth: none
+}
+
+docs {
+  Endpoint anonimo. Senza token restituisce solo `applicationName`;
+  con `Authorization: Bearer {{browserToken}}` espone anche storage
+  provider, retention windows e query limits.
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "OtlpDashboard",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

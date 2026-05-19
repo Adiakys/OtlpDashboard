@@ -1,0 +1,23 @@
+meta {
+  name: Get Service Map
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/service-map
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+  ~service: my-service
+}
+
+docs {
+  Restituisce nodi (services + dependencies) ed edges con counters
+  (request count, error count). Quando `service` è valorizzato la
+  mappa è centrata su quel servizio.
+}

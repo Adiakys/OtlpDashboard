@@ -1,0 +1,15 @@
+meta {
+  name: Get Info (authenticated)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/info
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{browserToken}}
+}

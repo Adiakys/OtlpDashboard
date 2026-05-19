@@ -1,0 +1,28 @@
+meta {
+  name: Get Metric Points
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/metrics/points
+  body: none
+  auth: inherit
+}
+
+params:query {
+  resourceHash: 0000000000000000
+  scopeName: my-meter
+  instrumentName: http.server.duration
+  kind: histogram
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+  ~includeAttributes: false
+}
+
+docs {
+  I quattro identity field (`resourceHash`, `scopeName`, `instrumentName`,
+  `kind`) selezionano una singola time series. `includeAttributes=true`
+  espone la attribute map per ciascun punto (costo extra di
+  serializzazione).
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Get Pack Asset
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/packs/{{packId}}/assets/icons/example.svg
+  body: none
+  auth: none
+}
+
+docs {
+  Endpoint anonimo per intenzione (le icone vengono fetchate direttamente
+  dai tag `<image>` nella SVG della service map).
+  Estensioni accettate: `.svg`, `.png`, `.webp`. SVG sanitizzate prima
+  della risposta.
+}

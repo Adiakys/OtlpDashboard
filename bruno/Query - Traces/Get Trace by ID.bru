@@ -1,0 +1,16 @@
+meta {
+  name: Get Trace by ID
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/traces/{{traceId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  `traceId` deve essere una stringa hex lowercase da 32 caratteri.
+  404 se la trace non esiste, 400 se l'id non è valido.
+}

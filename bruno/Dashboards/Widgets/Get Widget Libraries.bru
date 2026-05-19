@@ -1,0 +1,15 @@
+meta {
+  name: Get Widget Libraries
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/widgets/libraries
+  body: none
+  auth: inherit
+}
+
+docs {
+  Catalogo piatto delle librerie esposte dai pack installati. Read-only.
+}

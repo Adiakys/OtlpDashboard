@@ -1,0 +1,32 @@
+meta {
+  name: Get Logs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/logs?limit=50&from=2026-05-19T00:00:00Z&to=2026-05-19T23:59:59Z
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 50
+  from: 2026-05-19T00:00:00Z
+  to: 2026-05-19T23:59:59Z
+  ~cursor: 
+  ~traceId: 
+  ~services: my-service
+  ~minSeverity: 9
+  ~severities: info,warn,error
+  ~bodyContains: 
+  ~attr: http.route:/foo
+}
+
+docs {
+  Paginazione cursor-based: il campo `nextCursor` della risposta va passato
+  come `cursor` per ottenere la pagina successiva.
+  
+  - `severities` accetta CSV (`info,warn`) o chiavi ripetute (`?severities=info&severities=warn`).
+  - `attr` accetta più valori `key:value`, AND-ati tra loro (`?attr=http.route:/foo&attr=demo.scenario:x`).
+}

@@ -1,0 +1,34 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{browserToken}}
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  # OtlpDashboard – Bruno collection
+
+  Copre la superficie HTTP esposta dai progetti `OpenTelemetryDashboard.Api`
+  (Query API + `/info`) e `OpenTelemetryDashboard.Dashboards`
+  (Dashboards / Widgets / Packs) più gli endpoint di autenticazione del
+  progetto `OpenTelemetryDashboard.Host` (`/api/v1/auth/login`, `/logout`).
+
+  ## Autenticazione
+
+  La collection imposta di default un `Authorization: Bearer {{browserToken}}`
+  ereditato da tutte le richieste. Le varianti `noauth` sono usate solo dove
+  l'endpoint è esplicitamente anonimo (`/info`, `/login`, `/logout`,
+  asset di pack).
+
+  - `browserToken` → `Dashboard:BrowserToken` (env `DASHBOARD__BROWSERTOKEN`)
+  - `otlpApiKey`   → `Dashboard:Otlp:ApiKey`  (env `DASHBOARD__OTLP__APIKEY`,
+    non usata da queste API ma definita per completezza).
+
+  Per le richieste OTLP ingest (gRPC/HTTP) la collection non include
+  request perché Bruno non gestisce protobuf binario in modo nativo.
+}

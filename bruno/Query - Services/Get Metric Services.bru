@@ -1,0 +1,17 @@
+meta {
+  name: Get Metric Services
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/metrics/services
+  body: none
+  auth: inherit
+}
+
+docs {
+  Lista distinta di `service.name` dai metric stream attivi. A differenza
+  di logs/traces non accetta finestra temporale: l'orizzonte è già dato
+  dalla retention configurata.
+}

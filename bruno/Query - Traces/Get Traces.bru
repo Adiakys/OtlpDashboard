@@ -1,0 +1,32 @@
+meta {
+  name: Get Traces
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/traces?limit=50
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 50
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+  ~cursor:
+  ~services: my-service
+  ~serviceMatch: root
+  ~noService: false
+  ~status: error
+  ~minMs: 10
+  ~maxMs: 5000
+  ~spanNameContains: GET
+  ~attr: http.route:/foo
+}
+
+docs {
+  - `serviceMatch`: `root` (default) o `any`.
+  - `noService=true` ignora la lista `services` e restituisce le trace il cui root span ha resource senza `service.name`.
+  - `status`: `ok` | `error` | `unset`.
+}

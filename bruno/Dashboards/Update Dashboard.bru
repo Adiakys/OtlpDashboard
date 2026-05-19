@@ -1,0 +1,36 @@
+meta {
+  name: Update Dashboard
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/dashboards/{{dashboardId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "My Dashboard (renamed)",
+    "widgets": [
+      {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "kind": "builtin:stat",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 2,
+        "config": {
+          "title": "Requests / sec"
+        }
+      }
+    ],
+    "rowVersion": 1
+  }
+}
+
+docs {
+  Concorrenza ottimistica: `rowVersion` deve coincidere con quello restituito
+  dall'ultima GET. 409 (`ConcurrencyProblem`) se non corrisponde.
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Install Pack
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/packs/install
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "url": "https://github.com/example/otlp-dashboard-pack",
+    "ref": "v1.0.0",
+    "path": null
+  }
+}
+
+docs {
+  - `url`: https, host deve essere nella allow-list `PacksOptions.AllowedGitHosts`.
+  - `ref`: tag, branch o commit SHA.
+  - `path`: opzionale; sotto-directory dove cercare `pack.json` (per repo monorepo).
+
+  Risposte: 201 Created · 400 host non permesso/path invalido · 409 id collision · 422 manifest invalido.
+}

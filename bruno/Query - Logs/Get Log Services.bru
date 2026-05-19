@@ -1,0 +1,21 @@
+meta {
+  name: Get Log Services
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/logs/services
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~from: 2026-05-19T00:00:00Z
+  ~to: 2026-05-19T23:59:59Z
+}
+
+docs {
+  Elenco alfabetico distinto di `service.name` visibili nella finestra
+  fornita. Usato dall'UI per popolare il filtro "Application".
+}

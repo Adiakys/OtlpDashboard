@@ -1,0 +1,16 @@
+meta {
+  name: Reload Packs
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/packs/reload
+  body: none
+  auth: inherit
+}
+
+docs {
+  Forza il refresh del registry dei pack dal filesystem. Risponde 204.
+  Rate-limited (policy `PackInstall`).
+}
