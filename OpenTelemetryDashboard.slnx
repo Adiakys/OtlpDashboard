@@ -9,6 +9,7 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="docker-compose.yml" />
+    <File Path="Dockerfile.demo" />
     <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">

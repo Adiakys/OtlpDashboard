@@ -1,25 +1,6 @@
-# Demo stack: dashboard + Postgres + Redis + sample-server / sample-client +
-# OpenTelemetry Collector. The dashboard persists telemetry to the Postgres
-# container by default (no external DB needed).
-#
-#   docker compose up --build
-#
-# To switch to SQL Server, start with `--profile sqlserver` and override
-# Dashboard__Storage__Provider on the dashboard service (the SqlServer
-# connection string is already wired below for that case).
-#
-# Listens on:
-#   - localhost:4317 — OTLP gRPC ingestion
-#   - localhost:4318 — OTLP HTTP ingestion + SPA + /api + /mcp + /healthz
-
 services:
-  dashboard:
-    image: opentelemetrydashboard:dev
-    container_name: otel-dashboard
-    restart: unless-stopped
-    mem_limit: 512m
-    mem_reservation: 128m
-    cpus: 2.0
+  opentelemetrydashboard.host:
+    image: opentelemetrydashboard.host
     build:
       context: .
       dockerfile: src/OpenTelemetryDashboard.Host/Dockerfile
@@ -53,23 +34,22 @@ services:
         condition: service_healthy
 
   # Two replicas of the sample server, both reporting under the same
-  # service.name=sample-server but with distinct service.instance.id
-  # values (server-1, server-2). This is the canonical
-  # multi-instance shape the dashboard's metrics tree and trace
-  # service-cell ("(+N)" tooltip) are designed to surface.
-  sample-server-1:
+  # service.name=sample-server but with distinct service.instance.id values
+  # (server-1, server-2). This is the canonical multi-instance shape the
+  # dashboard's metrics tree and trace service-cell ("(+N)" tooltip) are
+  # designed to surface.
+  server:
+    image: server
     build:
       context: .
       dockerfile: demo/Server/Dockerfile
-    image: oteldemo-sample-server:dev
-    container_name: oteldemo-sample-server-1
     restart: unless-stopped
     ports:
       - "5050:8080"
     environment:
       ConnectionStrings__Postgres: "Host=postgres;Database=sampleapp;Username=otel;Password=otel"
       ConnectionStrings__Redis: "redis:6379"
-      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Endpoint: "http://opentelemetrydashboard.host:4317"
       Otel__Headers: "Authorization=Bearer api_token"
       Otel__ServiceInstanceId: "server-1"
     depends_on:
@@ -77,22 +57,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      dashboard:
+      opentelemetrydashboard.host:
         condition: service_started
 
-  sample-server-2:
+  server-2:
+    image: server
     build:
       context: .
       dockerfile: demo/Server/Dockerfile
-    image: oteldemo-sample-server:dev
-    container_name: oteldemo-sample-server-2
     restart: unless-stopped
     ports:
       - "5051:8080"
     environment:
       ConnectionStrings__Postgres: "Host=postgres;Database=sampleapp;Username=otel;Password=otel"
       ConnectionStrings__Redis: "redis:6379"
-      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Endpoint: "http://opentelemetrydashboard.host:4317"
       Otel__Headers: "Authorization=Bearer api_token"
       Otel__ServiceInstanceId: "server-2"
     depends_on:
@@ -100,33 +79,30 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      dashboard:
+      opentelemetrydashboard.host:
         condition: service_started
 
-  sample-client:
+  client:
+    image: client
     build:
       context: .
       dockerfile: demo/Client/Dockerfile
-    image: oteldemo-sample-client:dev
-    container_name: oteldemo-sample-client
     restart: unless-stopped
     environment:
-      # CSV: the client round-robins each iteration across these
-      # endpoints, so traces split evenly between the two server
-      # instances.
-      Server__BaseUrls: "http://sample-server-1:8080,http://sample-server-2:8080"
+      # CSV: the client round-robins each iteration across these endpoints,
+      # so traces split evenly between the two server instances.
+      Server__BaseUrls: "http://server:8080,http://server-2:8080"
       Loop__IntervalMs: "3000"
-      Otel__Endpoint: "http://dashboard:4317"
+      Otel__Endpoint: "http://opentelemetrydashboard.host:4317"
       Otel__Headers: "Authorization=Bearer api_token"
     depends_on:
-      sample-server-1:
+      server:
         condition: service_started
-      sample-server-2:
+      server-2:
         condition: service_started
 
   postgres:
     image: postgres:17-alpine
-    container_name: otel-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: telemetry
@@ -143,7 +119,6 @@ services:
   sqlserver:
     profiles: ["sqlserver"]
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: otel-sqlserver
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
@@ -158,7 +133,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: otel-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -166,13 +140,12 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
-    container_name: otel-collector
     restart: unless-stopped
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./demo/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     depends_on:
-      - dashboard
+      - opentelemetrydashboard.host
       - redis
       - postgres
 

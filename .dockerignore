@@ -1,4 +1,4 @@
-**/.dockerignore
+﻿**/.dockerignore
 **/.env
 **/.git
 **/.gitignore
@@ -23,28 +23,3 @@
 **/values.dev.yaml
 LICENSE
 README.md
-
-# Tests are never part of the runtime image — strip ~250 MB of build context.
-tests/
-
-# `demo/` is intentionally NOT excluded: the sample-server / sample-client
-# Dockerfiles build with `context: .` (repo root) so they can see the
-# Directory.Build.props + Directory.Packages.props chain that makes
-# central package management work. The dashboard image's Dockerfile only
-# COPYs `src/` and `web/`, so demo/ source travels in the build context
-# but doesn't end up in the final image (~1-2 MB transient cost).
-
-# Local-only artifacts that have no business in any image.
-dashboard-data/
-docs/
-**/*.db
-**/*.log
-
-# Nuxt build/cache dirs — regenerated inside the web-build stage
-web/.nuxt
-web/.output
-web/.nitro
-web/.data
-web/.cache
-web/dist
-web/node_modules
