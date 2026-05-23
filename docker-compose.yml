@@ -59,6 +59,16 @@ services:
         condition: service_started
       opentelemetrydashboard.host:
         condition: service_started
+f    # `server` and `server-2` share the same Postgres DB and both seed the
+    # `sample_counters` row at startup. Healthy = past `app.Run()`, so past
+    # the seed — `server-2` waits for this below to avoid a PK race on
+    # first boot.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/healthz || exit 1"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
 
   server-2:
     image: server
@@ -81,6 +91,8 @@ services:
         condition: service_started
       opentelemetrydashboard.host:
         condition: service_started
+      server:
+        condition: service_healthy
 
   client:
     image: client
