@@ -66,7 +66,8 @@ export class DashboardLayoutIO {
     if (parsed.kind === 'parse-error') return parsed
     if (!isValidEnvelope(parsed.value)) return { kind: 'invalid' }
 
-    const remapped = await this.rebindToCurrentInstance(parsed.value.widgets)
+    const normalized = parsed.value.widgets.map(normalizeWidgetId)
+    const remapped = await this.rebindToCurrentInstance(normalized)
     return { kind: 'success', ...remapped }
   }
 
@@ -132,6 +133,30 @@ function downloadJson(payload: unknown, filename: string): void {
 
 function todayStamp(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+// --- id normalization ---
+
+// Imported widgets always get a fresh id. The export may carry the original
+// ids (including seeded `c4d51234-*` values shared across instances), and
+// the backend's `dashboard_widgets` PK is globally unique — reusing one
+// would collide with the source dashboard's row on the target. The id must
+// also be unique *within* the import: `grid-layout-plus` keys items by id,
+// so duplicates collapse into a single grid cell and the rest lose their
+// coordinates.
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000'
+
+function newWidgetId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  // No secure-context UUID available: let the server assign one. The grid
+  // will briefly collapse duplicates until the save round-trips fresh ids.
+  return EMPTY_GUID
+}
+
+function normalizeWidgetId(widget: WidgetItem): WidgetItem {
+  return { ...widget, id: newWidgetId() }
 }
 
 // --- validation ---
