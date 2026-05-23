@@ -8,6 +8,7 @@ import TraceStatusBadgeCell from '~/components/data/cells/TraceStatusBadgeCell.v
 import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
+import { buildSpansExport, downloadOtlpJson, type TraceSpans } from '~/lib/otlpExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -106,7 +107,52 @@ const filters: FilterDescriptor[] = [
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
+// Trace summaries only carry the root span info; the OTLP envelope needs
+// every span, so we fan out detail fetches with a small concurrency cap
+// (good citizenship toward the API and the browser's connection pool).
+// Failures on individual traces are swallowed and skipped — the export is
+// best-effort, the same way the metrics-tree export is.
+const EXPORT_CONCURRENCY = 6
+const isExporting = ref(false)
+const exportDisabled = computed(() => page.items.value.length === 0 || isExporting.value)
+
+async function fetchTraceSpansBounded(ids: string[]): Promise<TraceSpans[]> {
+  const out: TraceSpans[] = []
+  let cursor = 0
+  async function worker() {
+    while (cursor < ids.length) {
+      const idx = cursor++
+      const id = ids[idx]!
+      try {
+        const detail = await $traceService.getTrace(id)
+        out.push({ traceId: detail.traceId, spans: detail.spans })
+      } catch {
+        // Drop the trace from the export rather than aborting — matches the
+        // "best-effort" behaviour the rest of the page already follows for
+        // transient backend errors.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(EXPORT_CONCURRENCY, ids.length) }, worker))
+  return out
+}
+
+async function exportTraces() {
+  if (page.items.value.length === 0 || isExporting.value) return
+  isExporting.value = true
+  try {
+    const ids = page.items.value.map(r => r.traceId)
+    const traces = await fetchTraceSpansBounded(ids)
+    if (traces.length === 0) return
+    const envelope = buildSpansExport(traces)
+    downloadOtlpJson(envelope, 'traces')
+  } finally {
+    isExporting.value = false
+  }
+}
+
 const actions: ActionDescriptor[] = [
+  { kind: 'custom', labelKey: 'traces.exportOtlp', icon: 'i-ph-download-simple', onClick: exportTraces, loading: isExporting, disabled: exportDisabled },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]

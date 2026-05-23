@@ -328,6 +328,7 @@
     "emptyTitle": "Nessun log nel periodo selezionato",
     "emptyDescription": "Modifica il periodo o i filtri, oppure invia eventi all'OTLP receiver.",
     "errorTitle": "Errore nel caricamento dei log",
+    "exportOtlp": "Esporta OTLP",
     "col": {
       "time": "Ora",
       "service": "Applicazione",
@@ -361,6 +362,7 @@
     "emptyTitle": "Nessuna trace nel periodo selezionato",
     "emptyDescription": "Modifica il periodo o i filtri, oppure invia tracce all'OTLP receiver.",
     "errorTitle": "Errore nel caricamento delle tracce",
+    "exportOtlp": "Esporta OTLP",
     "col": {
       "start": "Inizio",
       "service": "Applicazione",
@@ -376,6 +378,7 @@
     "detail": {
       "back": "Torna alle tracce",
       "viewLogs": "Vai ai log",
+      "exportOtlp": "Esporta OTLP",
       "spanCount": "{count} span",
       "spans": "Span",
       "spanDetail": "Dettaglio span",

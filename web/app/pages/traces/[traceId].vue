@@ -9,6 +9,7 @@ import SpanTree from './components/SpanTree.vue'
 import SpanFlameGraph from './components/SpanFlameGraph.vue'
 import SpanDetailPanel from './components/SpanDetailPanel.vue'
 import { useTracePage } from './useTracePage'
+import { buildSpansExport, downloadOtlpJson } from '~/lib/otlpExport'
 import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
 
 const { t, locale } = useI18n()
@@ -74,22 +75,37 @@ const subtitle = computed(() => {
   return `${fmtTime(s.start)} → ${fmtTime(s.end)} · ${fmtDuration(s.durationMs)} · ${t('traces.detail.spanCount', { count: s.spanCount })}`
 })
 
+function exportTrace() {
+  const trace = page.trace.value
+  if (!trace) return
+  const envelope = buildSpansExport([{ traceId: trace.traceId, spans: trace.spans }])
+  downloadOtlpJson(envelope, `trace-${trace.traceId.slice(0, 12)}`)
+}
+
 const actions = computed<ActionDescriptor[]>(() => {
   if (!summary.value || !page.trace.value) return []
   const s = summary.value
-  return [{
-    kind: 'custom',
-    labelKey: 'traces.detail.viewLogs',
-    icon: 'i-ph-file-text',
-    onClick: () => navigateTo({
-      path: '/logs',
-      query: {
-        traceId: page.trace.value!.traceId,
-        from: new Date(new Date(s.start).getTime() - 60_000).toISOString(),
-        to: new Date(new Date(s.end).getTime() + 60_000).toISOString()
-      }
-    })
-  }]
+  return [
+    {
+      kind: 'custom',
+      labelKey: 'traces.detail.exportOtlp',
+      icon: 'i-ph-download-simple',
+      onClick: exportTrace
+    },
+    {
+      kind: 'custom',
+      labelKey: 'traces.detail.viewLogs',
+      icon: 'i-ph-file-text',
+      onClick: () => navigateTo({
+        path: '/logs',
+        query: {
+          traceId: page.trace.value!.traceId,
+          from: new Date(new Date(s.start).getTime() - 60_000).toISOString(),
+          to: new Date(new Date(s.end).getTime() + 60_000).toISOString()
+        }
+      })
+    }
+  ]
 })
 </script>
 

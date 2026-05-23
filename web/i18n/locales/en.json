@@ -327,6 +327,7 @@
     "emptyTitle": "No logs in the selected window",
     "emptyDescription": "Adjust the time range or filters, or send events to the OTLP receiver.",
     "errorTitle": "Failed to load logs",
+    "exportOtlp": "Export OTLP",
     "col": {
       "time": "Time",
       "service": "Application",
@@ -360,6 +361,7 @@
     "emptyTitle": "No traces in the selected window",
     "emptyDescription": "Adjust the time range or filters, or send traces to the OTLP receiver.",
     "errorTitle": "Failed to load traces",
+    "exportOtlp": "Export OTLP",
     "col": {
       "start": "Start",
       "service": "Application",
@@ -375,6 +377,7 @@
     "detail": {
       "back": "Back to traces",
       "viewLogs": "View logs",
+      "exportOtlp": "Export OTLP",
       "spanCount": "{count} spans",
       "spans": "Spans",
       "spanDetail": "Span detail",

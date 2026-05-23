@@ -11,6 +11,7 @@ import LogDetailContent from './components/LogDetailContent.vue'
 import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
 import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
+import { buildLogsExport, downloadOtlpJson } from '~/lib/otlpExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -125,7 +126,19 @@ const filters: FilterDescriptor[] = [
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
+// Export captures whatever is loaded right now — same "export what I'm
+// looking at" principle the metrics tree follows. The live tail isn't
+// paused; if rows arrive between the click and the file write they're
+// included.
+const exportDisabled = computed(() => page.items.value.length === 0)
+function exportLogs() {
+  if (page.items.value.length === 0) return
+  const envelope = buildLogsExport(page.items.value)
+  downloadOtlpJson(envelope, 'logs')
+}
+
 const actions: ActionDescriptor[] = [
+  { kind: 'custom', labelKey: 'logs.exportOtlp', icon: 'i-ph-download-simple', onClick: exportLogs, disabled: exportDisabled },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]
