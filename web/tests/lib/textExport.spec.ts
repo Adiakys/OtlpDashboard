@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildClipboardMarkdown,
   buildLogfmt,
   buildLogsCsv,
   buildTraceTree,
   buildTraceTrees,
-  buildTracesCsv
+  buildTracesCsv,
+  buildTracesSummaryList
 } from '~/lib/textExport'
 import type { LogRecordDto, SpanDto, TraceSummaryDto } from '~/services/types'
 
@@ -83,29 +85,6 @@ describe('buildLogfmt', () => {
     expect(out).toContain('span_id=01020304')
   })
 
-  it('namespaces attributes under attr.* and drops null/undefined', () => {
-    const out = buildLogfmt([log({
-      attributes: {
-        user_id: 42,
-        feature: 'beta',
-        empty: null,
-        missing: undefined
-      }
-    })]).trim()
-    expect(out).toContain('attr.user_id=42')
-    expect(out).toContain('attr.feature=beta')
-    expect(out).not.toContain('attr.empty')
-    expect(out).not.toContain('attr.missing')
-  })
-
-  it('flattens nested attribute values to JSON', () => {
-    const out = buildLogfmt([log({
-      attributes: { tags: ['a', 'b'], nested: { k: 1 } }
-    })]).trim()
-    expect(out).toContain('attr.tags="[\\"a\\",\\"b\\"]"')
-    expect(out).toContain('attr.nested="{\\"k\\":1}"')
-  })
-
   it('returns an empty string for an empty input', () => {
     expect(buildLogfmt([])).toBe('')
   })
@@ -113,6 +92,29 @@ describe('buildLogfmt', () => {
   it('falls back to numeric severity when the text label is absent', () => {
     const out = buildLogfmt([log({ severityText: null, severityNumber: 13 })]).trim()
     expect(out).toContain('level=13')
+  })
+
+  it('does not emit structured attributes — the compiled msg is enough', () => {
+    // Real-world .NET log: the substituted body is in `msg`, the
+    // attribute map carries the template, the unsubstituted variables,
+    // and OTel-context duplicates. None of that adds signal beyond the
+    // top-level columns, so the line stays compact.
+    const out = buildLogfmt([log({
+      body: 'counter set to 894',
+      traceId: 'aabbcc',
+      spanId: 'ddeeff',
+      attributes: {
+        Value: 894,
+        '{OriginalFormat}': 'counter set to {Value}',
+        SpanId: 'ddeeff',
+        TraceId: 'aabbcc',
+        user_id: 42
+      }
+    })]).trim()
+    expect(out).not.toContain('attr.')
+    expect(out).not.toContain('{OriginalFormat}')
+    // The substituted body still lands intact in `msg`:
+    expect(out).toContain('msg="counter set to 894"')
   })
 })
 
@@ -274,5 +276,55 @@ describe('buildTracesCsv', () => {
     const out = buildTracesCsv([traceSummary({ serviceName: null })])
     const row = out.trim().split('\n')[1]!
     expect(row).toBe('2026-05-23T12:00:00.000Z,,GET /things,150,4,Ok,t1')
+  })
+})
+
+describe('buildClipboardMarkdown', () => {
+  it('wraps the body in a fenced block under a bold title and context lines', () => {
+    const out = buildClipboardMarkdown('OtlpDashboard logs', ['Window: A → B', 'Count: 2 records'], 'time=... msg=hi', 'log')
+    expect(out).toBe(
+      '**OtlpDashboard logs**\n'
+      + 'Window: A → B\n'
+      + 'Count: 2 records\n'
+      + '\n'
+      + '```log\n'
+      + 'time=... msg=hi\n'
+      + '```\n'
+    )
+  })
+
+  it('strips trailing newlines on the body so the closing fence stays tight', () => {
+    const out = buildClipboardMarkdown('t', [], 'body\n\n\n')
+    expect(out).toContain('body\n```\n')
+    expect(out).not.toContain('body\n\n```')
+  })
+
+  it('omits the fence language tag when none is provided', () => {
+    const out = buildClipboardMarkdown('t', [], 'body')
+    expect(out).toContain('```\nbody\n```')
+    expect(out).not.toContain('```undefined')
+  })
+})
+
+describe('buildTracesSummaryList', () => {
+  it('emits one compact line per trace with id-prefix, name, status, duration, spans, service', () => {
+    const out = buildTracesSummaryList([traceSummary({
+      traceId: 'aabbccddeeff00112233445566778899',
+      rootSpanName: 'GET /things',
+      durationMs: 1234,
+      spanCount: 12,
+      rootStatusCode: 'Error',
+      serviceName: 'svc-a'
+    })])
+    expect(out.trim()).toBe('- aabbccddeeff0011…  GET /things  [error 1.23s 12 spans]  service=svc-a')
+  })
+
+  it('returns an empty string for an empty list', () => {
+    expect(buildTracesSummaryList([])).toBe('')
+  })
+
+  it('omits the service tail when the trace has no service.name', () => {
+    const out = buildTracesSummaryList([traceSummary({ serviceName: null })])
+    expect(out.trim()).not.toContain('service=')
   })
 })

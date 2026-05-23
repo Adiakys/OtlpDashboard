@@ -17,6 +17,7 @@
     "retry": "Retry",
     "copy": "Copy",
     "copied": "Copied",
+    "copyFailed": "Copy failed",
     "moreOptions": "More options",
     "all": "All",
     "none": "None",
@@ -331,7 +332,8 @@
     "export": {
       "otlp": "Export OTLP",
       "logfmt": "Export as logfmt (.log)",
-      "csv": "Export as CSV (.csv)"
+      "csv": "Export as CSV (.csv)",
+      "clipboard": "Copy to clipboard"
     },
     "col": {
       "time": "Time",
@@ -369,7 +371,8 @@
     "export": {
       "otlp": "Export OTLP",
       "tree": "Export as tree text (.txt)",
-      "csv": "Export as CSV (.csv)"
+      "csv": "Export as CSV (.csv)",
+      "clipboard": "Copy to clipboard"
     },
     "col": {
       "start": "Start",
@@ -388,7 +391,8 @@
       "viewLogs": "View logs",
       "export": {
         "otlp": "Export OTLP",
-        "tree": "Export as tree text (.txt)"
+        "tree": "Export as tree text (.txt)",
+        "clipboard": "Copy to clipboard"
       },
       "spanCount": "{count} spans",
       "spans": "Spans",

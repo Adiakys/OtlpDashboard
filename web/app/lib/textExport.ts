@@ -17,9 +17,17 @@ import type { TraceSpans } from './otlpExport'
 
 /**
  * Render a flat list of log records as logfmt — one line per record. Field
- * order is fixed (time → level → service → scope → correlation → message →
- * attributes) so a grep-friendly column-ish layout falls out for free when
- * you align columns in a text viewer.
+ * order is fixed (time → level → service → scope → correlation → message)
+ * so a grep-friendly column-ish layout falls out for free when you align
+ * columns in a text viewer.
+ *
+ * Structured attributes are intentionally *not* emitted. The `msg` body is
+ * already the substituted form (e.g. "counter set to 894"), so the
+ * attribute map mostly carries either values that are already inside the
+ * message text (`Value=894`), the raw template (`{OriginalFormat}`), or
+ * enrichment that duplicates the top-level columns (`SpanId`, `TraceId`).
+ * Listing them inflates each line with noise. Callers who need the
+ * structured shape use the OTLP/JSON export, which round-trips verbatim.
  */
 export function buildLogfmt(logs: LogRecordDto[]): string {
   const lines: string[] = []
@@ -33,14 +41,6 @@ export function buildLogfmt(logs: LogRecordDto[]): string {
     if (log.traceId) parts.push(kv('trace_id', log.traceId))
     if (log.spanId) parts.push(kv('span_id', log.spanId))
     if (log.body !== null && log.body !== undefined) parts.push(kv('msg', log.body))
-    // Attributes are namespaced under `attr.` so they don't collide with
-    // the well-known top-level keys (`time`, `level`, etc.). Nested values
-    // are flattened to JSON-ish text — logfmt is a flat key=value protocol
-    // by design.
-    for (const [k, v] of Object.entries(log.attributes ?? {})) {
-      if (v === null || v === undefined) continue
-      parts.push(kv(`attr.${k}`, formatValue(v)))
-    }
     lines.push(parts.join(' '))
   }
   return lines.join('\n') + (lines.length > 0 ? '\n' : '')
@@ -228,6 +228,66 @@ function csvField(value: string): string {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
+}
+
+// --- clipboard / LLM-friendly markdown -----------------------------------
+//
+// The clipboard exports wrap one of the existing text formats inside a
+// short markdown envelope:
+//
+//   **OtlpDashboard <kind>**
+//   <context lines>
+//
+//   ```<lang>
+//   <body>
+//   ```
+//
+// The context block — window, active filters, count — is what makes the
+// paste useful in an LLM chat: it tells the model what it's looking at
+// without the user having to retype it. Pages assemble their own context
+// lines locally (they're the only ones that know the live filter state).
+
+/** Wrap a body payload in the markdown envelope above. `fenceLang` flags
+ *  the code block (`log` for logfmt, blank for the trace tree) — most
+ *  syntax highlighters ignore unknown tags, but `log` does have shading
+ *  in popular themes. */
+export function buildClipboardMarkdown(
+  title: string,
+  contextLines: string[],
+  body: string,
+  fenceLang = ''
+): string {
+  const sections = [`**${title}**`, ...contextLines, '', `\`\`\`${fenceLang}`, body.replace(/\n+$/, ''), '```']
+  return sections.join('\n') + '\n'
+}
+
+/**
+ * One-line-per-trace summary for the traces-list clipboard export. Compact
+ * on purpose — the alternative (a tree per trace) would either need N
+ * detail fetches or blow up the token budget. Fields mirror what the user
+ * scans in the table: `<id>  <root>  [<status> <duration> <spans>]  service=...`.
+ */
+export function buildTracesSummaryList(traces: TraceSummaryDto[]): string {
+  const lines = traces.map(t => {
+    const idShort = t.traceId.length > 16 ? `${t.traceId.slice(0, 16)}…` : t.traceId
+    const meta = `[${t.rootStatusCode.toLowerCase()} ${formatDuration(t.durationMs)} ${t.spanCount} spans]`
+    const tail = t.serviceName ? `  ${kv('service', t.serviceName)}` : ''
+    return `- ${idShort}  ${t.rootSpanName}  ${meta}${tail}`
+  })
+  return lines.join('\n') + (lines.length > 0 ? '\n' : '')
+}
+
+/** Write `text` to the system clipboard. Returns `true` on success, `false`
+ *  when the browser blocks the call (insecure context, missing permission,
+ *  etc.) — the caller decides how to surface the failure. */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) return false
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
 }
 
 // --- file download -------------------------------------------------------

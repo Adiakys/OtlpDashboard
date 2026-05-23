@@ -9,7 +9,14 @@ import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
 import { buildSpansExport, downloadOtlpJson, type TraceSpans } from '~/lib/otlpExport'
-import { buildTraceTrees, buildTracesCsv, downloadText } from '~/lib/textExport'
+import {
+  buildClipboardMarkdown,
+  buildTraceTrees,
+  buildTracesCsv,
+  buildTracesSummaryList,
+  copyToClipboard,
+  downloadText
+} from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -167,6 +174,29 @@ function exportTracesCsv() {
   downloadText(buildTracesCsv(page.items.value), 'traces', 'csv')
 }
 
+const toast = useToast()
+async function copyTracesToClipboard() {
+  if (page.items.value.length === 0) return
+  const filters: string[] = []
+  if (page.service.value.length > 0) filters.push(`service=${page.service.value.join(',')}`)
+  if (page.statusFilter.value !== 'any') filters.push(`status=${page.statusFilter.value}`)
+  const d = page.durationFilter.value
+  if (d.minMs != null) filters.push(`duration_ms>=${d.minMs}`)
+  if (d.maxMs != null) filters.push(`duration_ms<=${d.maxMs}`)
+  if (page.searchQuery.value.trim()) filters.push(`span_name~="${page.searchQuery.value.trim()}"`)
+  if (page.attributeFilters.value.length > 0) filters.push(`attr=${page.attributeFilters.value.join(',')}`)
+  const context = [
+    `Window: ${page.range.value.from} → ${page.range.value.to}`,
+    `Filters: ${filters.length > 0 ? filters.join(' · ') : '(none)'}`,
+    `Count: ${page.items.value.length} traces`
+  ]
+  const md = buildClipboardMarkdown('OtlpDashboard traces', context, buildTracesSummaryList(page.items.value))
+  const ok = await copyToClipboard(md)
+  toast.add(ok
+    ? { title: t('common.copied'), color: 'success', icon: 'i-ph-check' }
+    : { title: t('common.copyFailed'), color: 'error', icon: 'i-ph-x' })
+}
+
 const actions: ActionDescriptor[] = [
   {
     kind: 'split',
@@ -177,7 +207,8 @@ const actions: ActionDescriptor[] = [
     disabled: exportDisabled,
     items: [
       { labelKey: 'traces.export.tree', icon: 'i-ph-tree-view', onClick: exportTracesTree },
-      { labelKey: 'traces.export.csv', icon: 'i-ph-file-csv', onClick: exportTracesCsv }
+      { labelKey: 'traces.export.csv', icon: 'i-ph-file-csv', onClick: exportTracesCsv },
+      { labelKey: 'traces.export.clipboard', icon: 'i-ph-clipboard-text', onClick: copyTracesToClipboard }
     ]
   },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },

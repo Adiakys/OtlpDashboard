@@ -12,7 +12,13 @@ import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
 import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
 import { buildLogsExport, downloadOtlpJson } from '~/lib/otlpExport'
-import { buildLogfmt, buildLogsCsv, downloadText } from '~/lib/textExport'
+import {
+  buildClipboardMarkdown,
+  buildLogfmt,
+  buildLogsCsv,
+  copyToClipboard,
+  downloadText
+} from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -145,6 +151,30 @@ function exportLogsCsv() {
   downloadText(buildLogsCsv(page.items.value), 'logs', 'csv')
 }
 
+const toast = useToast()
+async function copyLogsToClipboard() {
+  if (page.items.value.length === 0) return
+  const filters: string[] = []
+  if (page.service.value.length > 0) filters.push(`service=${page.service.value.join(',')}`)
+  if (page.severityFilter.value.length > 0) filters.push(`severity=${page.severityFilter.value.join(',')}`)
+  if (page.bodyQuery.value.trim()) filters.push(`body~="${page.bodyQuery.value.trim()}"`)
+  if (page.attributeFilters.value.length > 0) filters.push(`attr=${page.attributeFilters.value.join(',')}`)
+  if (page.traceId.value) filters.push(`trace_id=${page.traceId.value}`)
+  const context = [
+    `Window: ${page.range.value.from} → ${page.range.value.to}`,
+    `Filters: ${filters.length > 0 ? filters.join(' · ') : '(none)'}`,
+    `Count: ${page.items.value.length} records`
+  ]
+  // CSV body in the clipboard: schema declared once, rows are pure data —
+  // ~5× fewer tokens than logfmt for a typical page. The file-download
+  // `.log` (logfmt) variant still exists for grep-style filtering.
+  const md = buildClipboardMarkdown('OtlpDashboard logs', context, buildLogsCsv(page.items.value), 'csv')
+  const ok = await copyToClipboard(md)
+  toast.add(ok
+    ? { title: t('common.copied'), color: 'success', icon: 'i-ph-check' }
+    : { title: t('common.copyFailed'), color: 'error', icon: 'i-ph-x' })
+}
+
 const actions: ActionDescriptor[] = [
   {
     kind: 'split',
@@ -154,7 +184,8 @@ const actions: ActionDescriptor[] = [
     disabled: exportDisabled,
     items: [
       { labelKey: 'logs.export.logfmt', icon: 'i-ph-text-aa', onClick: exportLogsLogfmt },
-      { labelKey: 'logs.export.csv', icon: 'i-ph-file-csv', onClick: exportLogsCsv }
+      { labelKey: 'logs.export.csv', icon: 'i-ph-file-csv', onClick: exportLogsCsv },
+      { labelKey: 'logs.export.clipboard', icon: 'i-ph-clipboard-text', onClick: copyLogsToClipboard }
     ]
   },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
