@@ -104,6 +104,7 @@ export type ActionDescriptor =
   | RefreshActionDescriptor
   | LiveActionDescriptor
   | CustomActionDescriptor
+  | SplitActionDescriptor
 
 export interface RefreshActionDescriptor {
   kind: 'refresh'
@@ -123,6 +124,25 @@ export interface CustomActionDescriptor {
   labelKey: string
   icon: string
   onClick: () => void
+  variant?: 'solid' | 'subtle' | 'ghost' | 'outline'
+  color?: 'primary' | 'neutral' | 'success' | 'warning' | 'error'
+  loading?: Ref<boolean>
+  disabled?: Ref<boolean>
+}
+
+/**
+ * Split button: primary action on the left, dropdown caret on the right
+ * exposing secondary actions. Modelled after the Azure DevOps PR action
+ * button — one click for the most common case, one extra click for the
+ * variants. Loading/disabled apply to the whole control so the user can't
+ * trigger the primary or a secondary while one is already in flight.
+ */
+export interface SplitActionDescriptor {
+  kind: 'split'
+  labelKey: string
+  icon: string
+  onClick: () => void
+  items: Array<{ labelKey: string; icon?: string; onClick: () => void }>
   variant?: 'solid' | 'subtle' | 'ghost' | 'outline'
   color?: 'primary' | 'neutral' | 'success' | 'warning' | 'error'
   loading?: Ref<boolean>

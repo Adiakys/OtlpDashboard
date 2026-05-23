@@ -10,6 +10,7 @@ import SpanFlameGraph from './components/SpanFlameGraph.vue'
 import SpanDetailPanel from './components/SpanDetailPanel.vue'
 import { useTracePage } from './useTracePage'
 import { buildSpansExport, downloadOtlpJson } from '~/lib/otlpExport'
+import { buildTraceTree, downloadText } from '~/lib/textExport'
 import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
 
 const { t, locale } = useI18n()
@@ -75,11 +76,17 @@ const subtitle = computed(() => {
   return `${fmtTime(s.start)} → ${fmtTime(s.end)} · ${fmtDuration(s.durationMs)} · ${t('traces.detail.spanCount', { count: s.spanCount })}`
 })
 
-function exportTrace() {
+function exportTraceOtlp() {
   const trace = page.trace.value
   if (!trace) return
   const envelope = buildSpansExport([{ traceId: trace.traceId, spans: trace.spans }])
   downloadOtlpJson(envelope, `trace-${trace.traceId.slice(0, 12)}`)
+}
+function exportTraceTree() {
+  const trace = page.trace.value
+  if (!trace) return
+  const text = buildTraceTree({ traceId: trace.traceId, spans: trace.spans })
+  downloadText(text, `trace-${trace.traceId.slice(0, 12)}`, 'txt')
 }
 
 const actions = computed<ActionDescriptor[]>(() => {
@@ -87,10 +94,13 @@ const actions = computed<ActionDescriptor[]>(() => {
   const s = summary.value
   return [
     {
-      kind: 'custom',
-      labelKey: 'traces.detail.exportOtlp',
+      kind: 'split',
+      labelKey: 'traces.detail.export.otlp',
       icon: 'i-ph-download-simple',
-      onClick: exportTrace
+      onClick: exportTraceOtlp,
+      items: [
+        { labelKey: 'traces.detail.export.tree', icon: 'i-ph-tree-view', onClick: exportTraceTree }
+      ]
     },
     {
       kind: 'custom',

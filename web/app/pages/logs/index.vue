@@ -12,6 +12,7 @@ import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
 import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
 import { buildLogsExport, downloadOtlpJson } from '~/lib/otlpExport'
+import { buildLogfmt, downloadText } from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -131,14 +132,26 @@ const filters: FilterDescriptor[] = [
 // paused; if rows arrive between the click and the file write they're
 // included.
 const exportDisabled = computed(() => page.items.value.length === 0)
-function exportLogs() {
+function exportLogsOtlp() {
   if (page.items.value.length === 0) return
-  const envelope = buildLogsExport(page.items.value)
-  downloadOtlpJson(envelope, 'logs')
+  downloadOtlpJson(buildLogsExport(page.items.value), 'logs')
+}
+function exportLogsLogfmt() {
+  if (page.items.value.length === 0) return
+  downloadText(buildLogfmt(page.items.value), 'logs', 'log')
 }
 
 const actions: ActionDescriptor[] = [
-  { kind: 'custom', labelKey: 'logs.exportOtlp', icon: 'i-ph-download-simple', onClick: exportLogs, disabled: exportDisabled },
+  {
+    kind: 'split',
+    labelKey: 'logs.export.otlp',
+    icon: 'i-ph-download-simple',
+    onClick: exportLogsOtlp,
+    disabled: exportDisabled,
+    items: [
+      { labelKey: 'logs.export.logfmt', icon: 'i-ph-text-aa', onClick: exportLogsLogfmt }
+    ]
+  },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]

@@ -9,6 +9,7 @@ import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
 import { buildSpansExport, downloadOtlpJson, type TraceSpans } from '~/lib/otlpExport'
+import { buildTraceTrees, downloadText } from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -137,22 +138,41 @@ async function fetchTraceSpansBounded(ids: string[]): Promise<TraceSpans[]> {
   return out
 }
 
-async function exportTraces() {
+// Both export formats share the same fetch: the only difference is the
+// serialiser at the end. Keeping the fetch in a thunk means switching
+// formats from the dropdown doesn't re-issue every detail call.
+async function exportTracesWith(serialise: (traces: TraceSpans[]) => void) {
   if (page.items.value.length === 0 || isExporting.value) return
   isExporting.value = true
   try {
     const ids = page.items.value.map(r => r.traceId)
     const traces = await fetchTraceSpansBounded(ids)
     if (traces.length === 0) return
-    const envelope = buildSpansExport(traces)
-    downloadOtlpJson(envelope, 'traces')
+    serialise(traces)
   } finally {
     isExporting.value = false
   }
 }
 
+function exportTracesOtlp() {
+  return exportTracesWith(traces => downloadOtlpJson(buildSpansExport(traces), 'traces'))
+}
+function exportTracesTree() {
+  return exportTracesWith(traces => downloadText(buildTraceTrees(traces), 'traces', 'txt'))
+}
+
 const actions: ActionDescriptor[] = [
-  { kind: 'custom', labelKey: 'traces.exportOtlp', icon: 'i-ph-download-simple', onClick: exportTraces, loading: isExporting, disabled: exportDisabled },
+  {
+    kind: 'split',
+    labelKey: 'traces.export.otlp',
+    icon: 'i-ph-download-simple',
+    onClick: exportTracesOtlp,
+    loading: isExporting,
+    disabled: exportDisabled,
+    items: [
+      { labelKey: 'traces.export.tree', icon: 'i-ph-tree-view', onClick: exportTracesTree }
+    ]
+  },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]
