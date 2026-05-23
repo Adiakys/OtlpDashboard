@@ -59,7 +59,7 @@ services:
         condition: service_started
       opentelemetrydashboard.host:
         condition: service_started
-f    # `server` and `server-2` share the same Postgres DB and both seed the
+    # `server` and `server-2` share the same Postgres DB and both seed the
     # `sample_counters` row at startup. Healthy = past `app.Run()`, so past
     # the seed — `server-2` waits for this below to avoid a PK race on
     # first boot.
