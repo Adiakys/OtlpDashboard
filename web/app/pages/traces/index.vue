@@ -9,7 +9,7 @@ import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
 import { buildSpansExport, downloadOtlpJson, type TraceSpans } from '~/lib/otlpExport'
-import { buildTraceTrees, downloadText } from '~/lib/textExport'
+import { buildTraceTrees, buildTracesCsv, downloadText } from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -160,6 +160,12 @@ function exportTracesOtlp() {
 function exportTracesTree() {
   return exportTracesWith(traces => downloadText(buildTraceTrees(traces), 'traces', 'txt'))
 }
+// CSV is the on-screen grid: only the summaries are needed, no per-trace
+// detail fetch — same `page.items` the table already renders.
+function exportTracesCsv() {
+  if (page.items.value.length === 0) return
+  downloadText(buildTracesCsv(page.items.value), 'traces', 'csv')
+}
 
 const actions: ActionDescriptor[] = [
   {
@@ -170,7 +176,8 @@ const actions: ActionDescriptor[] = [
     loading: isExporting,
     disabled: exportDisabled,
     items: [
-      { labelKey: 'traces.export.tree', icon: 'i-ph-tree-view', onClick: exportTracesTree }
+      { labelKey: 'traces.export.tree', icon: 'i-ph-tree-view', onClick: exportTracesTree },
+      { labelKey: 'traces.export.csv', icon: 'i-ph-file-csv', onClick: exportTracesCsv }
     ]
   },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildLogfmt, buildTraceTree, buildTraceTrees } from '~/lib/textExport'
-import type { LogRecordDto, SpanDto } from '~/services/types'
+import {
+  buildLogfmt,
+  buildLogsCsv,
+  buildTraceTree,
+  buildTraceTrees,
+  buildTracesCsv
+} from '~/lib/textExport'
+import type { LogRecordDto, SpanDto, TraceSummaryDto } from '~/services/types'
 
 function log(partial: Partial<LogRecordDto> = {}): LogRecordDto {
   return {
@@ -186,5 +192,87 @@ describe('buildTraceTrees', () => {
     // Each trace block ends with "\n", and they are joined with "\n",
     // producing a blank line between blocks.
     expect(out).toMatch(/trace=t1[\s\S]+\n\ntrace=t2/)
+  })
+})
+
+function traceSummary(partial: Partial<TraceSummaryDto> = {}): TraceSummaryDto {
+  return {
+    traceId: 't1',
+    rootSpanName: 'GET /things',
+    start: '2026-05-23T12:00:00.000Z',
+    end: '2026-05-23T12:00:00.150Z',
+    durationMs: 150,
+    spanCount: 4,
+    rootStatusCode: 'Ok',
+    resourceHash: 'aaaa',
+    serviceName: 'svc-a',
+    otherServiceNames: [],
+    ...partial
+  }
+}
+
+describe('buildLogsCsv', () => {
+  it('emits a header row even when there are no records', () => {
+    const out = buildLogsCsv([])
+    expect(out.trim()).toBe('time,service,severity,scope,trace_id,span_id,body')
+  })
+
+  it('renders columns in the on-screen order: time, service, severity, scope, trace_id, span_id, body', () => {
+    const out = buildLogsCsv([log({
+      body: 'hello',
+      severityText: 'Warn',
+      traceId: 'tt',
+      spanId: 'ss'
+    })])
+    const lines = out.trim().split('\n')
+    expect(lines[0]).toBe('time,service,severity,scope,trace_id,span_id,body')
+    expect(lines[1]).toBe('2026-05-23T12:00:00.000Z,svc-a,Warn,app.requests,tt,ss,hello')
+  })
+
+  it('quotes fields containing commas, quotes, or newlines (RFC 4180)', () => {
+    const out = buildLogsCsv([log({ body: 'a,b' })])
+    expect(out).toContain(',"a,b"\n')
+
+    const out2 = buildLogsCsv([log({ body: 'say "hi"' })])
+    expect(out2).toContain(',"say ""hi"""\n')
+
+    const out3 = buildLogsCsv([log({ body: 'first\nsecond' })])
+    expect(out3).toContain(',"first\nsecond"\n')
+  })
+
+  it('leaves empty values blank rather than quoted', () => {
+    const out = buildLogsCsv([log({ serviceName: null, scopeName: null, traceId: null, spanId: null, body: null })])
+    const row = out.trim().split('\n')[1]!
+    expect(row).toBe('2026-05-23T12:00:00.000Z,,Info,,,,')
+  })
+
+  it('falls back to severity number when text is absent', () => {
+    const out = buildLogsCsv([log({ severityText: null, severityNumber: 13 })])
+    expect(out.trim().split('\n')[1]).toContain(',13,')
+  })
+})
+
+describe('buildTracesCsv', () => {
+  it('emits a header row even when there are no records', () => {
+    const out = buildTracesCsv([])
+    expect(out.trim()).toBe('start,service,root_span,duration_ms,spans,status,trace_id')
+  })
+
+  it('renders columns in the on-screen order: start, service, root_span, duration_ms, spans, status, trace_id', () => {
+    const out = buildTracesCsv([traceSummary()])
+    const lines = out.trim().split('\n')
+    expect(lines[0]).toBe('start,service,root_span,duration_ms,spans,status,trace_id')
+    expect(lines[1]).toBe('2026-05-23T12:00:00.000Z,svc-a,GET /things,150,4,Ok,t1')
+  })
+
+  it('quotes a root span name containing a comma', () => {
+    const out = buildTracesCsv([traceSummary({ rootSpanName: 'GET /a, /b' })])
+    expect(out).toContain(',"GET /a, /b",')
+  })
+
+  it('leaves service blank when null', () => {
+    const out = buildTracesCsv([traceSummary({ serviceName: null })])
+    const row = out.trim().split('\n')[1]!
+    expect(row).toBe('2026-05-23T12:00:00.000Z,,GET /things,150,4,Ok,t1')
   })
 })

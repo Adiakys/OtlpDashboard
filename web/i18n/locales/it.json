@@ -331,7 +331,8 @@
     "errorTitle": "Errore nel caricamento dei log",
     "export": {
       "otlp": "Esporta OTLP",
-      "logfmt": "Esporta come logfmt (.log)"
+      "logfmt": "Esporta come logfmt (.log)",
+      "csv": "Esporta come CSV (.csv)"
     },
     "col": {
       "time": "Ora",
@@ -368,7 +369,8 @@
     "errorTitle": "Errore nel caricamento delle tracce",
     "export": {
       "otlp": "Esporta OTLP",
-      "tree": "Esporta come albero testuale (.txt)"
+      "tree": "Esporta come albero testuale (.txt)",
+      "csv": "Esporta come CSV (.csv)"
     },
     "col": {
       "start": "Inizio",

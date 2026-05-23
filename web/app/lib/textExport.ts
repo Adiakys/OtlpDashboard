@@ -10,7 +10,7 @@
 // are intended as a *read* path (paste into an LLM, eyeball, grep), not as
 // a round-trippable wire format — for that, use the OTLP/JSON export.
 
-import type { LogRecordDto, SpanDto } from '~/services/types'
+import type { LogRecordDto, SpanDto, TraceSummaryDto } from '~/services/types'
 import type { TraceSpans } from './otlpExport'
 
 // --- logfmt --------------------------------------------------------------
@@ -166,6 +166,68 @@ function formatDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}us`
   if (ms < 1000) return `${ms.toFixed(1)}ms`
   return `${(ms / 1000).toFixed(2)}s`
+}
+
+// --- CSV (RFC 4180) ------------------------------------------------------
+
+/**
+ * Render the logs grid as CSV. Columns mirror the on-screen table so the
+ * file matches "what I'm looking at": time, service, severity, scope,
+ * trace_id, span_id, body. Nested attribute structures are not surfaced —
+ * use the OTLP/JSON or logfmt export for those.
+ */
+export function buildLogsCsv(logs: LogRecordDto[]): string {
+  const header = ['time', 'service', 'severity', 'scope', 'trace_id', 'span_id', 'body']
+  const rows = logs.map(l => [
+    l.time,
+    l.serviceName ?? '',
+    l.severityText ?? (l.severityNumber > 0 ? String(l.severityNumber) : ''),
+    l.scopeName ?? '',
+    l.traceId ?? '',
+    l.spanId ?? '',
+    l.body ?? ''
+  ])
+  return formatCsv(header, rows)
+}
+
+/**
+ * Render the traces grid as CSV. Columns mirror the on-screen table:
+ * start, service, root_span, duration_ms, spans, status, trace_id. Per-span
+ * detail is intentionally omitted — for that, drill into a single trace and
+ * use the tree-text or OTLP export.
+ */
+export function buildTracesCsv(traces: TraceSummaryDto[]): string {
+  const header = ['start', 'service', 'root_span', 'duration_ms', 'spans', 'status', 'trace_id']
+  const rows = traces.map(t => [
+    t.start,
+    t.serviceName ?? '',
+    t.rootSpanName,
+    String(t.durationMs),
+    String(t.spanCount),
+    t.rootStatusCode,
+    t.traceId
+  ])
+  return formatCsv(header, rows)
+}
+
+function formatCsv(header: string[], rows: string[][]): string {
+  // LF line endings — modern spreadsheet tools (Excel since 2010, Numbers,
+  // Sheets) all accept them, and the file ends up ~50% smaller than CRLF
+  // on chatty log exports. The header row is always present so empty
+  // exports still produce a valid two-line file.
+  const lines = [header.map(csvField).join(',')]
+  for (const row of rows) lines.push(row.map(csvField).join(','))
+  return lines.join('\n') + '\n'
+}
+
+/** RFC 4180 field quoting: wrap when the value contains a comma, quote,
+ *  CR, or LF; double internal quotes. Bare value otherwise — keeps small
+ *  files visually compact. */
+function csvField(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
 }
 
 // --- file download -------------------------------------------------------

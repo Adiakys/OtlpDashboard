@@ -12,7 +12,7 @@ import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
 import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
 import { buildLogsExport, downloadOtlpJson } from '~/lib/otlpExport'
-import { buildLogfmt, downloadText } from '~/lib/textExport'
+import { buildLogfmt, buildLogsCsv, downloadText } from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -140,6 +140,10 @@ function exportLogsLogfmt() {
   if (page.items.value.length === 0) return
   downloadText(buildLogfmt(page.items.value), 'logs', 'log')
 }
+function exportLogsCsv() {
+  if (page.items.value.length === 0) return
+  downloadText(buildLogsCsv(page.items.value), 'logs', 'csv')
+}
 
 const actions: ActionDescriptor[] = [
   {
@@ -149,7 +153,8 @@ const actions: ActionDescriptor[] = [
     onClick: exportLogsOtlp,
     disabled: exportDisabled,
     items: [
-      { labelKey: 'logs.export.logfmt', icon: 'i-ph-text-aa', onClick: exportLogsLogfmt }
+      { labelKey: 'logs.export.logfmt', icon: 'i-ph-text-aa', onClick: exportLogsLogfmt },
+      { labelKey: 'logs.export.csv', icon: 'i-ph-file-csv', onClick: exportLogsCsv }
     ]
   },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
