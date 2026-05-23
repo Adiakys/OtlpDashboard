@@ -495,3 +495,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local docker-compose override (per-dev: e.g. wwwroot bind-mount for Rider fast-mode debug)
+docker-compose.override.yml
