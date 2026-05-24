@@ -9,6 +9,13 @@ import SpanTree from './components/SpanTree.vue'
 import SpanFlameGraph from './components/SpanFlameGraph.vue'
 import SpanDetailPanel from './components/SpanDetailPanel.vue'
 import { useTracePage } from './useTracePage'
+import { buildSpansExport, downloadOtlpJson } from '~/lib/otlpExport'
+import {
+  buildClipboardMarkdown,
+  buildTraceTree,
+  copyToClipboard,
+  downloadText
+} from '~/lib/textExport'
 import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
 
 const { t, locale } = useI18n()
@@ -74,22 +81,67 @@ const subtitle = computed(() => {
   return `${fmtTime(s.start)} → ${fmtTime(s.end)} · ${fmtDuration(s.durationMs)} · ${t('traces.detail.spanCount', { count: s.spanCount })}`
 })
 
+function exportTraceOtlp() {
+  const trace = page.trace.value
+  if (!trace) return
+  const envelope = buildSpansExport([{ traceId: trace.traceId, spans: trace.spans }])
+  downloadOtlpJson(envelope, `trace-${trace.traceId.slice(0, 12)}`)
+}
+function exportTraceTree() {
+  const trace = page.trace.value
+  if (!trace) return
+  const text = buildTraceTree({ traceId: trace.traceId, spans: trace.spans })
+  downloadText(text, `trace-${trace.traceId.slice(0, 12)}`, 'txt')
+}
+
+const toast = useToast()
+async function copyTraceToClipboard() {
+  const trace = page.trace.value
+  const s = summary.value
+  if (!trace || !s) return
+  const rootSpan = trace.spans.find(sp => !sp.parentSpanId) ?? trace.spans[0]
+  const context = [
+    `Trace: ${trace.traceId}`,
+    `Root: ${s.rootName}${rootSpan?.serviceName ? ` · Service: ${rootSpan.serviceName}` : ''}`,
+    `Duration: ${fmtDuration(s.durationMs)} · Spans: ${s.spanCount} · Status: ${rootSpan?.statusCode ?? '?'}`,
+    `Window: ${s.start} → ${s.end}`
+  ]
+  const body = buildTraceTree({ traceId: trace.traceId, spans: trace.spans })
+  const md = buildClipboardMarkdown('OtlpDashboard trace', context, body)
+  const ok = await copyToClipboard(md)
+  toast.add(ok
+    ? { title: t('common.copied'), color: 'success', icon: 'i-ph-check' }
+    : { title: t('common.copyFailed'), color: 'error', icon: 'i-ph-x' })
+}
+
 const actions = computed<ActionDescriptor[]>(() => {
   if (!summary.value || !page.trace.value) return []
   const s = summary.value
-  return [{
-    kind: 'custom',
-    labelKey: 'traces.detail.viewLogs',
-    icon: 'i-ph-file-text',
-    onClick: () => navigateTo({
-      path: '/logs',
-      query: {
-        traceId: page.trace.value!.traceId,
-        from: new Date(new Date(s.start).getTime() - 60_000).toISOString(),
-        to: new Date(new Date(s.end).getTime() + 60_000).toISOString()
-      }
-    })
-  }]
+  return [
+    {
+      kind: 'split',
+      labelKey: 'traces.detail.export.otlp',
+      icon: 'i-ph-download-simple',
+      onClick: exportTraceOtlp,
+      items: [
+        { labelKey: 'traces.detail.export.tree', icon: 'i-ph-tree-view', onClick: exportTraceTree },
+        { labelKey: 'traces.detail.export.clipboard', icon: 'i-ph-clipboard-text', onClick: copyTraceToClipboard }
+      ]
+    },
+    {
+      kind: 'custom',
+      labelKey: 'traces.detail.viewLogs',
+      icon: 'i-ph-file-text',
+      onClick: () => navigateTo({
+        path: '/logs',
+        query: {
+          traceId: page.trace.value!.traceId,
+          from: new Date(new Date(s.start).getTime() - 60_000).toISOString(),
+          to: new Date(new Date(s.end).getTime() + 60_000).toISOString()
+        }
+      })
+    }
+  ]
 })
 </script>
 

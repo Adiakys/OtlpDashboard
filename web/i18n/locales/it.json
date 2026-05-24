@@ -17,6 +17,8 @@
     "retry": "Riprova",
     "copy": "Copia",
     "copied": "Copiato",
+    "copyFailed": "Copia non riuscita",
+    "moreOptions": "Altre opzioni",
     "all": "Tutti",
     "none": "Nessuno",
     "select": "Seleziona",
@@ -328,6 +330,12 @@
     "emptyTitle": "Nessun log nel periodo selezionato",
     "emptyDescription": "Modifica il periodo o i filtri, oppure invia eventi all'OTLP receiver.",
     "errorTitle": "Errore nel caricamento dei log",
+    "export": {
+      "otlp": "Esporta OTLP",
+      "logfmt": "Esporta come logfmt (.log)",
+      "csv": "Esporta come CSV (.csv)",
+      "clipboard": "Copia negli appunti"
+    },
     "col": {
       "time": "Ora",
       "service": "Applicazione",
@@ -361,6 +369,12 @@
     "emptyTitle": "Nessuna trace nel periodo selezionato",
     "emptyDescription": "Modifica il periodo o i filtri, oppure invia tracce all'OTLP receiver.",
     "errorTitle": "Errore nel caricamento delle tracce",
+    "export": {
+      "otlp": "Esporta OTLP",
+      "tree": "Esporta come albero testuale (.txt)",
+      "csv": "Esporta come CSV (.csv)",
+      "clipboard": "Copia negli appunti"
+    },
     "col": {
       "start": "Inizio",
       "service": "Applicazione",
@@ -376,6 +390,11 @@
     "detail": {
       "back": "Torna alle tracce",
       "viewLogs": "Vai ai log",
+      "export": {
+        "otlp": "Esporta OTLP",
+        "tree": "Esporta come albero testuale (.txt)",
+        "clipboard": "Copia negli appunti"
+      },
       "spanCount": "{count} span",
       "spans": "Span",
       "spanDetail": "Dettaglio span",

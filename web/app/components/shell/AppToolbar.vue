@@ -80,6 +80,37 @@ const { t } = useI18n()
             :is-live="a.isLive.value"
             @toggle="a.onToggle"
           />
+          <!-- Split button: primary on the left, caret on the right. The
+               two buttons share borders (negative margin + rounded sides)
+               so they read as one control. UDropdownMenu handles keyboard
+               nav and focus return. -->
+          <div v-else-if="a.kind === 'split'" class="inline-flex isolate">
+            <UButton
+              size="sm"
+              :color="a.color ?? 'neutral'"
+              :variant="a.variant ?? 'subtle'"
+              :icon="a.icon"
+              :loading="a.loading?.value"
+              :disabled="a.disabled?.value"
+              class="rounded-r-none transition-colors"
+              @click="a.onClick"
+            >
+              {{ t(a.labelKey) }}
+            </UButton>
+            <UDropdownMenu
+              :items="[a.items.map(it => ({ label: t(it.labelKey), icon: it.icon, onSelect: it.onClick }))]"
+            >
+              <UButton
+                size="sm"
+                :color="a.color ?? 'neutral'"
+                :variant="a.variant ?? 'subtle'"
+                icon="i-ph-caret-down"
+                :disabled="a.disabled?.value || a.loading?.value"
+                class="rounded-l-none border-l border-default/40 -ml-px"
+                :aria-label="t('common.moreOptions')"
+              />
+            </UDropdownMenu>
+          </div>
           <UButton
             v-else
             size="sm"

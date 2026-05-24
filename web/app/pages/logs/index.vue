@@ -11,6 +11,14 @@ import LogDetailContent from './components/LogDetailContent.vue'
 import LogsSeverityHistogram from './components/LogsSeverityHistogram.vue'
 import { useInMemoryLogsHistogram } from './composables/useSeverityHistogram'
 import { useLogsPage } from './usePage'
+import { buildLogsExport, downloadOtlpJson } from '~/lib/otlpExport'
+import {
+  buildClipboardMarkdown,
+  buildLogfmt,
+  buildLogsCsv,
+  copyToClipboard,
+  downloadText
+} from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -125,7 +133,61 @@ const filters: FilterDescriptor[] = [
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
+// Export captures whatever is loaded right now — same "export what I'm
+// looking at" principle the metrics tree follows. The live tail isn't
+// paused; if rows arrive between the click and the file write they're
+// included.
+const exportDisabled = computed(() => page.items.value.length === 0)
+function exportLogsOtlp() {
+  if (page.items.value.length === 0) return
+  downloadOtlpJson(buildLogsExport(page.items.value), 'logs')
+}
+function exportLogsLogfmt() {
+  if (page.items.value.length === 0) return
+  downloadText(buildLogfmt(page.items.value), 'logs', 'log')
+}
+function exportLogsCsv() {
+  if (page.items.value.length === 0) return
+  downloadText(buildLogsCsv(page.items.value), 'logs', 'csv')
+}
+
+const toast = useToast()
+async function copyLogsToClipboard() {
+  if (page.items.value.length === 0) return
+  const filters: string[] = []
+  if (page.service.value.length > 0) filters.push(`service=${page.service.value.join(',')}`)
+  if (page.severityFilter.value.length > 0) filters.push(`severity=${page.severityFilter.value.join(',')}`)
+  if (page.bodyQuery.value.trim()) filters.push(`body~="${page.bodyQuery.value.trim()}"`)
+  if (page.attributeFilters.value.length > 0) filters.push(`attr=${page.attributeFilters.value.join(',')}`)
+  if (page.traceId.value) filters.push(`trace_id=${page.traceId.value}`)
+  const context = [
+    `Window: ${page.range.value.from} → ${page.range.value.to}`,
+    `Filters: ${filters.length > 0 ? filters.join(' · ') : '(none)'}`,
+    `Count: ${page.items.value.length} records`
+  ]
+  // CSV body in the clipboard: schema declared once, rows are pure data —
+  // ~5× fewer tokens than logfmt for a typical page. The file-download
+  // `.log` (logfmt) variant still exists for grep-style filtering.
+  const md = buildClipboardMarkdown('OtlpDashboard logs', context, buildLogsCsv(page.items.value), 'csv')
+  const ok = await copyToClipboard(md)
+  toast.add(ok
+    ? { title: t('common.copied'), color: 'success', icon: 'i-ph-check' }
+    : { title: t('common.copyFailed'), color: 'error', icon: 'i-ph-x' })
+}
+
 const actions: ActionDescriptor[] = [
+  {
+    kind: 'split',
+    labelKey: 'logs.export.otlp',
+    icon: 'i-ph-download-simple',
+    onClick: exportLogsOtlp,
+    disabled: exportDisabled,
+    items: [
+      { labelKey: 'logs.export.logfmt', icon: 'i-ph-text-aa', onClick: exportLogsLogfmt },
+      { labelKey: 'logs.export.csv', icon: 'i-ph-file-csv', onClick: exportLogsCsv },
+      { labelKey: 'logs.export.clipboard', icon: 'i-ph-clipboard-text', onClick: copyLogsToClipboard }
+    ]
+  },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]

@@ -17,6 +17,8 @@
     "retry": "Retry",
     "copy": "Copy",
     "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "moreOptions": "More options",
     "all": "All",
     "none": "None",
     "select": "Select",
@@ -327,6 +329,12 @@
     "emptyTitle": "No logs in the selected window",
     "emptyDescription": "Adjust the time range or filters, or send events to the OTLP receiver.",
     "errorTitle": "Failed to load logs",
+    "export": {
+      "otlp": "Export OTLP",
+      "logfmt": "Export as logfmt (.log)",
+      "csv": "Export as CSV (.csv)",
+      "clipboard": "Copy to clipboard"
+    },
     "col": {
       "time": "Time",
       "service": "Application",
@@ -360,6 +368,12 @@
     "emptyTitle": "No traces in the selected window",
     "emptyDescription": "Adjust the time range or filters, or send traces to the OTLP receiver.",
     "errorTitle": "Failed to load traces",
+    "export": {
+      "otlp": "Export OTLP",
+      "tree": "Export as tree text (.txt)",
+      "csv": "Export as CSV (.csv)",
+      "clipboard": "Copy to clipboard"
+    },
     "col": {
       "start": "Start",
       "service": "Application",
@@ -375,6 +389,11 @@
     "detail": {
       "back": "Back to traces",
       "viewLogs": "View logs",
+      "export": {
+        "otlp": "Export OTLP",
+        "tree": "Export as tree text (.txt)",
+        "clipboard": "Copy to clipboard"
+      },
       "spanCount": "{count} spans",
       "spans": "Spans",
       "spanDetail": "Span detail",

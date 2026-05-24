@@ -8,6 +8,15 @@ import TraceStatusBadgeCell from '~/components/data/cells/TraceStatusBadgeCell.v
 import TraceServiceCell from '~/components/data/cells/TraceServiceCell.vue'
 import DurationBarCell from '~/components/data/cells/DurationBarCell.vue'
 import { useTracesPage } from './usePage'
+import { buildSpansExport, downloadOtlpJson, type TraceSpans } from '~/lib/otlpExport'
+import {
+  buildClipboardMarkdown,
+  buildTraceTrees,
+  buildTracesCsv,
+  buildTracesSummaryList,
+  copyToClipboard,
+  downloadText
+} from '~/lib/textExport'
 import type {
   ActionDescriptor,
   FilterDescriptor
@@ -106,7 +115,102 @@ const filters: FilterDescriptor[] = [
   { kind: 'limit', modelValue: page.limit, disabled: page.isLive }
 ]
 
+// Trace summaries only carry the root span info; the OTLP envelope needs
+// every span, so we fan out detail fetches with a small concurrency cap
+// (good citizenship toward the API and the browser's connection pool).
+// Failures on individual traces are swallowed and skipped — the export is
+// best-effort, the same way the metrics-tree export is.
+const EXPORT_CONCURRENCY = 6
+const isExporting = ref(false)
+const exportDisabled = computed(() => page.items.value.length === 0 || isExporting.value)
+
+async function fetchTraceSpansBounded(ids: string[]): Promise<TraceSpans[]> {
+  const out: TraceSpans[] = []
+  let cursor = 0
+  async function worker() {
+    while (cursor < ids.length) {
+      const idx = cursor++
+      const id = ids[idx]!
+      try {
+        const detail = await $traceService.getTrace(id)
+        out.push({ traceId: detail.traceId, spans: detail.spans })
+      } catch {
+        // Drop the trace from the export rather than aborting — matches the
+        // "best-effort" behaviour the rest of the page already follows for
+        // transient backend errors.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(EXPORT_CONCURRENCY, ids.length) }, worker))
+  return out
+}
+
+// Both export formats share the same fetch: the only difference is the
+// serialiser at the end. Keeping the fetch in a thunk means switching
+// formats from the dropdown doesn't re-issue every detail call.
+async function exportTracesWith(serialise: (traces: TraceSpans[]) => void) {
+  if (page.items.value.length === 0 || isExporting.value) return
+  isExporting.value = true
+  try {
+    const ids = page.items.value.map(r => r.traceId)
+    const traces = await fetchTraceSpansBounded(ids)
+    if (traces.length === 0) return
+    serialise(traces)
+  } finally {
+    isExporting.value = false
+  }
+}
+
+function exportTracesOtlp() {
+  return exportTracesWith(traces => downloadOtlpJson(buildSpansExport(traces), 'traces'))
+}
+function exportTracesTree() {
+  return exportTracesWith(traces => downloadText(buildTraceTrees(traces), 'traces', 'txt'))
+}
+// CSV is the on-screen grid: only the summaries are needed, no per-trace
+// detail fetch — same `page.items` the table already renders.
+function exportTracesCsv() {
+  if (page.items.value.length === 0) return
+  downloadText(buildTracesCsv(page.items.value), 'traces', 'csv')
+}
+
+const toast = useToast()
+async function copyTracesToClipboard() {
+  if (page.items.value.length === 0) return
+  const filters: string[] = []
+  if (page.service.value.length > 0) filters.push(`service=${page.service.value.join(',')}`)
+  if (page.statusFilter.value !== 'any') filters.push(`status=${page.statusFilter.value}`)
+  const d = page.durationFilter.value
+  if (d.minMs != null) filters.push(`duration_ms>=${d.minMs}`)
+  if (d.maxMs != null) filters.push(`duration_ms<=${d.maxMs}`)
+  if (page.searchQuery.value.trim()) filters.push(`span_name~="${page.searchQuery.value.trim()}"`)
+  if (page.attributeFilters.value.length > 0) filters.push(`attr=${page.attributeFilters.value.join(',')}`)
+  const context = [
+    `Window: ${page.range.value.from} → ${page.range.value.to}`,
+    `Filters: ${filters.length > 0 ? filters.join(' · ') : '(none)'}`,
+    `Count: ${page.items.value.length} traces`
+  ]
+  const md = buildClipboardMarkdown('OtlpDashboard traces', context, buildTracesSummaryList(page.items.value))
+  const ok = await copyToClipboard(md)
+  toast.add(ok
+    ? { title: t('common.copied'), color: 'success', icon: 'i-ph-check' }
+    : { title: t('common.copyFailed'), color: 'error', icon: 'i-ph-x' })
+}
+
 const actions: ActionDescriptor[] = [
+  {
+    kind: 'split',
+    labelKey: 'traces.export.otlp',
+    icon: 'i-ph-download-simple',
+    onClick: exportTracesOtlp,
+    loading: isExporting,
+    disabled: exportDisabled,
+    items: [
+      { labelKey: 'traces.export.tree', icon: 'i-ph-tree-view', onClick: exportTracesTree },
+      { labelKey: 'traces.export.csv', icon: 'i-ph-file-csv', onClick: exportTracesCsv },
+      { labelKey: 'traces.export.clipboard', icon: 'i-ph-clipboard-text', onClick: copyTracesToClipboard }
+    ]
+  },
   { kind: 'refresh', loading: page.isLoading, disabled: page.isLive, onClick: page.reload },
   { kind: 'live', isLive: page.isLive, onToggle: page.toggleLive }
 ]
