@@ -2,6 +2,7 @@ import type {
   DashboardDto,
   SaveDashboardRequest
 } from '~/services/types'
+import { newGuid } from '~/lib/uuid'
 import type { StorageService } from '../storage/StorageService'
 import { SEED_DASHBOARDS } from '../data/dashboards'
 
@@ -35,7 +36,7 @@ export class DashboardStore {
 
   create(req: SaveDashboardRequest): DashboardDto {
     const next: DashboardDto = {
-      id: randomUuid(),
+      id: newGuid(),
       name: req.name,
       widgets: req.widgets,
       updatedAt: new Date().toISOString(),
@@ -78,16 +79,6 @@ export class DashboardStore {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
-}
-
-function randomUuid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-  })
 }
 
 function notFound(message: string): Error {

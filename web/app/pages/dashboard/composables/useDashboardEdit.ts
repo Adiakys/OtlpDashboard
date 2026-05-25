@@ -7,6 +7,7 @@ import type {
 } from '../types'
 import { normalizeKind } from '../types'
 import { defaultConfigForDefinition, useWidgetCatalog } from '../catalog'
+import { newGuid } from '~/lib/uuid'
 
 /**
  * Edit-mode state machine. Holds the mutable working copy of the layout, a
@@ -72,13 +73,6 @@ export function useDashboardEdit() {
     editingWidgetId.value = null
   }
 
-  function nextWidgetId(): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-      return crypto.randomUUID()
-    }
-    return `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  }
-
   /** Where to drop a new widget so it doesn't overlap the current layout. */
   function nextRowFor(_width: number): { x: number; y: number } {
     const widgets = layout.value.widgets
@@ -107,7 +101,7 @@ export function useDashboardEdit() {
     const size = def.defaultSize
     const pos = nextRowFor(size.w)
     const item: WidgetItem = {
-      id: nextWidgetId(),
+      id: newGuid(),
       kind: fq,
       x: pos.x,
       y: pos.y,
