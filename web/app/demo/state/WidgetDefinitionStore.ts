@@ -2,6 +2,7 @@ import type {
   SaveWidgetDefinitionRequest,
   WidgetDefinitionDto
 } from '~/services/types'
+import { newGuid } from '~/lib/uuid'
 import type { StorageService } from '../storage/StorageService'
 import { demoError } from './DashboardStore'
 
@@ -32,7 +33,7 @@ export class WidgetDefinitionStore {
 
   create(req: SaveWidgetDefinitionRequest): WidgetDefinitionDto {
     const next: WidgetDefinitionDto = {
-      id: randomUuid(),
+      id: newGuid(),
       name: req.name,
       description: req.description,
       icon: req.icon,
@@ -82,14 +83,4 @@ export class WidgetDefinitionStore {
     if (!list.some((w) => w.id === id)) throw demoError(404, `Widget definition ${id} not found`)
     this.storage.set(KEY, list.filter((w) => w.id !== id))
   }
-}
-
-function randomUuid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-  })
 }

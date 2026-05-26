@@ -1,5 +1,6 @@
 import type { MetricsService } from '~/services/MetricsService'
 import type { InstrumentDto } from '~/services/types'
+import { newGuid } from '~/lib/uuid'
 import type {
   DashboardLayout,
   MetricBinding,
@@ -144,19 +145,8 @@ function todayStamp(): string {
 // also be unique *within* the import: `grid-layout-plus` keys items by id,
 // so duplicates collapse into a single grid cell and the rest lose their
 // coordinates.
-const EMPTY_GUID = '00000000-0000-0000-0000-000000000000'
-
-function newWidgetId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  // No secure-context UUID available: let the server assign one. The grid
-  // will briefly collapse duplicates until the save round-trips fresh ids.
-  return EMPTY_GUID
-}
-
 function normalizeWidgetId(widget: WidgetItem): WidgetItem {
-  return { ...widget, id: newWidgetId() }
+  return { ...widget, id: newGuid() }
 }
 
 // --- validation ---
