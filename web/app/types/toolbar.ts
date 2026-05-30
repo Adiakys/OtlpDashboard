@@ -36,6 +36,14 @@ export interface ApplicationFilterDescriptor {
 export interface TimeRangeFilterDescriptor {
   kind: 'time-range'
   modelValue: Ref<TimeWindow>
+  /**
+   * Active rolling preset key (e.g. `'1h'`), or `null` for a custom
+   * window. Optional — pages that want their time filter to roll across
+   * back-navigation bind this so the URL can persist `?range=1h`
+   * instead of a frozen pair of timestamps. Omitted by pages where
+   * the time window is always absolute.
+   */
+  preset?: Ref<string | null>
   disabled?: Ref<boolean>
   /**
    * Server-configured retention window for the data this picker

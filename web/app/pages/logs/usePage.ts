@@ -3,9 +3,16 @@ import { useLivePolling } from '~/composables/useLivePolling'
 import type { LogsService } from '~/services/LogsService'
 import type { LogRecordDto, TimeWindow } from '~/services/types'
 import type { SeverityBucket } from '~/types/filters'
+import { isKnownPresetKey, presetToWindow } from '~/lib/timeRangePresets'
 
 export interface UseLogsPageOptions {
   initialRange?: TimeWindow
+  /** Rolling preset key (e.g. `'1h'`). When set, the window is
+   *  recomputed relative to `now` on hydration — so back-navigation
+   *  from a log detail returns to "now - 1h" rather than the frozen
+   *  pair of timestamps the URL might still carry. `initialRange` is
+   *  ignored in that case. */
+  initialPreset?: string | null
   initialTraceId?: string
   initialServices?: string[]
   initialSeverity?: SeverityBucket[]
@@ -43,7 +50,24 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     return { from: from.toISOString(), to: to.toISOString() }
   }
 
-  const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
+  // Three hydration branches:
+  //  1. URL has a known `?range=` → rolling preset wins, even if stale
+  //     `?from=&to=` is also present (that's exactly how back-nav gets
+  //     a fresh window).
+  //  2. URL has explicit `?from=&to=` → custom absolute window, no
+  //     preset; shareable as a static snapshot.
+  //  3. URL has neither → default to the rolling `1h` preset. Without
+  //     this branch a fresh visit would persist absolute timestamps and
+  //     back-nav from a log detail would land on a frozen window.
+  const rangePreset = ref<string | null>(
+    isKnownPresetKey(options.initialPreset)
+      ? options.initialPreset
+      : (options.initialRange ? null : '1h')
+  )
+  const initialWindow = rangePreset.value
+    ? presetToWindow(rangePreset.value)
+    : (options.initialRange ?? defaultWindow())
+  const range = ref<TimeWindow>(initialWindow)
   const traceId = ref<string | undefined>(options.initialTraceId)
   // Multi-value allow-list for `service.name`. Empty array is the
   // canonical "no filter" state — same convention used by the
@@ -192,10 +216,18 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   // bookmarks land on the same view. Optional (defaulted) values are
   // omitted to keep the URL short — the parser on the receiving end
   // falls back to the same defaults.
+  //
+  // Rolling presets serialise as `range=1h` (no from/to) so a round-
+  // trip through `/logs/{id}` and back recomputes the window from
+  // `now` — without that, the absolute timestamps would freeze and
+  // Live Mode would resume from a stale window.
   const queryState = computed(() => {
-    const q: Record<string, string | string[]> = {
-      from: range.value.from,
-      to: range.value.to
+    const q: Record<string, string | string[]> = {}
+    if (rangePreset.value) {
+      q.range = rangePreset.value
+    } else {
+      q.from = range.value.from
+      q.to = range.value.to
     }
     if (traceId.value) q.traceId = traceId.value
     if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
@@ -217,6 +249,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
 
   return {
     range,
+    rangePreset,
     limit,
     traceId,
     service: serviceFilter,
