@@ -142,9 +142,11 @@ const { t } = useI18n()
           v-if="f.kind === 'application'"
           :model-value="f.modelValue.value"
           :options="f.options.value"
+          :none-selected="f.noneSelected?.value"
           :match-mode="f.matchMode?.value"
           :disabled="f.disabled?.value"
           @update:model-value="f.modelValue.value = $event"
+          @update:none-selected="f.noneSelected ? (f.noneSelected.value = $event) : undefined"
           @update:match-mode="f.matchMode ? (f.matchMode.value = $event) : undefined"
         />
         <AppDateTimeRangePicker

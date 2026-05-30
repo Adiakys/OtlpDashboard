@@ -1,16 +1,25 @@
 <script setup lang="ts">
 /**
- * Multi-select picker over `service.name` values. Empty array is the
- * canonical "no filter" state — mirrors how the severity picker
- * encodes "all buckets" — so pages don't have to invent a sentinel.
+ * Multi-select picker over `service.name` values. Three pages of state:
+ *  - "all" → no filter applied (modelValue is empty AND noneSelected is false)
+ *  - "none" → user explicitly cleared every box (noneSelected is true)
+ *  - "subset" → modelValue is a non-empty allow-list
  *
- * The popover layout is intentionally identical to AppSeveritySelect
- * (pill button + checkbox list + leading "All" reset row) so the
- * toolbar reads as a coherent family of filters.
+ * The "none" state is distinct from "all" because users asked for the
+ * literal checkbox semantics: ticking "All applications" off should
+ * actually hide every row, not silently fall back to no-filter. The
+ * popover layout otherwise mirrors AppSeveritySelect so the toolbar
+ * reads as one family of filters.
  */
 const props = defineProps<{
   modelValue: string[]
   options: string[]
+  /** True when the user has explicitly deselected every application —
+   *  distinct from the implicit "all" state that empty `modelValue`
+   *  alone encodes. Pages that want the deselect-all affordance bind
+   *  this; pages that don't can omit it and the picker behaves as a
+   *  plain "all ↔ subset" toggle. */
+  noneSelected?: boolean
   /** Optional any-span / root match mode binding. When omitted the
    *  toggle row in the popover is hidden and the filter stays
    *  root-anchored — pages that don't surface the alternative don't
@@ -21,35 +30,68 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[]]
+  'update:noneSelected': [value: boolean]
   'update:matchMode': [value: 'root' | 'any']
 }>()
 
 const { t } = useI18n()
 const isOpen = ref(false)
 
-const allSelected = computed(() => props.modelValue.length === 0)
+const allSelected = computed(() => !props.noneSelected && props.modelValue.length === 0)
+const noneSelected = computed(() => props.noneSelected === true)
 
 function isChecked(name: string): boolean {
+  if (noneSelected.value) return false
   return allSelected.value || props.modelValue.includes(name)
 }
 
+function emitSelection(next: string[]) {
+  // Collapse the explicit full list back to the implicit "all" form so
+  // the URL stays compact, and clear the "none" flag whenever any
+  // positive selection is emitted.
+  if (props.noneSelected) emit('update:noneSelected', false)
+  if (next.length === props.options.length) emit('update:modelValue', [])
+  else emit('update:modelValue', next)
+}
+
 function toggle(name: string) {
-  // Implicit "all" → explicit "all-but-this" the moment the user
-  // de-selects an option. Re-toggling everything back to the full set
-  // collapses to the implicit form so the URL stays compact.
+  // Independent checkbox semantics: each click flips just that row,
+  // materialising from the implicit "all" state on first deselect and
+  // collapsing back when the explicit list re-covers every option.
+  // Toggling out of the "none" state starts a fresh single-item list.
+  if (noneSelected.value) {
+    emitSelection([name])
+    return
+  }
   const explicit = allSelected.value ? [...props.options] : [...props.modelValue]
   const idx = explicit.indexOf(name)
   if (idx >= 0) explicit.splice(idx, 1)
   else explicit.push(name)
-  if (explicit.length === props.options.length) emit('update:modelValue', [])
-  else emit('update:modelValue', explicit)
+  if (explicit.length === 0) {
+    // Last box just got unchecked from an explicit list — treat that as
+    // the literal "deselect all" the user asked for, not as no-filter.
+    emit('update:modelValue', [])
+    emit('update:noneSelected', true)
+    return
+  }
+  emitSelection(explicit)
 }
 
-function selectAll() {
-  emit('update:modelValue', [])
+function toggleAll() {
+  if (allSelected.value) {
+    // All → none: encodes the user's explicit "deselect all" intent.
+    emit('update:modelValue', [])
+    emit('update:noneSelected', true)
+  } else {
+    // Anything else (none / subset) → all: collapses to the compact
+    // implicit-all form and clears the none flag.
+    emit('update:modelValue', [])
+    if (props.noneSelected) emit('update:noneSelected', false)
+  }
 }
 
 const buttonLabel = computed(() => {
+  if (noneSelected.value) return t('filter.applicationNone')
   if (allSelected.value) return t('filter.applicationAll')
   if (props.modelValue.length === 1) return props.modelValue[0]!
   return t('filter.applicationCount', { count: props.modelValue.length })
@@ -83,7 +125,7 @@ function toggleMatchMode() {
         <button
           type="button"
           class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-elevated transition-colors"
-          @click="selectAll"
+          @click="toggleAll"
         >
           <UIcon
             :name="allSelected ? 'i-ph-check-square' : 'i-ph-square'"

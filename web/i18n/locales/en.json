@@ -61,6 +61,7 @@
     "applicationAll": "All applications",
     "applicationSelect": "Select an application",
     "applicationCount": "{count} applications",
+    "applicationNone": "No applications",
     "applicationEmpty": "No applications in the selected window",
     "applicationMatchModeAny": "Match any span",
     "applicationMatchModeHint": "Include traces that touch the selected services anywhere — not only those rooted on them.",

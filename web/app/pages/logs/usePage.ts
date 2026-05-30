@@ -15,6 +15,11 @@ export interface UseLogsPageOptions {
   initialPreset?: string | null
   initialTraceId?: string
   initialServices?: string[]
+  /** When true, the user has explicitly deselected every application
+   *  in the picker — the page short-circuits to an empty list rather
+   *  than the "no filter = all" fallback. Persisted as
+   *  `noApplications=true` in the URL. */
+  initialNoApplications?: boolean
   initialSeverity?: SeverityBucket[]
   initialBody?: string
   initialAttr?: string[]
@@ -69,10 +74,14 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     : (options.initialRange ?? defaultWindow())
   const range = ref<TimeWindow>(initialWindow)
   const traceId = ref<string | undefined>(options.initialTraceId)
-  // Multi-value allow-list for `service.name`. Empty array is the
-  // canonical "no filter" state — same convention used by the
-  // severity picker and the new `services=` URL param.
+  // Multi-value allow-list for `service.name`. Empty array combined
+  // with `noApplications === false` is the canonical "no filter"
+  // state — same convention used by the severity picker and the
+  // `services=` URL param. `noApplications === true` is the literal
+  // "user deselected every box" state; the fetch is short-circuited
+  // in that branch.
   const serviceFilter = ref<string[]>(options.initialServices ?? [])
+  const noApplications = ref<boolean>(options.initialNoApplications === true)
   const availableServices = ref<string[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<LogRecordDto[]>([])
@@ -98,6 +107,20 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   }
 
   async function fetchPage(append: boolean) {
+    // "Deselected all" short-circuit: no application selected means no
+    // rows to show — skip the round-trip rather than send a filter the
+    // server would interpret as "no filter".
+    if (noApplications.value) {
+      if (!append) {
+        items.value = []
+        cursor.value = null
+        hasMore.value = false
+        seenKeys.clear()
+      }
+      isLoading.value = false
+      error.value = null
+      return
+    }
     isLoading.value = true
     error.value = null
     try {
@@ -130,6 +153,12 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   }
 
   async function liveTick() {
+    // Mirror the fetchPage short-circuit: with no applications
+    // selected, the live tail has nothing to fetch.
+    if (noApplications.value) {
+      error.value = null
+      return
+    }
     // Live-tail anchor: newest row we've already shown (items are DESC by
     // time, so items[0] is the newest). Fall back to range.to on empty
     // screen so the first tick doesn't refetch the whole window.
@@ -204,6 +233,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() }, { deep: true })
+  watch(noApplications, () => { void reload() })
   watch(severityFilter, () => { void reload() }, { deep: true })
   // Body search reloads on each keystroke. The /v1/logs request is
   // light enough that user-perceived latency stays low; if this proves
@@ -230,7 +260,8 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
       q.to = range.value.to
     }
     if (traceId.value) q.traceId = traceId.value
-    if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
+    if (noApplications.value) q.noApplications = 'true'
+    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
     if (severityFilter.value.length > 0) q.severities = severityFilter.value.join(',')
     const body = bodyQuery.value.trim()
     if (body) q.bodyContains = body
@@ -253,6 +284,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     limit,
     traceId,
     service: serviceFilter,
+    noApplications,
     availableServices,
     items,
     hasMore,

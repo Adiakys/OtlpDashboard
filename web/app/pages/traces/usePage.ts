@@ -18,6 +18,11 @@ export interface UseTracesPageOptions {
    *  ignored in that case. */
   initialPreset?: string | null
   initialServices?: string[]
+  /** When true, the user has explicitly deselected every application
+   *  in the picker — the page short-circuits to an empty list rather
+   *  than the "no filter = all" fallback. Persisted as
+   *  `noApplications=true` in the URL. */
+  initialNoApplications?: boolean
   /** When true, restrict the listing to traces involving Resources
    *  with no `service.name` (null or empty). Drives the service-map's
    *  "(unnamed)" drill-down. Mutually exclusive with `initialService`. */
@@ -65,10 +70,13 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     ? presetToWindow(rangePreset.value)
     : (options.initialRange ?? defaultWindow())
   const range = ref<TimeWindow>(initialWindow)
-  // Multi-value allow-list for `service.name`. Empty array means
-  // "all applications" — the convention used by the picker and the
-  // server-side `services=` URL param.
+  // Multi-value allow-list for `service.name`. Empty array combined
+  // with `noApplications === false` means "all applications" — the
+  // convention used by the picker and the server-side `services=` URL
+  // param. `noApplications === true` is the literal "user deselected
+  // every box" state; the fetch is short-circuited in that branch.
   const serviceFilter = ref<string[]>(options.initialServices ?? [])
+  const noApplications = ref<boolean>(options.initialNoApplications === true)
   const serviceMatch = ref<'root' | 'any'>(options.initialServiceMatch ?? 'root')
   const noServiceFilter = ref<boolean>(options.initialNoService === true)
   const availableServices = ref<string[]>([])
@@ -88,6 +96,19 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   const attributeFilters = ref<string[]>(options.initialAttr ?? [])
 
   async function fetchPage(append: boolean) {
+    // "Deselected all" short-circuit: no application selected means no
+    // rows to show — skip the round-trip rather than send a filter the
+    // server would interpret as "no filter".
+    if (noApplications.value) {
+      if (!append) {
+        items.value = []
+        cursor.value = null
+        hasMore.value = false
+      }
+      isLoading.value = false
+      error.value = null
+      return
+    }
     isLoading.value = true
     error.value = null
     try {
@@ -118,6 +139,12 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   }
 
   async function liveTick() {
+    // Mirror the fetchPage short-circuit: with no applications
+    // selected, the live tail has nothing to fetch.
+    if (noApplications.value) {
+      error.value = null
+      return
+    }
     const anchorIso = items.value[0]?.start ?? range.value.to
     const now = new Date().toISOString()
 
@@ -206,6 +233,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     if (!live.isLive.value) void reload()
   })
   watch(serviceFilter, () => { void reload() }, { deep: true })
+  watch(noApplications, () => { void reload() })
   watch(noServiceFilter, () => { void reload() })
   watch(serviceMatch, () => { void reload() })
   watch(statusFilter, () => { void reload() })
@@ -229,6 +257,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
       q.to = range.value.to
     }
     if (noServiceFilter.value) q.noService = 'true'
+    else if (noApplications.value) q.noApplications = 'true'
     else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
     if (serviceMatch.value === 'any') q.serviceMatch = 'any'
     if (statusFilter.value !== 'any') q.status = statusFilter.value
@@ -253,6 +282,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     rangePreset,
     limit,
     service: serviceFilter,
+    noApplications,
     noService: noServiceFilter,
     serviceMatch,
     availableServices,

@@ -77,6 +77,7 @@ const page = useLogsPage($logsService, {
   initialRange,
   initialPreset: presetQ,
   initialServices,
+  initialNoApplications: strFromQuery('noApplications') === 'true',
   initialSeverity,
   initialBody: strFromQuery('bodyContains'),
   initialAttr: strArrayFromQuery('attr'),
@@ -129,7 +130,7 @@ function describeWindow(range: TimeWindow): string {
 const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useLogsPage) and the next live tick uses the new filter.
-  { kind: 'application', modelValue: page.service, options: page.availableServices },
+  { kind: 'application', modelValue: page.service, options: page.availableServices, noneSelected: page.noApplications },
   { kind: 'time-range', modelValue: page.range, preset: page.rangePreset, disabled: page.isLive, retentionDays: $logRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'severity', modelValue: page.severityFilter },
   { kind: 'attributes', modelValue: page.attributeFilters },
