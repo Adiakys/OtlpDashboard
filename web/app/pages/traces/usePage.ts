@@ -3,6 +3,7 @@ import { useLivePolling } from '~/composables/useLivePolling'
 import type { TraceService } from '~/services/TraceService'
 import type { TimeWindow, TraceSummaryDto } from '~/services/types'
 import type { DurationRange, TraceStatusFilter } from '~/types/filters'
+import { isKnownPresetKey, presetToWindow } from '~/lib/timeRangePresets'
 
 const MAX_LIVE_ITEMS = 5000
 const LIVE_DELTA_LIMIT = 500
@@ -10,6 +11,12 @@ const DEFAULT_LIMIT = 50
 
 export interface UseTracesPageOptions {
   initialRange?: TimeWindow
+  /** Rolling preset key (e.g. `'1h'`). When set, the window is
+   *  recomputed relative to `now` on hydration — so back-navigation
+   *  from a trace detail returns to "now - 1h" rather than the frozen
+   *  pair of timestamps the URL might still carry. `initialRange` is
+   *  ignored in that case. */
+  initialPreset?: string | null
   initialServices?: string[]
   /** When true, restrict the listing to traces involving Resources
    *  with no `service.name` (null or empty). Drives the service-map's
@@ -40,7 +47,24 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     return { from: from.toISOString(), to: to.toISOString() }
   }
 
-  const range = ref<TimeWindow>(options.initialRange ?? defaultWindow())
+  // Three hydration branches:
+  //  1. URL has a known `?range=` → rolling preset wins, even if stale
+  //     `?from=&to=` is also present (that's exactly how back-nav gets
+  //     a fresh window).
+  //  2. URL has explicit `?from=&to=` → custom absolute window, no
+  //     preset; shareable as a static snapshot.
+  //  3. URL has neither → default to the rolling `1h` preset. Without
+  //     this branch a fresh visit would persist absolute timestamps and
+  //     back-nav from a trace detail would land on a frozen window.
+  const rangePreset = ref<string | null>(
+    isKnownPresetKey(options.initialPreset)
+      ? options.initialPreset
+      : (options.initialRange ? null : '1h')
+  )
+  const initialWindow = rangePreset.value
+    ? presetToWindow(rangePreset.value)
+    : (options.initialRange ?? defaultWindow())
+  const range = ref<TimeWindow>(initialWindow)
   // Multi-value allow-list for `service.name`. Empty array means
   // "all applications" — the convention used by the picker and the
   // server-side `services=` URL param.
@@ -191,10 +215,18 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
 
   // Filter state encoded for URL persistence — see logs/usePage for
   // the rationale. Defaulted values are omitted to keep the URL short.
+  //
+  // Rolling presets serialise as `range=1h` (no from/to) so a round-
+  // trip through `/traces/{id}` and back recomputes the window from
+  // `now` — without that, the absolute timestamps would freeze and
+  // Live Mode would resume from a stale window.
   const queryState = computed(() => {
-    const q: Record<string, string | string[]> = {
-      from: range.value.from,
-      to: range.value.to
+    const q: Record<string, string | string[]> = {}
+    if (rangePreset.value) {
+      q.range = rangePreset.value
+    } else {
+      q.from = range.value.from
+      q.to = range.value.to
     }
     if (noServiceFilter.value) q.noService = 'true'
     else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
@@ -218,6 +250,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
 
   return {
     range,
+    rangePreset,
     limit,
     service: serviceFilter,
     noService: noServiceFilter,

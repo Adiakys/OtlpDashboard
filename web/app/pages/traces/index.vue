@@ -48,6 +48,10 @@ function numFromQuery(key: string): number | undefined {
   const n = Number(s)
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
+// `?range=1h` takes precedence over `from`/`to` when present: the URL
+// is encoding a rolling-window intent, and the composable will
+// recompute the absolute window from `now` on hydration.
+const presetQ = strFromQuery('range')
 const fromQ = strFromQuery('from')
 const toQ = strFromQuery('to')
 const initialRange: TimeWindow | undefined = fromQ && toQ ? { from: fromQ, to: toQ } : undefined
@@ -69,6 +73,7 @@ if (legacyService) initialServices.push(legacyService)
 
 const page = useTracesPage($traceService, {
   initialRange,
+  initialPreset: presetQ,
   initialServices,
   initialNoService: strFromQuery('noService') === 'true',
   initialServiceMatch: strFromQuery('serviceMatch') === 'any' ? 'any' : 'root',
@@ -108,7 +113,7 @@ const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useTracesPage) and the next live tick uses the new filter.
   { kind: 'application', modelValue: page.service, options: page.availableServices, matchMode: page.serviceMatch },
-  { kind: 'time-range', modelValue: page.range, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
+  { kind: 'time-range', modelValue: page.range, preset: page.rangePreset, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'status', modelValue: page.statusFilter },
   { kind: 'duration', modelValue: page.durationFilter },
   { kind: 'attributes', modelValue: page.attributeFilters },

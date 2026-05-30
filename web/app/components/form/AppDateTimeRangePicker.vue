@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import type { TimeWindow } from '~/services/types'
+import {
+  TIME_RANGE_PRESET_MINUTES,
+  isKnownPresetKey,
+  presetToWindow
+} from '~/lib/timeRangePresets'
 
 interface Preset {
   key: string
@@ -8,16 +13,24 @@ interface Preset {
 }
 
 const presets: Preset[] = [
-  { key: '5m', labelKey: 'filter.range5m', minutes: 5 },
-  { key: '15m', labelKey: 'filter.range15m', minutes: 15 },
-  { key: '1h', labelKey: 'filter.range1h', minutes: 60 },
-  { key: '6h', labelKey: 'filter.range6h', minutes: 60 * 6 },
-  { key: '24h', labelKey: 'filter.range24h', minutes: 60 * 24 },
-  { key: '7d', labelKey: 'filter.range7d', minutes: 60 * 24 * 7 }
+  { key: '5m', labelKey: 'filter.range5m', minutes: TIME_RANGE_PRESET_MINUTES['5m']! },
+  { key: '15m', labelKey: 'filter.range15m', minutes: TIME_RANGE_PRESET_MINUTES['15m']! },
+  { key: '1h', labelKey: 'filter.range1h', minutes: TIME_RANGE_PRESET_MINUTES['1h']! },
+  { key: '6h', labelKey: 'filter.range6h', minutes: TIME_RANGE_PRESET_MINUTES['6h']! },
+  { key: '24h', labelKey: 'filter.range24h', minutes: TIME_RANGE_PRESET_MINUTES['24h']! },
+  { key: '7d', labelKey: 'filter.range7d', minutes: TIME_RANGE_PRESET_MINUTES['7d']! }
 ]
 
 const props = defineProps<{
   modelValue: TimeWindow
+  /** Active rolling preset, when one is in effect. When set, the picker
+   *  highlights the matching button and displays its label as the summary
+   *  — independent of where `modelValue` happens to sit (it may drift
+   *  forward of "now" because the parent recomputed for a live tick).
+   *  `null` means "custom window" (or unknown to this picker). Callers
+   *  that don't pass the prop fall back to the legacy heuristic that
+   *  infers a preset from `modelValue` only when `to ≈ now`. */
+  preset?: string | null
   disabled?: boolean
   /** Server retention for the kind of data this picker filters. When set
    *  and > 0, the popover renders an info icon top-right with a tooltip
@@ -32,7 +45,14 @@ const props = defineProps<{
   maxWindowHours?: number | null
 }>()
 
-const emit = defineEmits<{ 'update:modelValue': [value: TimeWindow] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: TimeWindow]
+  /** Emitted alongside `update:modelValue`. A preset key (e.g. `'1h'`)
+   *  when the user clicked a quick-pick, `null` when they applied a
+   *  custom from/to. Pages persist this in the URL as `?range=1h` so
+   *  the rolling semantic survives back-navigation. */
+  'update:preset': [value: string | null]
+}>()
 
 const { t, locale } = useI18n()
 const isOpen = ref(false)
@@ -57,14 +77,14 @@ function syncDrafts() {
 watch(() => [props.modelValue.from, props.modelValue.to], syncDrafts, { immediate: true })
 
 function applyPreset(p: Preset) {
-  const to = new Date()
-  const from = new Date(to.getTime() - p.minutes * 60_000)
-  emit('update:modelValue', { from: from.toISOString(), to: to.toISOString() })
+  emit('update:preset', p.key)
+  emit('update:modelValue', presetToWindow(p.key as keyof typeof TIME_RANGE_PRESET_MINUTES))
   isOpen.value = false
 }
 
 function applyDrafts() {
   if (!draftFrom.value || !draftTo.value) return
+  emit('update:preset', null)
   emit('update:modelValue', {
     from: localInputToIso(draftFrom.value),
     to: localInputToIso(draftTo.value)
@@ -72,7 +92,16 @@ function applyDrafts() {
   isOpen.value = false
 }
 
+// When the parent passes `preset`, trust it and skip the from/to-based
+// inference (the parent's recomputed window may drift forward of "now"
+// between live ticks, breaking the `closeToNow` heuristic).
 const matchedPreset = computed<Preset | null>(() => {
+  if (isKnownPresetKey(props.preset)) {
+    return presets.find(p => p.key === props.preset) ?? null
+  }
+  if (props.preset === null) return null
+  // Legacy path for callers that haven't wired `preset` yet
+  // (service-map, metrics): infer when `to ≈ now` and span matches.
   const from = new Date(props.modelValue.from).getTime()
   const to = new Date(props.modelValue.to).getTime()
   const span = to - from

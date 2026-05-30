@@ -150,10 +150,12 @@ const { t } = useI18n()
         <AppDateTimeRangePicker
           v-else-if="f.kind === 'time-range'"
           :model-value="f.modelValue.value"
+          :preset="f.preset?.value ?? null"
           :disabled="f.disabled?.value"
           :retention-days="f.retentionDays?.value ?? null"
           :max-window-hours="f.maxWindowHours?.value ?? null"
           @update:model-value="f.modelValue.value = $event"
+          @update:preset="(v: string | null) => { if (f.preset) f.preset.value = v }"
         />
         <AppLimitSelect
           v-else-if="f.kind === 'limit'"
