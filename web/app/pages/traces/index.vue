@@ -76,6 +76,7 @@ const page = useTracesPage($traceService, {
   initialRange,
   initialPreset: presetQ,
   initialServices,
+  initialNoApplications: strFromQuery('noApplications') === 'true',
   initialNoService: strFromQuery('noService') === 'true',
   initialServiceMatch: strFromQuery('serviceMatch') === 'any' ? 'any' : 'root',
   initialStatus,
@@ -110,7 +111,7 @@ function describeWindow(range: TimeWindow): string {
 const filters: FilterDescriptor[] = [
   // Application stays interactive in live mode: changing it triggers a reload
   // (watcher inside useTracesPage) and the next live tick uses the new filter.
-  { kind: 'application', modelValue: page.service, options: page.availableServices, matchMode: page.serviceMatch },
+  { kind: 'application', modelValue: page.service, options: page.availableServices, noneSelected: page.noApplications, matchMode: page.serviceMatch },
   { kind: 'time-range', modelValue: page.range, preset: page.rangePreset, disabled: page.isLive, retentionDays: $traceRetentionDays, maxWindowHours: $queryMaxWindowHours },
   { kind: 'status', modelValue: page.statusFilter },
   { kind: 'duration', modelValue: page.durationFilter },

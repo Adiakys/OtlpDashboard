@@ -20,11 +20,16 @@ export type FilterDescriptor =
 
 export interface ApplicationFilterDescriptor {
   kind: 'application'
-  /** Allow-list of `service.name` values; an empty array means "all
-   *  applications" (no filter). The component renders an "All" pseudo
-   *  option that resets to `[]`. */
+  /** Allow-list of `service.name` values; an empty array combined with
+   *  `noneSelected === false` means "all applications" (no filter).
+   *  The component renders an "All" toggle that flips between
+   *  implicit-all and explicit-none. */
   modelValue: Ref<string[]>
   options: Ref<string[]>
+  /** When true, the user has explicitly deselected every application —
+   *  the page short-circuits to an empty result set. Optional so pages
+   *  that don't want the deselect-all affordance can omit it. */
+  noneSelected?: Ref<boolean>
   /** Optional any-span match toggle. Bound only by pages that want
    *  to expose the discovery alternative ("traces that touch X
    *  anywhere"); when unset the picker hides the toggle and the

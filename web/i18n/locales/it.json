@@ -61,6 +61,7 @@
     "applicationAll": "Tutte le applicazioni",
     "applicationSelect": "Seleziona un'applicazione",
     "applicationCount": "{count} applicazioni",
+    "applicationNone": "Nessuna applicazione",
     "applicationEmpty": "Nessuna applicazione nella finestra selezionata",
     "applicationMatchModeAny": "Match su qualunque span",
     "applicationMatchModeHint": "Includi le tracce che toccano i servizi selezionati ovunque, non solo quelle che vi originano.",
