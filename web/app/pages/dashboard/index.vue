@@ -12,6 +12,7 @@ import WidgetConfigDrawer from './components/WidgetConfigDrawer.vue'
 import WidgetPickerDialog from './components/WidgetPickerDialog.vue'
 import { useDashboardPage } from './usePage'
 import type { ActionDescriptor } from '~/types/toolbar'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const { t, locale } = useI18n()
 const { $dashboardService, $metricsService } = useNuxtApp()
@@ -95,7 +96,7 @@ const subtitle = computed(() => {
   if (page.isEditing.value) return t('dashboard.subtitle.editing')
   const updatedRaw = page.dashboard.value?.updatedAt
   const updatedLabel = updatedRaw
-    ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(updatedRaw))
+    ? dateTimeFormat(updatedRaw, 'datetime', locale.value)
     : '·'
   return t('dashboard.subtitle.view', {
     count: page.layout.value.widgets.length,

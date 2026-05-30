@@ -4,6 +4,7 @@ import type { RecentTracesConfig, TraceSortMode } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { TraceSummaryDto } from '~/services/types'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = withDefaults(defineProps<{
   config: RecentTracesConfig
@@ -84,12 +85,7 @@ const sorted = computed(() => {
 })
 
 function formatTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  return dateTimeFormat(iso, 'time-seconds', locale.value)
 }
 
 function formatDuration(ms: number): string {

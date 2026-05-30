@@ -17,6 +17,7 @@ import {
   downloadText
 } from '~/lib/textExport'
 import type { ActionDescriptor, BreadcrumbItem } from '~/types/toolbar'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -42,12 +43,8 @@ const page = useTracePage($traceService, $logsService, traceId.value)
 type SpanView = 'tree' | 'flame'
 const spanView = ref<SpanView>('tree')
 
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  dateStyle: 'short',
-  timeStyle: 'medium'
-}))
 function fmtTime(iso: string): string {
-  return formatter.value.format(new Date(iso))
+  return dateTimeFormat(iso, 'datetime-seconds', locale.value)
 }
 function fmtDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`

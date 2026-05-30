@@ -10,6 +10,7 @@ import { useIconResolver } from './serviceMap/composables/useIconResolver'
 import type { ResolvedServiceMapDto } from './serviceMap/composables/useForceLayout'
 import type { ActionDescriptor, FilterDescriptor } from '~/types/toolbar'
 import type { PackDto, ServiceMapDto, TimeWindow } from '~/services/types'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const { t, locale } = useI18n()
 const {
@@ -102,10 +103,7 @@ const subtitle = computed(() => {
 })
 
 function describeWindow(range: TimeWindow): string {
-  const f = new Date(range.from)
-  const tt = new Date(range.to)
-  const fmt = new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' })
-  return `${fmt.format(f)} → ${fmt.format(tt)}`
+  return `${dateTimeFormat(range.from, 'datetime', locale.value)} → ${dateTimeFormat(range.to, 'datetime', locale.value)}`
 }
 
 // The map is exploratory, not a live monitor — refresh is manual.

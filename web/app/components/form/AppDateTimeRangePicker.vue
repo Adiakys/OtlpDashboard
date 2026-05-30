@@ -5,6 +5,7 @@ import {
   isKnownPresetKey,
   presetToWindow
 } from '~/lib/timeRangePresets'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 interface Preset {
   key: string
@@ -114,16 +115,9 @@ const matchedPreset = computed<Preset | null>(() => {
   return null
 })
 
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  dateStyle: 'short',
-  timeStyle: 'short'
-}))
-
 const summary = computed(() => {
   if (matchedPreset.value) return t(matchedPreset.value.labelKey)
-  const f = new Date(props.modelValue.from)
-  const ttt = new Date(props.modelValue.to)
-  return `${formatter.value.format(f)} → ${formatter.value.format(ttt)}`
+  return `${dateTimeFormat(props.modelValue.from, 'datetime', locale.value)} → ${dateTimeFormat(props.modelValue.to, 'datetime', locale.value)}`
 })
 
 // Two-line info-icon tooltip (retention + max-query-window). Each line

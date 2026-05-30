@@ -10,6 +10,7 @@ import type { MetricSparklineConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { escapeHtml } from '~/lib/escapeHtml'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = withDefaults(defineProps<{
   config: MetricSparklineConfig
@@ -53,12 +54,7 @@ interface SparkParams {
 }
 function tooltipRenderer(params: SparkParams): { title?: string; content: string } {
   const v = typeof params.yValue === 'number' ? params.yValue : Number(params.datum.value)
-  const time = params.datum.time
-  const timeLabel = time.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  const timeLabel = dateTimeFormat(params.datum.time, 'time-seconds', locale.value)
   const formatted = formatValue(v, unitKind.value, { decimals: decimals.value, locale: locale.value })
   return { content: `<b>${escapeHtml(formatted)}</b><br/>${escapeHtml(timeLabel)}` }
 }

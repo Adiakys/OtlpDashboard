@@ -12,6 +12,7 @@
  */
 import type { LogRecordDto, SpanDto } from '~/services/types'
 import { type AlertBucket, buildTraceLayout } from '../composables/useTraceLayout'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{
   spans: SpanDto[]
@@ -53,11 +54,8 @@ function fmtDuration(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`
 }
 
-const tooltipFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
-}))
 function fmtAlertTime(iso: string): string {
-  return tooltipFormatter.value.format(new Date(iso))
+  return dateTimeFormat(iso, 'time-ms', locale.value)
 }
 
 /** Convert a trace-relative position to a span-relative position so the

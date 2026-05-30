@@ -11,6 +11,7 @@ import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
 import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = withDefaults(defineProps<{
   config: MetricHeatmapConfig
@@ -145,7 +146,7 @@ function gradientColor(t: number, dark: boolean): string {
 }
 
 function formatBucketTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
+  return dateTimeFormat(ms, 'time', locale.value)
 }
 
 function tooltipFor(rowLabel: string, c: Cell, bucketMs: number): string {
