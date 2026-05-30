@@ -4,6 +4,7 @@ import type { LogSeverityFilter, LogsStreamConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { presetToWindow } from '../useWidgetSeries'
 import type { LogRecordDto } from '~/services/types'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = withDefaults(defineProps<{
   config: LogsStreamConfig
@@ -100,11 +101,7 @@ function severityLabel(l: LogRecordDto): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  return dateTimeFormat(iso, 'time-seconds', locale.value)
 }
 
 function bodyText(l: LogRecordDto): string {

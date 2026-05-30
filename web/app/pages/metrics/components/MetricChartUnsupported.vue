@@ -2,6 +2,7 @@
 import type { ColDef } from 'ag-grid-community'
 import AppDataGrid from '~/components/data/AppDataGrid.vue'
 import type { MetricPointDto, MetricSeriesDto } from '~/services/types'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{
   series: MetricSeriesDto[]
@@ -9,13 +10,6 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
-
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  fractionalSecondDigits: 3
-}))
 
 function formatValue(value: number): string {
   if (Number.isInteger(value)) return value.toString()
@@ -43,7 +37,7 @@ const columnDefs = computed<ColDef<Row>[]>(() => [
     width: 130,
     sort: 'desc',
     cellClass: 'font-mono text-xs items-center flex',
-    valueFormatter: p => p.value ? formatter.value.format(new Date(p.value as string)) : ''
+    valueFormatter: p => p.value ? dateTimeFormat(p.value as string, 'time-ms', locale.value) : ''
   },
   {
     field: 'instrumentName',

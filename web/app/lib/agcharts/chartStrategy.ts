@@ -8,6 +8,7 @@ import type { InstrumentDto, MetricSeriesDto } from '~/services/types'
 import { describeGroup, groupPoints, type SplitBy, type SeriesGroup } from './seriesGrouping'
 import { instrumentKey } from '~/pages/metrics/buildTree'
 import { escapeHtml } from '~/lib/escapeHtml'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 export type ChartType = 'line' | 'area' | 'column' | 'unsupported'
 
@@ -109,15 +110,9 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
       const name = prefix
         ? `${prefix}${describeGroup(g.attrs)}`
         : describeGroup(g.attrs)
-      allSeries.push(buildSeries(seriesType, name, data, yKey, formatValueFn))
+      allSeries.push(buildSeries(seriesType, name, data, yKey, formatValueFn, locale))
     }
   }
-
-  const fmt = new Intl.DateTimeFormat(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 
   const xAxis: AgCartesianAxisOptions = compact
     ? {
@@ -132,7 +127,7 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
     : {
         type: 'time',
         position: 'bottom',
-        label: { format: '%H:%M:%S', formatter: ({ value }) => fmt.format(value as Date) },
+        label: { format: '%H:%M:%S', formatter: ({ value }) => dateTimeFormat(value as Date, 'time-seconds', locale) },
         nice: true
       }
 
@@ -206,9 +201,10 @@ function buildSeries(
   name: string,
   data: ChartDatum[],
   yKey: string,
-  formatValueFn: (v: number) => string
+  formatValueFn: (v: number) => string,
+  locale: string
 ): AgCartesianSeriesOptions {
-  const tooltip = { renderer: (params: TooltipParams) => tooltipRenderer(params, formatValueFn) }
+  const tooltip = { renderer: (params: TooltipParams) => tooltipRenderer(params, formatValueFn, locale) }
   if (type === 'line') {
     return { type: 'line', xKey: 'time', yKey, yName: name, data, marker: { enabled: false }, tooltip }
   }
@@ -301,14 +297,12 @@ interface TooltipParams {
 
 function tooltipRenderer(
   params: TooltipParams,
-  format: (v: number) => string
+  format: (v: number) => string,
+  locale: string
 ): { title?: string; content: string } {
   const { datum, yName, yValue } = params
   const value = typeof yValue === 'number' ? yValue : (datum[params.yKey] ?? 0)
-  const time = new Date(datum.time)
-  const timeLabel = time.toLocaleTimeString([], {
-    hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
-  } as Intl.DateTimeFormatOptions)
+  const timeLabel = dateTimeFormat(datum.time, 'time-ms', locale)
   const lines: string[] = [`<b>${escapeHtml(format(value as number))}</b> at ${escapeHtml(timeLabel)}`]
   if (datum.count !== undefined) lines.push(`count: ${formatNumber(datum.count)}`)
   if (datum.sum !== undefined) lines.push(`sum: ${format(datum.sum)}`)

@@ -2,18 +2,14 @@
 import type { SpanDto } from '~/services/types'
 import AppBadge from '~/components/ui/AppBadge.vue'
 import AppEmptyState from '~/components/ui/AppEmptyState.vue'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{ span: SpanDto | null }>()
 
 const { t, locale } = useI18n()
 
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  dateStyle: 'medium',
-  timeStyle: 'medium'
-}))
-
 function fmtTime(iso: string): string {
-  return formatter.value.format(new Date(iso))
+  return dateTimeFormat(iso, 'datetime-long', locale.value)
 }
 
 function fmtDuration(ms: number): string {

@@ -13,6 +13,7 @@
  */
 import type { SeverityBucket } from '~/types/filters'
 import { STACK_ORDER, type SeverityHistogramData } from '../composables/useSeverityHistogram'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{
   data: SeverityHistogramData
@@ -63,11 +64,8 @@ interface RenderedColumn {
   title: string
 }
 
-const tooltipFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit', minute: '2-digit', second: '2-digit'
-}))
 function fmtTime(ms: number): string {
-  return tooltipFormatter.value.format(new Date(ms))
+  return dateTimeFormat(ms, 'time-seconds', locale.value)
 }
 
 const columns = computed<RenderedColumn[]>(() => {

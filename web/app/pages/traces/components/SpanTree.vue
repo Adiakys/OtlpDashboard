@@ -2,6 +2,7 @@
 import type { LogRecordDto, SpanDto } from '~/services/types'
 import AppBadge from '~/components/ui/AppBadge.vue'
 import { type AlertBucket, buildTraceLayout } from '../composables/useTraceLayout'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{
   spans: SpanDto[]
@@ -15,11 +16,8 @@ const props = defineProps<{
 defineEmits<{ select: [span: SpanDto] }>()
 
 const { locale } = useI18n()
-const tooltipFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3
-}))
 function fmtAlertTime(iso: string): string {
-  return tooltipFormatter.value.format(new Date(iso))
+  return dateTimeFormat(iso, 'time-ms', locale.value)
 }
 
 function alertIcon(bucket: AlertBucket): string {

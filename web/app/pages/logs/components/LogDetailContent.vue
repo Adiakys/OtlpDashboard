@@ -2,18 +2,14 @@
 import type { LogRecordDto } from '~/services/types'
 import { severityBucketFromNumber } from '~/types/filters'
 import AppBadge from '~/components/ui/AppBadge.vue'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = defineProps<{ record: LogRecordDto }>()
 
 const { t, locale } = useI18n()
 
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
-  dateStyle: 'medium',
-  timeStyle: 'medium'
-}))
-
 function fmt(iso: string | null): string {
-  return iso ? formatter.value.format(new Date(iso)) : '·'
+  return iso ? dateTimeFormat(iso, 'datetime-long', locale.value) : '·'
 }
 
 const bucket = computed(() => severityBucketFromNumber(props.record.severityNumber))

@@ -8,6 +8,7 @@ import MetricChartPanel from './components/MetricChartPanel.vue'
 import { useMetricsPage } from './usePage'
 import type { ActionDescriptor, FilterDescriptor } from '~/types/toolbar'
 import type { TimeWindow, MetricSeriesDto } from '~/services/types'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const { t, locale } = useI18n()
 const { $metricsService, $metricRetentionDays, $queryMaxWindowHours } = useNuxtApp()
@@ -62,12 +63,9 @@ const subtitle = computed(() => t('metrics.subtitle', {
 }))
 
 function describeWindow(range: TimeWindow): string {
-  const f = new Date(range.from)
-  const tt = new Date(range.to)
-  // `medium` includes seconds, which matters in live mode where the window
-  // slides every second.
-  const fmt = new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'medium' })
-  return `${fmt.format(f)} → ${fmt.format(tt)}`
+  // `datetime-seconds` keeps seconds in the label, which matters in live
+  // mode where the window slides every second.
+  return `${dateTimeFormat(range.from, 'datetime-seconds', locale.value)} → ${dateTimeFormat(range.to, 'datetime-seconds', locale.value)}`
 }
 
 const orderedSeries = computed<MetricSeriesDto[]>(() => {
