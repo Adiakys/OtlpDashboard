@@ -194,6 +194,10 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
           }
           items.value = items.value.slice(0, MAX_LIVE_ITEMS)
         }
+        // Newly streamed logs may belong to a service that connected
+        // after page load — refresh the picker against the live `now`
+        // window so the Applications filter picks it up.
+        void loadServices(now)
       }
       error.value = null
     } catch (e) {
@@ -201,11 +205,15 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     }
   }
 
-  async function loadServices() {
+  // `toOverride` lets the live tail discover services that connected
+  // after the page loaded: their logs sit past the frozen `range.to`,
+  // so the picker must be refreshed against a live `now` boundary or
+  // they never surface in the Applications filter.
+  async function loadServices(toOverride?: string) {
     try {
       availableServices.value = await service.listServices({
         from: range.value.from,
-        to: range.value.to
+        to: toOverride ?? range.value.to
       })
     } catch {
       // Keep the previous list silent on transient errors so the filter
