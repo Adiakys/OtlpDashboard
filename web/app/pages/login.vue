@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'empty' })
 
 const { t } = useI18n()
-const { $authStore } = useNuxtApp()
+const { $authStore, $requireAuth } = useNuxtApp()
 const route = useRoute()
 const config = useRuntimeConfig()
 
@@ -59,6 +59,12 @@ async function submit() {
     window.location.assign(resolveAbsolute(nextTarget.value))
   }
 }
+
+watch($requireAuth, (required) => {
+  if (required === false && import.meta.client) {
+    window.location.assign(resolveAbsolute(nextTarget.value))
+  }
+}, { immediate: true })
 </script>
 
 <template>

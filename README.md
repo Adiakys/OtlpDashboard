@@ -77,14 +77,17 @@ Two static bearer tokens gate the surface:
 | `DASHBOARD__BROWSERTOKEN`      | The SPA + read API (`/api/v1/...`) + MCP (`/mcp`) |
 | `DASHBOARD__OTLP__APIKEY`      | OTLP ingestion (gRPC + HTTP)                      |
 
-**Posture by environment:**
+**Auth is opt-in per surface, identically in Development and Production:**
 
-- **Development** — empty tokens degrade to allow-all so the existing
-  integration tests and local dev keep running without setup.
-- **Production** — missing tokens **fail closed**: the host refuses to
-  start. Either set both tokens, or opt in to public access explicitly
-  with `DASHBOARD__AUTH__ALLOWANONYMOUS=true` (surfaced as `Degraded`
-  on `/healthz` so SREs see the posture).
+- Set a token → that surface requires it.
+- Leave a token empty → that surface is public (allow-all). Leaving
+  `DASHBOARD__BROWSERTOKEN` empty also makes the SPA skip the login screen
+  (`/api/v1/info` reports `requireAuth: false`), so the dashboard opens
+  straight away — convenient for a local Docker / Docker Compose run.
+
+Either unset token surfaces as `Degraded` on `/healthz` (in any
+environment) and is logged at startup, so an open deployment is visible
+rather than silent.
 
 The SPA's `/login` form exchanges the password for an HttpOnly +
 SameSite=Strict session cookie via `POST /api/v1/auth/login`; JS never

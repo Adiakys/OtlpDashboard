@@ -105,6 +105,7 @@ export default defineNuxtPlugin(async () => {
   // on the network.
   const appName = ref('OTel Dashboard')
   const appVersion = ref('')
+  const requireAuth = ref(true)
   const telemetryLimits = ref<TelemetryLimitsDto | null>(null)
   const queryLimits = ref<QueryLimitsDto | null>(null)
 
@@ -123,6 +124,9 @@ export default defineNuxtPlugin(async () => {
     try {
       const info = await infoService.getInfo()
       if (info.applicationName) appName.value = info.applicationName
+      const authRequired = info.requireAuth ?? true
+      if (!authRequired) authStore.markSignedIn()
+      requireAuth.value = authRequired
       // Version, telemetry limits, query window cap, and storage provider
       // are all server-gated behind auth — clear them on the
       // unauthenticated leg so the sidebar v-if hides the version label
@@ -154,6 +158,7 @@ export default defineNuxtPlugin(async () => {
       widgetService: new WidgetService(http),
       appName,
       appVersion,
+      requireAuth,
       telemetryLimits,
       logRetentionDays,
       traceRetentionDays,

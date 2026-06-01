@@ -193,6 +193,7 @@ export interface TelemetryLimitsDto {
 
 export interface DashboardInfoDto {
   applicationName: string
+  requireAuth: boolean
   /** Null when the caller is unauthenticated (server hides the build version). */
   version: string | null
   /** Storage provider name ("Sqlite" / "PostgreSql" / "SqlServer"). Null

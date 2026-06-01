@@ -9,15 +9,15 @@ using OpenTelemetryDashboard.Persistence;
 namespace OpenTelemetryDashboard.IntegrationTests;
 
 /// <summary>
-/// Verifies the fail-closed-in-Production posture: missing tokens with no
-/// explicit AllowAnonymous opt-in must refuse to start; an opt-in boots the
-/// host but flags <c>/healthz</c> as Degraded; tokens-set Production boots
-/// healthy.
+/// Verifies the token-presence posture: auth is opt-in per surface in EVERY
+/// environment. An unset token leaves that surface public (allow-all) and
+/// flags <c>/healthz</c> as Degraded — there is no fail-closed boot gate.
+/// Tokens-set Production boots healthy.
 /// </summary>
 public sealed class AuthPostureTests
 {
     [Fact]
-    public void Production_With_Empty_Tokens_Refuses_To_Start()
+    public async Task Production_With_Empty_Tokens_Boots_Public_And_Healthz_Is_Degraded()
     {
         var dbPath = TempDbPath();
         try
@@ -31,49 +31,12 @@ public sealed class AuthPostureTests
                     {
                         ["Dashboard:Storage:Provider"] = "Sqlite",
                         ["ConnectionStrings:Sqlite"] = $"Data Source={dbPath}",
-                        // No tokens, no AllowAnonymous: must throw.
+                        // No tokens: the surface is public, in Production too.
                     });
                 });
             });
 
-            // Eager DI resolution doesn't trigger the validator (which lives
-            // in UseDashboardPipeline). We need to start the host — that's
-            // what CreateClient does indirectly. The validator throws inside
-            // `Configure` callbacks, which surfaces as InvalidOperationException
-            // out of the WebApplicationFactory.
-            var ex = Should.Throw<InvalidOperationException>(() => _ = factory.CreateClient());
-            ex.Message.ShouldContain("Auth is required");
-            ex.Message.ShouldContain("Dashboard:BrowserToken");
-            ex.Message.ShouldContain("Dashboard:Otlp:ApiKey");
-            ex.Message.ShouldContain("AllowAnonymous");
-        }
-        finally
-        {
-            TempSqliteFiles.TryDelete(dbPath);
-        }
-    }
-
-    [Fact]
-    public async Task Production_With_AllowAnonymous_Opt_In_Boots_But_Healthz_Is_Degraded()
-    {
-        var dbPath = TempDbPath();
-        try
-        {
-            using var factory = BuildHost(builder =>
-            {
-                builder.UseEnvironment("Production");
-                builder.ConfigureAppConfiguration((_, config) =>
-                {
-                    config.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["Dashboard:Storage:Provider"] = "Sqlite",
-                        ["ConnectionStrings:Sqlite"] = $"Data Source={dbPath}",
-                        ["Dashboard:Auth:AllowAnonymous"] = "true",
-                    });
-                });
-            });
-
-            // Migrate the schema for /healthz's underlying queries.
+            // Migrate the schema for the read API + /healthz queries.
             await using (var scope = factory.Services.CreateAsyncScope())
             {
                 var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
@@ -83,13 +46,16 @@ public sealed class AuthPostureTests
 
             using var client = factory.CreateClient();
 
-            using var response = await client.GetAsync(new Uri("/healthz", UriKind.Relative));
+            // Empty BrowserToken → read API is allow-all even in Production.
+            using var apiResponse = await client.GetAsync(new Uri("/api/v1/dashboards", UriKind.Relative));
+            apiResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
             // ASP.NET's default HealthCheckOptions returns 200 for both
             // Healthy and Degraded (only Unhealthy maps to 503), so we
             // read the textual aggregate status from the body.
-            response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var body = await response.Content.ReadAsStringAsync();
+            using var healthResponse = await client.GetAsync(new Uri("/healthz", UriKind.Relative));
+            healthResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var body = await healthResponse.Content.ReadAsStringAsync();
             body.ShouldBe("Degraded");
         }
         finally
@@ -178,6 +144,85 @@ public sealed class AuthPostureTests
         {
             TempSqliteFiles.TryDelete(dbPath);
         }
+    }
+
+    [Fact]
+    public async Task Info_RequireAuth_Is_False_When_BrowserToken_Empty()
+    {
+        var dbPath = TempDbPath();
+        try
+        {
+            using var factory = BuildHost(builder =>
+            {
+                builder.UseEnvironment("Production");
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Dashboard:Storage:Provider"] = "Sqlite",
+                        ["ConnectionStrings:Sqlite"] = $"Data Source={dbPath}",
+                    });
+                });
+            });
+            await MigrateAsync(factory);
+
+            using var client = factory.CreateClient();
+            using var response = await client.GetAsync(new Uri("/api/v1/info", UriKind.Relative));
+
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var body = await response.Content.ReadAsStringAsync();
+            body.ShouldContain("\"requireAuth\":false");
+            // Auth disabled → the surface is public, so /info is not redacted.
+            body.ShouldNotContain("\"version\":null");
+            body.ShouldContain("\"storageProvider\":\"Sqlite\"");
+        }
+        finally
+        {
+            TempSqliteFiles.TryDelete(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task Info_RequireAuth_Is_True_For_Anonymous_When_BrowserToken_Set()
+    {
+        var dbPath = TempDbPath();
+        try
+        {
+            using var factory = BuildHost(builder =>
+            {
+                builder.UseEnvironment("Production");
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Dashboard:Storage:Provider"] = "Sqlite",
+                        ["ConnectionStrings:Sqlite"] = $"Data Source={dbPath}",
+                        ["Dashboard:BrowserToken"] = "browser-secret",
+                        ["Dashboard:Otlp:ApiKey"] = "otlp-secret",
+                    });
+                });
+            });
+            await MigrateAsync(factory);
+
+            using var client = factory.CreateClient();
+            using var response = await client.GetAsync(new Uri("/api/v1/info", UriKind.Relative));
+
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var body = await response.Content.ReadAsStringAsync();
+            body.ShouldContain("\"requireAuth\":true");
+        }
+        finally
+        {
+            TempSqliteFiles.TryDelete(dbPath);
+        }
+    }
+
+    private static async Task MigrateAsync(WebApplicationFactory<Program> factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
+        await using var ctx = await dbFactory.CreateDbContextAsync();
+        await ctx.Database.MigrateAsync();
     }
 
     private static WebApplicationFactory<Program> BuildHost(Action<IWebHostBuilder> configure) =>
