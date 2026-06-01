@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OpenTelemetryDashboard.Api.Contracts;
 
 /// <summary>
@@ -7,8 +9,8 @@ namespace OpenTelemetryDashboard.Api.Contracts;
 /// <see cref="StorageProvider"/>, <see cref="TelemetryLimits"/>) are
 /// gated behind authentication: anonymous visitors on the login screen
 /// see <c>null</c> for them so we don't leak build/deployment details
-/// to the public internet. <see cref="ApplicationName"/> is the only
-/// always-available field — the login form needs it to render.
+/// to the public internet. <see cref="ApplicationName"/> and
+/// <see cref="RequireAuth"/> are the only always-available fields.
 /// </para>
 /// <para>
 /// The Host registers a fully-populated instance as a singleton at boot
@@ -22,6 +24,8 @@ public sealed class DashboardInfoDto(string applicationName)
 {
     public string ApplicationName { get; init; } = applicationName;
 
+    public bool RequireAuth { get; init; }
+    
     public string? Version { get; init; }
 
     public string? StorageProvider { get; init; }

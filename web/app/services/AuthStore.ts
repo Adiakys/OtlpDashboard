@@ -67,6 +67,11 @@ export class AuthStore {
     this.storage?.removeItem(AuthStore.StorageKey)
   }
 
+  markSignedIn(): void {
+    this.signedIn = true
+    this.storage?.setItem(AuthStore.StorageKey, '1')
+  }
+
   isAuthenticated(): boolean {
     return this.signedIn
   }

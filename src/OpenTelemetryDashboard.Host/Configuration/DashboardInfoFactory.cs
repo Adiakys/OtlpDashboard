@@ -41,9 +41,11 @@ public static class DashboardInfoFactory
         var storage = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
         var limits = sp.GetRequiredService<IOptions<TelemetryLimitsOptions>>().Value;
         var queryApi = sp.GetRequiredService<IOptions<QueryApiOptions>>().Value;
+        var auth = sp.GetRequiredService<IOptions<DashboardAuthOptions>>().Value;
 
         return new DashboardInfoDto(info.ApplicationName)
         {
+            RequireAuth = !string.IsNullOrEmpty(auth.BrowserToken),
             Version = ResolveVersion(),
             StorageProvider = storage.Provider.ToString(),
             TelemetryLimits = new TelemetryLimitsDto(

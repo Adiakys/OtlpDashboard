@@ -54,6 +54,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
   if (method === 'GET' && path === '/v1/info') {
     const dto: DashboardInfoDto = {
       applicationName: 'OTel Dashboard (Demo)',
+      requireAuth: true,
       // Real server gates infra-shape fields behind auth — the demo
       // mirrors that so the sidebar's "v…" line only appears post-login.
       version: req.authenticated ? 'demo' : null,

@@ -20,7 +20,7 @@
     <Product>OpenTelemetry Dashboard</Product>
     <Copyright>Copyright (c) $([System.DateTime]::Now.Year) Andrea Ficarra</Copyright>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <Version>26.05</Version>
+    <Version>26.06</Version>
   </PropertyGroup>
 
 </Project>

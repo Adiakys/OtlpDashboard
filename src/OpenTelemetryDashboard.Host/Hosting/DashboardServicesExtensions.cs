@@ -52,7 +52,7 @@ internal static class DashboardServicesExtensions
 
         builder.Services.AddQueryApi(builder.Configuration);
         builder.Services.AddDashboards(builder.Configuration);
-        builder.Services.AddDashboardAuth(builder.Configuration, builder.Environment);
+        builder.Services.AddDashboardAuth(builder.Configuration);
 
         // Compose the full DashboardInfoDto once at boot. The endpoint resolves
         // it from DI and returns either the full record (authenticated) or a
