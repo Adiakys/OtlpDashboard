@@ -142,6 +142,49 @@ describe('useLogsPage — live mode', () => {
     page.toggleLive()
   })
 
+  it('refreshes the Applications picker against a live `now` window when a new service streams in', async () => {
+    // A service that connects after page load has logs past the frozen
+    // range.to, so the mount-time /services lookup misses it. The live
+    // tick must re-query /services (with a refreshed `to`) so the new
+    // name lands in the picker options.
+    const initial = makeLog({ time: '2030-01-01T00:00:10.000Z', spanId: 'aaaaaaaaaaaaaaaa' })
+    const liveFresh = makeLog({ time: '2030-01-01T00:00:20.000Z', spanId: 'bbbbbbbbbbbbbbbb' })
+
+    const logsPages: Array<PagedResponse<LogRecordDto>> = [
+      { items: [initial], nextCursor: null },
+      { items: [liveFresh], nextCursor: null }
+    ]
+    let servicesCalls = 0
+    const get = vi.fn(async (path: string) => {
+      if (path === '/v1/logs/services') {
+        servicesCalls += 1
+        // First (mount) lookup: only the original service. Subsequent
+        // lookups: the newly-connected service is now visible.
+        return servicesCalls === 1 ? ['svc-a'] : ['svc-a', 'svc-new']
+      }
+      return logsPages.shift() ?? { items: [], nextCursor: null }
+    })
+    const client = {
+      get,
+      post: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn()
+    } as unknown as HttpClientService
+    const service = new LogsService(client)
+
+    const page = useLogsPage(service, { autoLive: false })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(page.availableServices.value).toEqual(['svc-a'])
+
+    page.toggleLive()
+    await vi.advanceTimersByTimeAsync(0) // immediate first live tick
+
+    expect(page.availableServices.value).toEqual(['svc-a', 'svc-new'])
+    expect(get.mock.calls.filter(c => c[0] === '/v1/logs/services').length).toBeGreaterThanOrEqual(2)
+
+    page.toggleLive()
+  })
+
   it('forwards Bearer-less fetch with traceId filter during live ticks', async () => {
     const http = stubHttp([
       { items: [], nextCursor: null },
