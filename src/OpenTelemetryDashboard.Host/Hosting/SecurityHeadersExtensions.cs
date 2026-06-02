@@ -28,7 +28,8 @@ internal static class SecurityHeadersExtensions
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
         "font-src 'self' data:; " +
-        "connect-src 'self'; " +
+        // api.iconify.design: icons not in the offline bundle load via the API.
+        "connect-src 'self' https://api.iconify.design; " +
         "object-src 'none'; " +
         "base-uri 'self'; " +
         "frame-ancestors 'none'; " +

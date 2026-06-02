@@ -34,6 +34,7 @@ public sealed class SecurityHeadersTests : IClassFixture<TestHostFixture>
         csp.ShouldContain("frame-ancestors 'none'");
         csp.ShouldContain("object-src 'none'");
         csp.ShouldContain("base-uri 'self'");
+        csp.ShouldContain("connect-src 'self' https://api.iconify.design");
     }
 
     [Fact]

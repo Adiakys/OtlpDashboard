@@ -7,8 +7,23 @@ declare const process: { env: Record<string, string | undefined> }
 // to '/<repo>/' so the bundle resolves under a subpath.
 const APP_BASE_URL = process.env.NUXT_APP_BASE_URL || '/'
 
+// Nuxt UI renders its default icons from node_modules, where `scan` can't see
+// them; without this they'd hit the Iconify API at runtime.
+function bundleNuxtUiIcons(_options: unknown, nuxt: any) {
+  nuxt.hook('icon:clientBundleIcons', (icons: Set<string>) => {
+    const uiIcons = nuxt.options.appConfig?.ui?.icons ?? {}
+    for (const value of Object.values(uiIcons)) {
+      if (typeof value !== 'string') continue
+      const id = value.replace(/^i-/, '')
+      const dash = id.indexOf('-')
+      if (dash === -1) continue
+      icons.add(`${id.slice(0, dash)}:${id.slice(dash + 1)}`)
+    }
+  })
+}
+
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@nuxtjs/i18n'],
+  modules: ['@nuxt/ui', '@nuxtjs/i18n', bundleNuxtUiIcons],
 
   // SPA only. No SSR: `nuxi generate` produces static files served by the
   // ASP.NET host from wwwroot/.
@@ -40,16 +55,14 @@ export default defineNuxtConfig({
     storageKey: 'oteldash-color-mode'
   },
 
-  // Bundle icons into the client JS instead of fetching them at runtime.
-  // Without this Nuxt Icon falls back to api.iconify.design, which our CSP
-  // (connect-src 'self') blocks and which would leak the set of icons we
-  // render to a third party. `scan: true` tree-shakes to just the icons
-  // actually referenced in templates; the @iconify-json/* dev deps provide
-  // the offline source. See the corresponding CSP in
-  // OpenTelemetryDashboard.Host/Hosting/SecurityHeadersExtensions.cs.
   icon: {
+    fallbackToApi: true,
     clientBundle: {
-      scan: true,
+      // .ts: icon names also live as string data in .ts catalogs, which the
+      // default scan globs skip.
+      scan: {
+        globInclude: ['**/*.{vue,jsx,tsx,ts,md,mdc,mdx,yml,yaml}']
+      },
       sizeLimitKb: 512
     }
   },
