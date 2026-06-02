@@ -1,3 +1,10 @@
+x-telemetrygen: &telemetrygen
+  image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+  restart: unless-stopped
+  depends_on:
+    opentelemetrydashboard.host:
+      condition: service_started
+
 services:
   opentelemetrydashboard.host:
     image: opentelemetrydashboard.host
@@ -112,6 +119,54 @@ services:
         condition: service_started
       server-2:
         condition: service_started
+
+  gen-api-gateway:
+    <<: *telemetrygen
+    command:
+      - traces
+      - --otlp-endpoint=opentelemetrydashboard.host:4317
+      - --otlp-insecure
+      - --otlp-header=Authorization="Bearer api_token"
+      - --service=api-gateway
+      - --child-spans=4
+      - --rate=1
+      - --duration=inf
+
+  gen-checkout:
+    <<: *telemetrygen
+    command:
+      - traces
+      - --otlp-endpoint=opentelemetrydashboard.host:4317
+      - --otlp-insecure
+      - --otlp-header=Authorization="Bearer api_token"
+      - --service=checkout
+      - --child-spans=4
+      - --rate=1
+      - --duration=inf
+
+  gen-payments:
+    <<: *telemetrygen
+    command:
+      - traces
+      - --otlp-endpoint=opentelemetrydashboard.host:4317
+      - --otlp-insecure
+      - --otlp-header=Authorization="Bearer api_token"
+      - --service=payments
+      - --child-spans=4
+      - --rate=1
+      - --duration=inf
+
+  gen-audit-logs:
+    <<: *telemetrygen
+    command:
+      - logs
+      - --otlp-endpoint=opentelemetrydashboard.host:4317
+      - --otlp-insecure
+      - --otlp-header=Authorization="Bearer api_token"
+      - --service=audit
+      - --body=synthetic audit event
+      - --rate=1
+      - --duration=inf
 
   postgres:
     image: postgres:17-alpine
