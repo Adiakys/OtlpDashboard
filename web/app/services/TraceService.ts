@@ -1,4 +1,4 @@
-import type { HttpClientService } from './HttpClientService'
+import type { HttpClientService, RequestOptions } from './HttpClientService'
 import type {
   PageQuery,
   PagedResponse,
@@ -24,7 +24,7 @@ export interface TraceAggregationQuery extends TimeWindow {
 export class TraceService {
   constructor(private readonly http: HttpClientService) {}
 
-  listTraces(query: PageQuery): Promise<PagedResponse<TraceSummaryDto>> {
+  listTraces(query: PageQuery, options?: RequestOptions): Promise<PagedResponse<TraceSummaryDto>> {
     return this.http.get<PagedResponse<TraceSummaryDto>>('/v1/traces', {
       from: query.from,
       to: query.to,
@@ -38,7 +38,7 @@ export class TraceService {
       maxMs: query.maxMs,
       spanNameContains: query.spanNameContains,
       attr: query.attr && query.attr.length > 0 ? query.attr : undefined
-    })
+    }, options)
   }
 
   getTrace(traceId: string): Promise<TraceDetailDto> {

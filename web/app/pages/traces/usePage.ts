@@ -95,11 +95,19 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   const searchQuery = ref(options.initialSearch ?? '')
   const attributeFilters = ref<string[]>(options.initialAttr ?? [])
 
+  // In-flight list request. A new fetch (e.g. the user changes a filter
+  // before the previous round-trip lands) aborts the prior one so a slow
+  // stale response can't overwrite the newer result, and the request stops
+  // holding a browser connection.
+  let inFlight: AbortController | null = null
+
   async function fetchPage(append: boolean) {
     // "Deselected all" short-circuit: no application selected means no
     // rows to show — skip the round-trip rather than send a filter the
     // server would interpret as "no filter".
     if (noApplications.value) {
+      inFlight?.abort()
+      inFlight = null
       if (!append) {
         items.value = []
         cursor.value = null
@@ -109,6 +117,9 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
       error.value = null
       return
     }
+    inFlight?.abort()
+    const controller = new AbortController()
+    inFlight = controller
     isLoading.value = true
     error.value = null
     try {
@@ -127,14 +138,23 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
         maxMs: durationFilter.value.maxMs ?? undefined,
         spanNameContains: searchQuery.value.trim() || undefined,
         attr: attributeFilters.value.length > 0 ? attributeFilters.value : undefined
-      })
+      }, { signal: controller.signal })
       items.value = append ? [...items.value, ...response.items] : response.items
       cursor.value = response.nextCursor
       hasMore.value = response.nextCursor !== null
     } catch (e) {
+      // A superseded request was aborted on purpose — the newer fetch owns
+      // the state now, so swallow it rather than flashing a spurious error.
+      if (controller.signal.aborted) return
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
-      isLoading.value = false
+      // Only the current request clears the loading/in-flight state; a
+      // late-resolving aborted request must not switch the spinner off
+      // while its replacement is still running.
+      if (inFlight === controller) {
+        inFlight = null
+        isLoading.value = false
+      }
     }
   }
 
@@ -240,8 +260,10 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   watch(limit, () => {
     if (!live.isLive.value) void reload()
   })
-  watch(serviceFilter, () => { void reload() }, { deep: true })
-  watch(noApplications, () => { void reload() })
+  // Deselecting the last application flips `serviceFilter` to `[]` and
+  // `noApplications` to true in the same tick; a single multi-source watcher
+  // collapses that into one reload instead of two redundant ones.
+  watch([serviceFilter, noApplications], () => { void reload() }, { deep: true })
   watch(noServiceFilter, () => { void reload() })
   watch(serviceMatch, () => { void reload() })
   watch(statusFilter, () => { void reload() })

@@ -28,7 +28,7 @@ describe('TraceService', () => {
       limit: 25,
       cursor: undefined,
       services: undefined
-    }))
+    }), undefined)
   })
 
   it('listTraces forwards the services allow-list as CSV', async () => {
@@ -43,7 +43,7 @@ describe('TraceService', () => {
 
     expect(http.get).toHaveBeenCalledWith('/v1/traces', expect.objectContaining({
       services: 'api,auth'
-    }))
+    }), undefined)
   })
 
   it('getTrace calls GET /v1/traces/{id}', async () => {
