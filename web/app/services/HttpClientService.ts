@@ -21,45 +21,77 @@ type Fetcher = typeof $fetch
  *  signature; ofetch happily serializes whatever we hand it. */
 type JsonBody = object
 
+/** Per-call transport overrides. `signal` lets a caller cancel an in-flight
+ *  request (e.g. a superseded filter reload); `timeout` overrides the
+ *  client default for the occasional long-running call. */
+export interface RequestOptions {
+  signal?: AbortSignal
+  timeout?: number
+}
+
+/** Default per-request timeout. Without it a stalled request leaves the UI
+ *  spinning forever (no response, no error) — see the traces-filter bug. */
+const DEFAULT_TIMEOUT_MS = 30_000
+
 export class HttpClientService {
   constructor(
     private readonly baseUrl: string,
-    private readonly fetcher: Fetcher = $fetch
+    private readonly fetcher: Fetcher = $fetch,
+    private readonly defaultTimeoutMs: number = DEFAULT_TIMEOUT_MS
   ) {}
 
-  get<T>(path: string, query?: Record<string, unknown>): Promise<T> {
+  // ofetch only arms its own `timeout` when no `signal` is supplied, so we
+  // fold the deadline into the signal ourselves: that keeps the timeout
+  // active even on calls that pass an abort signal (the trace-filter
+  // reload always does). A timeout fires as a `TimeoutError` (a real
+  // failure the caller surfaces); a caller-driven abort stays an
+  // `AbortError` the caller can recognise as "superseded, ignore".
+  private resolveSignal(options?: RequestOptions): AbortSignal | undefined {
+    const timeout = options?.timeout ?? this.defaultTimeoutMs
+    if (timeout <= 0) return options?.signal
+    const timeoutSignal = AbortSignal.timeout(timeout)
+    return options?.signal
+      ? AbortSignal.any([options.signal, timeoutSignal])
+      : timeoutSignal
+  }
+
+  get<T>(path: string, query?: Record<string, unknown>, options?: RequestOptions): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'GET',
       query,
-      credentials: 'include'
+      credentials: 'include',
+      signal: this.resolveSignal(options)
     })
   }
 
-  post<T>(path: string, body?: JsonBody): Promise<T> {
+  post<T>(path: string, body?: JsonBody, options?: RequestOptions): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'POST',
       body,
-      credentials: 'include'
+      credentials: 'include',
+      signal: this.resolveSignal(options)
     })
   }
 
-  put<T>(path: string, body?: JsonBody): Promise<T> {
+  put<T>(path: string, body?: JsonBody, options?: RequestOptions): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'PUT',
       body,
-      credentials: 'include'
+      credentials: 'include',
+      signal: this.resolveSignal(options)
     })
   }
 
-  delete<T>(path: string, query?: Record<string, unknown>): Promise<T> {
+  delete<T>(path: string, query?: Record<string, unknown>, options?: RequestOptions): Promise<T> {
     return this.fetcher<T>(path, {
       baseURL: this.baseUrl,
       method: 'DELETE',
       query,
-      credentials: 'include'
+      credentials: 'include',
+      signal: this.resolveSignal(options)
     })
   }
 }
