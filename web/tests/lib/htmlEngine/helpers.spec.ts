@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TEMPLATE_HELPERS } from '~/lib/htmlEngine/helpers'
+import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 describe('helpers — format', () => {
   const { format } = TEMPLATE_HELPERS
@@ -129,6 +130,34 @@ describe('helpers — thresholdColor / thresholdClass', () => {
   it('returns empty for missing thresholds', () => {
     expect(thresholdColor(50, undefined)).toBe('')
     expect(thresholdClass(50, undefined)).toBe('')
+  })
+})
+
+describe('helpers — dateTime', () => {
+  const { dateTime } = TEMPLATE_HELPERS
+  const iso = '2026-05-30T13:35:02.000Z'
+
+  it('routes through the shared dateTimeFormat helper', () => {
+    expect(dateTime(iso, 'time-seconds')).toBe(dateTimeFormat(Date.parse(iso), 'time-seconds'))
+  })
+
+  it('defaults to the datetime preset', () => {
+    expect(dateTime(iso)).toBe(dateTimeFormat(Date.parse(iso), 'datetime'))
+  })
+
+  it('falls back to datetime for an unknown preset', () => {
+    expect(dateTime(iso, 'bogus')).toBe(dateTimeFormat(Date.parse(iso), 'datetime'))
+  })
+
+  it('accepts unix seconds and milliseconds', () => {
+    const ms = Date.parse(iso)
+    expect(dateTime(ms, 'time-seconds')).toBe(dateTimeFormat(ms, 'time-seconds'))
+    expect(dateTime(Math.floor(ms / 1000), 'time-seconds')).toBe(dateTimeFormat(ms, 'time-seconds'))
+  })
+
+  it('returns empty for unparseable input', () => {
+    expect(dateTime('not a date')).toBe('')
+    expect(dateTime(null)).toBe('')
   })
 })
 

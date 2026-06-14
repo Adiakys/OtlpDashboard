@@ -1,6 +1,13 @@
 import type { Helper } from './templateRenderer'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold, type ThresholdStop } from '~/lib/units/thresholds'
+import { dateTimeFormat, type DateTimePreset } from '~/lib/dateTimeFormat'
+
+// Runtime guard for the `dateTime` helper's preset argument — keeps template
+// authors on the named presets and falls back to `datetime` otherwise.
+const DATE_TIME_PRESETS = new Set<DateTimePreset>([
+  'datetime', 'datetime-seconds', 'datetime-long', 'time', 'time-seconds', 'time-ms'
+])
 
 /**
  * Whitelist of helpers exposed to widget templates. Each helper is a
@@ -95,6 +102,25 @@ export const TEMPLATE_HELPERS: Record<string, Helper> = {
     if (hr < 24) return `${hr}h ago`
     const days = Math.floor(hr / 24)
     return `${days}d ago`
+  },
+
+  /**
+   * Absolute date/time label routed through the shared `dateTimeFormat`
+   * helper, so it honors the OS 12h/24h preference like the rest of the UI.
+   * Accepts an ISO-8601 string or a number (ms or unix-seconds) and an
+   * optional preset (`datetime` default, or `time`, `time-seconds`, `time-ms`,
+   * `datetime-seconds`, `datetime-long`).
+   *
+   *   {{ dateTime lastSeen }}                → "5/30/26, 13:35"
+   *   {{ dateTime lastSeen 'time-seconds' }} → "13:35:02"
+   */
+  dateTime: (input, preset) => {
+    const t = parseTimestamp(input)
+    if (t === null) return ''
+    const p = typeof preset === 'string' && DATE_TIME_PRESETS.has(preset as DateTimePreset)
+      ? (preset as DateTimePreset)
+      : 'datetime'
+    return dateTimeFormat(t, p)
   },
 
   /** Plural picker — Italian/English friendly. */
