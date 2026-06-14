@@ -396,9 +396,11 @@ immutable and ship with the library.
 **Helpers available**: `format(value, unitKind, decimals?)`,
 `percent(value, min, max)`, `thresholdColor(value, thresholds)`,
 `thresholdClass(value, thresholds)` (returns `vellum-th-ok` / `-warn`
-/ `-bad`), `dateAgo(timestamp)`, `pluralize(n, singular, plural)`,
-`default(...values)`, comparators `eq`/`neq`/`lt`/`lte`/`gt`/`gte`
-(usable inside `{{#if}}`).
+/ `-bad`), `dateAgo(timestamp)`, `dateTime(timestamp, preset?)` (absolute
+date/time honoring the OS 12h/24h preference; preset defaults to `datetime`,
+also `time`/`time-seconds`/`time-ms`/`datetime-seconds`/`datetime-long`),
+`pluralize(n, singular, plural)`, `default(...values)`, comparators
+`eq`/`neq`/`lt`/`lte`/`gt`/`gte` (usable inside `{{#if}}`).
 
 **Binding shapes** the template scope sees:
 
