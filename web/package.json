@@ -25,7 +25,7 @@
     "ag-grid-community": "^33.3.2",
     "ag-grid-vue3": "^33.3.2",
     "d3-force": "^3.0.0",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "grid-layout-plus": "^1.1.1",
     "nuxt": "^4.4.7",
     "tailwindcss": "^4.2.2"
