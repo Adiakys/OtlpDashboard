@@ -17,7 +17,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/geist-mono": "^5.2.7",
-    "@nuxt/ui": "^4.6.1",
+    "@nuxt/ui": "^4.8.1",
     "@nuxtjs/i18n": "^9.5.6",
     "@types/d3-force": "^3.0.10",
     "ag-charts-community": "^11.0.0",
