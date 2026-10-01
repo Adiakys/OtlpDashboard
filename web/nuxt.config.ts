@@ -42,8 +42,8 @@ export default defineNuxtConfig({
       title: 'OpenTelemetry Dashboard',
       htmlAttrs: { lang: 'it' },
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: `${APP_BASE_URL}favicon.svg` },
-        { rel: 'alternate icon', type: 'image/x-icon', href: `${APP_BASE_URL}favicon.ico` }
+        { rel: 'icon', type: 'image/x-icon', sizes: '32x32', href: `${APP_BASE_URL}favicon.ico` },
+        { rel: 'icon', type: 'image/svg+xml', href: `${APP_BASE_URL}favicon.svg` }
       ]
     }
   },
@@ -79,13 +79,6 @@ export default defineNuxtConfig({
       cookieKey: 'oteldash-locale',
       redirectOn: 'no prefix',
       fallbackLocale: 'en'
-    },
-    // The default emits absolute filesystem paths into the bundled
-    // payload (visible in `index.html` as `/home/<user>/.../i18n/...`),
-    // leaking the build host's username and repo layout to every
-    // visitor. 'relative' surfaces only the path within the project.
-    experimental: {
-      generatedLocaleFilePathFormat: 'relative'
     }
   },
 
