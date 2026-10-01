@@ -1,4 +1,7 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using OpenTelemetryDashboard.Dashboards.Seeding;
 using OpenTelemetryDashboard.Persistence;
 using OpenTelemetryDashboard.Persistence.Demo;
@@ -13,6 +16,8 @@ namespace OpenTelemetryDashboard.Host.Hosting;
 /// </summary>
 internal static class StartupBootstrap
 {
+    private static readonly TimeSpan DatabaseCreationWait = TimeSpan.FromSeconds(30);
+
     public static async Task RunStartupAsync(this WebApplication app)
     {
         await using var scope = app.Services.CreateAsyncScope();
@@ -22,7 +27,7 @@ internal static class StartupBootstrap
         await scope.SeedDemoHistoryDataAsync(app.Logger);
     }
 
-    private static async Task ApplyMigrationsAsync(IServiceProvider services)
+    internal static async Task ApplyMigrationsAsync(IServiceProvider services)
     {
         // Distributed lock around MigrateAsync. On a rolling deploy multiple
         // replicas race to apply the same DDL; without coordination two
@@ -32,12 +37,53 @@ internal static class StartupBootstrap
         // SQLite migrator is idempotent and we run a single writer process,
         // so the cost on an up-to-date schema is a single metadata query;
         // the lock is essentially free in that case.
+        var factory = services.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
+        await using var context = await factory.CreateDbContextAsync();
+
+        // The Postgres / SQL Server locks open a connection to the target
+        // database itself, which fails if it doesn't exist yet (#37) — so
+        // MigrateAsync never gets the chance to create it. Create it first,
+        // outside the lock.
+        await EnsureDatabaseExistsAsync(context);
+
         var migrationLock = services.GetRequiredService<IMigrationLock>();
         await using (await migrationLock.AcquireAsync(CancellationToken.None).ConfigureAwait(false))
         {
-            var factory = services.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
-            await using var context = await factory.CreateDbContextAsync();
             await context.Database.MigrateAsync();
+        }
+    }
+
+    private static async Task EnsureDatabaseExistsAsync(DbContext context)
+    {
+        // Provider-agnostic: Npgsql / SqlClient connect to the maintenance
+        // database (postgres / master) to run CREATE DATABASE; SQLite just
+        // creates the file.
+        var creator = context.GetService<IRelationalDatabaseCreator>();
+        if (await creator.ExistsAsync())
+        {
+            return;
+        }
+
+        try
+        {
+            await creator.CreateAsync();
+        }
+        catch (DbException)
+        {
+            // Another replica won the race between our check and CREATE
+            // DATABASE. SQL Server reports "already exists" while the
+            // winner's CREATE is still running and the database can't be
+            // opened yet, so wait for it to come online. Anything else
+            // (e.g. missing CREATEDB permission) is rethrown after the wait.
+            var deadline = DateTime.UtcNow + DatabaseCreationWait;
+            while (!await creator.ExistsAsync())
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    throw;
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+            }
         }
     }
 
