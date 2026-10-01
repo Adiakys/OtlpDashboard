@@ -3,9 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetryDashboard.Dashboards.Library;
 using OpenTelemetryDashboard.Persistence;
 
 namespace OpenTelemetryDashboard.IntegrationTests;
@@ -23,6 +25,12 @@ public sealed class RateLimitTests : IAsyncLifetime
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(),
         $"oteldash-rl-{Guid.NewGuid():N}.db");
+
+    // Reload is fast enough that concurrent requests often don't overlap,
+    // so the pack-install test parks the first reload on this gate to hold
+    // the single concurrency permit deterministically.
+    private readonly TaskCompletionSource _reloadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _releaseReload = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private WebApplicationFactory<Program>? _factory;
 
@@ -49,6 +57,9 @@ public sealed class RateLimitTests : IAsyncLifetime
                         ["Dashboard:RateLimits:PackInstall:ConcurrencyQueueLimit"] = "0",
                     });
                 });
+                builder.ConfigureTestServices(services =>
+                    services.AddSingleton<IPackRegistry>(sp => new BlockingReloadPackRegistry(
+                        sp.GetRequiredService<FilesystemPackRegistry>(), _reloadStarted, _releaseReload)));
             });
 
         _ = _factory.Services;
@@ -60,6 +71,7 @@ public sealed class RateLimitTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        _releaseReload.TrySetResult();
         if (_factory is not null)
         {
             await _factory.DisposeAsync();
@@ -114,27 +126,21 @@ public sealed class RateLimitTests : IAsyncLifetime
     {
         var client = CreateClient();
 
-        // MaxConcurrent=1, queue=0. Two concurrent reload calls: one wins the
-        // single slot, the other 429s. Reload itself is fast so we fire 6 in
-        // parallel to maximise the chance of stepping on the same in-flight
-        // permit even when the first one returns quickly.
-        var tasks = Enumerable.Range(0, 6)
-            .Select(_ => client.PostAsync("/api/v1/packs/reload", content: null))
-            .ToArray();
+        // MaxConcurrent=1, queue=0. The first reload is parked inside the
+        // handler, holding the only permit; a second one must be rejected.
+        var first = client.PostAsync("/api/v1/packs/reload", content: null);
+        await _reloadStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
-        var responses = await Task.WhenAll(tasks);
-        try
+        // Bounded so a missing limiter fails the test instead of hanging on the gate.
+        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+        using (var second = await client.PostAsync("/api/v1/packs/reload", content: null, timeout.Token))
         {
-            var statuses = responses.Select(r => r.StatusCode).ToArray();
-            Assert.Contains(HttpStatusCode.TooManyRequests, statuses);
+            Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
         }
-        finally
-        {
-            foreach (var r in responses)
-            {
-                r.Dispose();
-            }
-        }
+
+        _releaseReload.SetResult();
+        using var firstResponse = await first;
+        Assert.Equal(HttpStatusCode.NoContent, firstResponse.StatusCode);
     }
 
     private HttpClient CreateClient()
@@ -143,5 +149,24 @@ public sealed class RateLimitTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", BrowserToken);
         return client;
+    }
+
+    private sealed class BlockingReloadPackRegistry(
+        IPackRegistry inner,
+        TaskCompletionSource reloadStarted,
+        TaskCompletionSource releaseReload) : IPackRegistry
+    {
+        public Task<IReadOnlyList<Pack>> ListAsync(CancellationToken cancellationToken) =>
+            inner.ListAsync(cancellationToken);
+
+        public async Task ReloadAsync(CancellationToken cancellationToken)
+        {
+            reloadStarted.TrySetResult();
+            await releaseReload.Task.WaitAsync(cancellationToken);
+            await inner.ReloadAsync(cancellationToken);
+        }
+
+        public Task UninstallAsync(string packId, CancellationToken cancellationToken) =>
+            inner.UninstallAsync(packId, cancellationToken);
     }
 }
