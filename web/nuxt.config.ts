@@ -42,8 +42,8 @@ export default defineNuxtConfig({
       title: 'OpenTelemetry Dashboard',
       htmlAttrs: { lang: 'it' },
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: `${APP_BASE_URL}favicon.svg` },
-        { rel: 'alternate icon', type: 'image/x-icon', href: `${APP_BASE_URL}favicon.ico` }
+        { rel: 'icon', type: 'image/x-icon', sizes: '32x32', href: `${APP_BASE_URL}favicon.ico` },
+        { rel: 'icon', type: 'image/svg+xml', href: `${APP_BASE_URL}favicon.svg` }
       ]
     }
   },
