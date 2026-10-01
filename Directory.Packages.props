@@ -92,8 +92,10 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageVersion Include="Shouldly" Version="4.2.1" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.6.0" />
-    <PackageVersion Include="Testcontainers.MsSql" Version="4.6.0" />
+    <!-- Testcontainers >= 4.15.0 depends on SSH.NET 2026.0.0; 4.6.0 pulled in SSH.NET 2024.2.0, flagged by
+         GHSA-mggc-4xg6-vcxf and GHSA-q939-rpr3-3284 (high, ScpClient), which fails restore via NU1903. -->
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.15.0" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
   </ItemGroup>
 
