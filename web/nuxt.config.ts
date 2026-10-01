@@ -79,13 +79,6 @@ export default defineNuxtConfig({
       cookieKey: 'oteldash-locale',
       redirectOn: 'no prefix',
       fallbackLocale: 'en'
-    },
-    // The default emits absolute filesystem paths into the bundled
-    // payload (visible in `index.html` as `/home/<user>/.../i18n/...`),
-    // leaking the build host's username and repo layout to every
-    // visitor. 'relative' surfaces only the path within the project.
-    experimental: {
-      generatedLocaleFilePathFormat: 'relative'
     }
   },
 
