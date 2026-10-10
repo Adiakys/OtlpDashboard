@@ -5,7 +5,7 @@ import type {
   AgCartesianSeriesOptions
 } from 'ag-charts-community'
 import type { InstrumentDto, MetricSeriesDto } from '~/services/types'
-import { describeGroup, groupPoints, type SplitBy, type SeriesGroup } from './seriesGrouping'
+import { describeGroup, formatLegend, groupPoints, type SplitBy, type SeriesGroup } from './seriesGrouping'
 import { instrumentKey } from '~/pages/metrics/buildTree'
 import { escapeHtml } from '~/lib/escapeHtml'
 import { dateTimeFormat } from '~/lib/dateTimeFormat'
@@ -57,6 +57,9 @@ interface BuildOptionsInput {
    *  ("1.5 MB", "230 ms", "12.3%") without this module needing to know about
    *  unit kinds. When omitted, falls back to the local `formatNumber`. */
   valueFormatter?: (value: number) => string
+  /** User legend template per instrument (see `formatLegend`); empty keeps
+   *  the default `instrument {attrs}` label. */
+  legendFor?: (instrument: InstrumentDto) => string | null | undefined
 }
 
 interface ChartDatum {
@@ -85,7 +88,7 @@ interface ChartDatum {
  * tell which scale belongs to which series at a glance.
  */
 export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
-  const { series, chartType, splitBy, locale, isDark, compact = false, valueFormatter } = input
+  const { series, chartType, splitBy, locale, isDark, compact = false, valueFormatter, legendFor } = input
   const formatValueFn = valueFormatter ?? formatNumber
 
   if (chartType === 'unsupported' || series.length === 0) {
@@ -104,12 +107,13 @@ export function buildChartOptions(input: BuildOptionsInput): AgChartOptions {
 
     const groups = groupPoints(s.points, splitBy)
     const prefix = series.length > 1 ? `${s.instrument.name} ` : ''
+    const template = legendFor?.(s.instrument)?.trim()
     for (const g of groups) {
       const data = toData(g, yKey)
       if (data.length === 0) continue
-      const name = prefix
-        ? `${prefix}${describeGroup(g.attrs)}`
-        : describeGroup(g.attrs)
+      const name = template
+        ? formatLegend(template, g, groups.length)
+        : `${prefix}${describeGroup(g.attrs)}`
       allSeries.push(buildSeries(seriesType, name, data, yKey, formatValueFn, locale))
     }
   }

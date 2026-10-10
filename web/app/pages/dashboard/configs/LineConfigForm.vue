@@ -39,6 +39,11 @@ const currentChartType = computed<ChartTypeOption>(() => {
   return v as ChartTypeOption
 })
 
+function setLegend(index: number, value: string) {
+  const metrics = props.modelValue.metrics.map((m, i) => i === index ? { ...m, legend: value || undefined } : m)
+  patch({ metrics })
+}
+
 function setChartType(v: ChartTypeOption) {
   if (v === 'auto') {
     patch({ chartTypeOverride: undefined })
@@ -103,13 +108,34 @@ function setChartType(v: ChartTypeOption) {
       />
     </UFormField>
 
-    <UFormField :label="t('dashboard.config.metrics')" class="flex-1 min-h-0">
+    <UFormField :label="t('dashboard.config.metrics')" class="shrink-0">
       <div class="h-72 min-h-0">
         <InstrumentPicker
           mode="multi"
           :model-value="modelValue.metrics"
           @update:model-value="(v) => patch({ metrics: (v as MetricBinding[] | null) ?? [] })"
         />
+      </div>
+    </UFormField>
+
+    <UFormField
+      v-if="modelValue.metrics.length > 0"
+      :label="t('dashboard.config.legend')"
+      :description="t('dashboard.config.legendHint')"
+      class="shrink-0"
+    >
+      <div class="flex flex-col gap-2">
+        <div v-for="(m, i) in modelValue.metrics" :key="i" class="flex flex-col gap-1">
+          <span class="truncate font-mono text-[11px] text-muted" :title="m.instrumentName">
+            {{ m.instrumentName }}<template v-if="m.serviceName"> · {{ m.serviceName }}</template><template v-if="m.serviceInstanceId"> / {{ m.serviceInstanceId }}</template>
+          </span>
+          <UInput
+            size="sm"
+            :model-value="m.legend ?? ''"
+            :placeholder="t('dashboard.config.legendPlaceholder')"
+            @update:model-value="(v) => setLegend(i, String(v ?? ''))"
+          />
+        </div>
       </div>
     </UFormField>
   </div>

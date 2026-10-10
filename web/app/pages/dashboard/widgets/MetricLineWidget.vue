@@ -8,6 +8,7 @@ import { useWidgetSeries } from '../useWidgetSeries'
 import { normalizeSplitBy } from '../composables/normalizeSplitBy'
 import { expandMetricBindings } from '~/lib/htmlEngine/parameterExpansion'
 import type { MetricLineConfig } from '../types'
+import type { InstrumentDto } from '~/services/types'
 import { WIDGET_REGISTRY } from '../registry'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 
@@ -73,6 +74,16 @@ const valueFormatter = computed<(v: number) => string>(() => {
   return (v: number) => formatValue(v, kind, { decimals: dec, locale: loc })
 })
 
+function legendFor(instrument: InstrumentDto): string | null | undefined {
+  return metrics.value.find(b =>
+    b.instrumentName === instrument.name &&
+    b.scopeName === instrument.scopeName &&
+    b.kind === instrument.kind &&
+    (!b.serviceName || b.serviceName === instrument.serviceName) &&
+    (!b.serviceInstanceId || b.serviceInstanceId === instrument.serviceInstanceId)
+  )?.legend
+}
+
 function optionsFor(width: number, height: number) {
   // Switch to a stripped-down chart (no legend, no axis labels/grid) when
   // the widget is short or narrow — AG Charts otherwise reserves so much
@@ -85,7 +96,8 @@ function optionsFor(width: number, height: number) {
     locale: locale.value,
     isDark: colorMode.value === 'dark',
     compact,
-    valueFormatter: valueFormatter.value
+    valueFormatter: valueFormatter.value,
+    legendFor
   })
 }
 

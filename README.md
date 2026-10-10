@@ -204,6 +204,15 @@ three groups in the same modal. The search box filters by name,
 description, *or* source — type `std`, `custom`, or a library id to filter
 a whole bucket.
 
+### Custom legend labels
+
+Line widgets label each series with the metric name and its attributes,
+which can get long. To shorten it, open the widget's config drawer and fill
+the **Legend** field next to each selected metric. Use `{attribute}` to
+insert an attribute value, e.g. `Requests {http.request.method}` renders as
+`Requests POST`. Leave it empty to keep the default label. In pack JSON the
+same value is the `legend` field of the metric binding.
+
 ### Creating a custom widget
 
 1. Open a dashboard, click **Edit**, add a builtin widget.

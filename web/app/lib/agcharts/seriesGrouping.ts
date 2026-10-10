@@ -78,6 +78,22 @@ export function describeGroup(attrs: Record<string, unknown>): string {
   return '{' + entries.map(([k, v]) => `${k}=${formatValue(v)}`).join(', ') + '}'
 }
 
+/**
+ * Legend label from a user template: `{key}` takes the group's attribute
+ * value. A template without placeholders gets the group appended when the
+ * metric splits into several series, so the entries stay distinguishable.
+ */
+export function formatLegend(template: string, group: SeriesGroup, groupCount: number): string {
+  if (!/\{[^{}]+\}/.test(template)) {
+    return groupCount > 1 ? `${template} ${describeGroup(group.attrs)}` : template
+  }
+  const label = template.replace(/\{([^{}]+)\}/g, (_, key: string) => {
+    const k = key.trim()
+    return formatValue(k in group.attrs ? group.attrs[k] : group.points[0]?.attributes[k])
+  }).trim()
+  return label || describeGroup(group.attrs)
+}
+
 function pickAttributes(
   attrs: Record<string, unknown>,
   splitBy: SplitBy
