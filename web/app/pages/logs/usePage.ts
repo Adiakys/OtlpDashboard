@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { LogsService } from '~/services/LogsService'
-import type { LogRecordDto, TimeWindow } from '~/services/types'
+import type { LogRecordDto, ServiceInstancesDto, TimeWindow } from '~/services/types'
 import type { SeverityBucket } from '~/types/filters'
 import { isKnownPresetKey, presetToWindow } from '~/lib/timeRangePresets'
 
@@ -82,7 +82,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
   // in that branch.
   const serviceFilter = ref<string[]>(options.initialServices ?? [])
   const noApplications = ref<boolean>(options.initialNoApplications === true)
-  const availableServices = ref<string[]>([])
+  const availableServices = ref<ServiceInstancesDto[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<LogRecordDto[]>([])
   const cursor = ref<string | null>(null)
@@ -269,7 +269,7 @@ export function useLogsPage(service: LogsService, options: UseLogsPageOptions = 
     }
     if (traceId.value) q.traceId = traceId.value
     if (noApplications.value) q.noApplications = 'true'
-    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
+    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value
     if (severityFilter.value.length > 0) q.severities = severityFilter.value.join(',')
     const body = bodyQuery.value.trim()
     if (body) q.bodyContains = body

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { parseServicesParam } from '~/lib/applicationSelection'
 import type { ColDef } from 'ag-grid-community'
 import AppPage from '~/components/shell/AppPage.vue'
 import AppToolbar from '~/components/shell/AppToolbar.vue'
@@ -68,7 +69,7 @@ const initialSeverity = severitiesQ
 
 // `services=A,B,C` is the modern shape; legacy `service=foo` URLs
 // from older deep-links still merge into the same allow-list.
-const initialServices = strArrayFromQuery('services').flatMap(s => s.split(',').map(t => t.trim()).filter(Boolean))
+const initialServices = parseServicesParam(strArrayFromQuery('services'))
 const legacyService = strFromQuery('service')
 if (legacyService) initialServices.push(legacyService)
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { parseServicesParam } from '~/lib/applicationSelection'
 import type { ColDef } from 'ag-grid-community'
 import AppPage from '~/components/shell/AppPage.vue'
 import AppToolbar from '~/components/shell/AppToolbar.vue'
@@ -68,7 +69,7 @@ const initialDuration = (minMsQ != null || maxMsQ != null)
 // `services=A,B,C` is the modern shape; we also accept the legacy
 // `service=foo` so deep-links shared from older builds still resolve
 // to the same filtered view.
-const initialServices = strArrayFromQuery('services').flatMap(s => s.split(',').map(t => t.trim()).filter(Boolean))
+const initialServices = parseServicesParam(strArrayFromQuery('services'))
 const legacyService = strFromQuery('service')
 if (legacyService) initialServices.push(legacyService)
 

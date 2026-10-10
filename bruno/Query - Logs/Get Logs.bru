@@ -28,5 +28,6 @@ docs {
   come `cursor` per ottenere la pagina successiva.
   
   - `severities` accetta CSV (`info,warn`) o chiavi ripetute (`?severities=info&severities=warn`).
+  - `services` accetta nomi in CSV o chiavi ripetute; una voce `servizio:istanza` seleziona la singola istanza e va passata come chiave a sé (`?services=a,b&services=api:host:8080`).
   - `attr` accetta più valori `key:value`, AND-ati tra loro (`?attr=http.route:/foo&attr=demo.scenario:x`).
 }

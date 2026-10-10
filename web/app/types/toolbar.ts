@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import type { TimeWindow } from '~/services/types'
+import type { ServiceInstancesDto, TimeWindow } from '~/services/types'
 import type { DurationRange, SeverityBucket, TraceStatusFilter } from './filters'
 
 /**
@@ -20,12 +20,13 @@ export type FilterDescriptor =
 
 export interface ApplicationFilterDescriptor {
   kind: 'application'
-  /** Allow-list of `service.name` values; an empty array combined with
+  /** Allow-list of `service.name` values and `service:instanceId`
+   *  entries; an empty array combined with
    *  `noneSelected === false` means "all applications" (no filter).
    *  The component renders an "All" toggle that flips between
    *  implicit-all and explicit-none. */
   modelValue: Ref<string[]>
-  options: Ref<string[]>
+  options: Ref<ServiceInstancesDto[]>
   /** When true, the user has explicitly deselected every application —
    *  the page short-circuits to an empty result set. Optional so pages
    *  that don't want the deselect-all affordance can omit it. */

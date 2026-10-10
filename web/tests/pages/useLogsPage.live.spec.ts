@@ -160,7 +160,9 @@ describe('useLogsPage — live mode', () => {
         servicesCalls += 1
         // First (mount) lookup: only the original service. Subsequent
         // lookups: the newly-connected service is now visible.
-        return servicesCalls === 1 ? ['svc-a'] : ['svc-a', 'svc-new']
+        return servicesCalls === 1
+          ? [{ service: 'svc-a', instances: [] }]
+          : [{ service: 'svc-a', instances: [] }, { service: 'svc-new', instances: [] }]
       }
       return logsPages.shift() ?? { items: [], nextCursor: null }
     })
@@ -174,12 +176,12 @@ describe('useLogsPage — live mode', () => {
 
     const page = useLogsPage(service, { autoLive: false })
     await vi.advanceTimersByTimeAsync(0)
-    expect(page.availableServices.value).toEqual(['svc-a'])
+    expect(page.availableServices.value.map(s => s.service)).toEqual(['svc-a'])
 
     page.toggleLive()
     await vi.advanceTimersByTimeAsync(0) // immediate first live tick
 
-    expect(page.availableServices.value).toEqual(['svc-a', 'svc-new'])
+    expect(page.availableServices.value.map(s => s.service)).toEqual(['svc-a', 'svc-new'])
     expect(get.mock.calls.filter(c => c[0] === '/v1/logs/services').length).toBeGreaterThanOrEqual(2)
 
     page.toggleLive()

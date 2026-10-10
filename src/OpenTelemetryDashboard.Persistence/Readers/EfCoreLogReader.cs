@@ -93,6 +93,11 @@ public sealed class EfCoreLogReader : ILogReader
             }
         }
 
+        if (ResourceFilter.MatchingHashes(context, query.ServiceNames) is { } resourceHashes)
+        {
+            baseQuery = baseQuery.Where(l => resourceHashes.Contains(l.ResourceHash));
+        }
+
         if (query.After is { } cursor)
         {
             baseQuery = baseQuery.Where(l =>
@@ -100,9 +105,8 @@ public sealed class EfCoreLogReader : ILogReader
                 (l.TimeUnixNano == cursor.Time && EF.Property<long>(l, "Id") < cursor.SecondaryKey));
         }
 
-        // Resource join brings in service.name for per-row display and for the
-        // optional `?service=` filter. Keeping the join in the same projection
-        // avoids an N+1 round-trip per page.
+        // Resource join brings in service.name for per-row display. Keeping
+        // the join in the same projection avoids an N+1 round-trip per page.
         var joined = baseQuery.Join(
             context.Resources.AsNoTracking(),
             l => l.ResourceHash,
@@ -113,15 +117,6 @@ public sealed class EfCoreLogReader : ILogReader
                 SecondaryKey = EF.Property<long>(l, "Id"),
                 ServiceName = r.ServiceName
             });
-
-        if (query.ServiceNames is { Count: > 0 } services)
-        {
-            // Allow-list the rows whose resource service.name is one
-            // of the requested values. EF translates `Contains` over
-            // a small in-memory list to a parameterised `IN (...)`,
-            // which the planner serves from the indexed ServiceName.
-            joined = joined.Where(x => services.Contains(x.ServiceName!));
-        }
 
         var projected = joined
             .OrderByDescending(x => x.Record.TimeUnixNano)
@@ -148,7 +143,7 @@ public sealed class EfCoreLogReader : ILogReader
             .Replace("_", "\\_", StringComparison.Ordinal);
     }
 
-    public async IAsyncEnumerable<string> GetDistinctServiceNamesAsync(
+    public async IAsyncEnumerable<(string ServiceName, string? InstanceId)> GetDistinctServicesAsync(
         DateTimeOffset fromTime,
         DateTimeOffset toTime,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -165,14 +160,14 @@ public sealed class EfCoreLogReader : ILogReader
                 context.Resources.AsNoTracking(),
                 l => l.ResourceHash,
                 r => r.Hash,
-                (_, r) => r.ServiceName)
-            .Where(s => s != null)
+                (_, r) => new { r.ServiceName, r.ServiceInstanceId })
+            .Where(x => x.ServiceName != null)
             .Distinct()
             .AsAsyncEnumerable();
 
-        await foreach (var name in query.WithCancellation(cancellationToken).ConfigureAwait(false))
+        await foreach (var row in query.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            if (name is not null) yield return name;
+            yield return (row.ServiceName!, row.ServiceInstanceId);
         }
     }
 }

@@ -125,16 +125,8 @@ public sealed class EfCoreTraceReader : ITraceReader
                         s2.StartUnixNano >= fromNano && s2.StartUnixNano < toNano &&
                         unnamedHashes.Contains(s2.ResourceHash)));
         }
-        else if (query.ServiceNames is { Count: > 0 } services)
+        else if (ResourceFilter.MatchingHashes(context, query.ServiceNames) is { } serviceHashes)
         {
-            // EF translates the `Contains` over the in-memory list to
-            // `r.ServiceName IN (...)`; the indexed Resources.ServiceName
-            // feeds the inner hash-set, the EXISTS short-circuits per
-            // trace_id at the first matching span it finds.
-            var serviceHashes = context.Resources
-                .AsNoTracking()
-                .Where(r => r.ServiceName != null && services.Contains(r.ServiceName))
-                .Select(r => r.Hash);
             baseSpans = baseSpans.Where(s =>
                 context.Spans
                     .AsNoTracking()
@@ -370,16 +362,12 @@ public sealed class EfCoreTraceReader : ITraceReader
             .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
             .Where(s => s.ParentSpanId == null);
 
-        if (query.ServiceNames is { Count: > 0 } services)
+        // Aggregations apply the service filter to the root span
+        // only — top-N "operations" are root-named, so it matches
+        // the user's mental model of "which endpoints do these
+        // services expose".
+        if (ResourceFilter.MatchingHashes(context, query.ServiceNames) is { } serviceHashes)
         {
-            // Aggregations apply the service filter to the root span
-            // only — top-N "operations" are root-named, so it matches
-            // the user's mental model of "which endpoints do these
-            // services expose".
-            var serviceHashes = context.Resources
-                .AsNoTracking()
-                .Where(r => r.ServiceName != null && services.Contains(r.ServiceName))
-                .Select(r => r.Hash);
             rootSpans = rootSpans.Where(s => serviceHashes.Contains(s.ResourceHash));
         }
 
@@ -448,7 +436,7 @@ public sealed class EfCoreTraceReader : ITraceReader
             .ToList();
     }
 
-    public async IAsyncEnumerable<string> GetDistinctServiceNamesAsync(
+    public async IAsyncEnumerable<(string ServiceName, string? InstanceId)> GetDistinctServicesAsync(
         DateTimeOffset fromTime,
         DateTimeOffset toTime,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -465,14 +453,14 @@ public sealed class EfCoreTraceReader : ITraceReader
                 context.Resources.AsNoTracking(),
                 s => s.ResourceHash,
                 r => r.Hash,
-                (_, r) => r.ServiceName)
-            .Where(s => s != null)
+                (_, r) => new { r.ServiceName, r.ServiceInstanceId })
+            .Where(x => x.ServiceName != null)
             .Distinct()
             .AsAsyncEnumerable();
 
-        await foreach (var name in query.WithCancellation(cancellationToken).ConfigureAwait(false))
+        await foreach (var row in query.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            if (name is not null) yield return name;
+            yield return (row.ServiceName!, row.ServiceInstanceId);
         }
     }
 

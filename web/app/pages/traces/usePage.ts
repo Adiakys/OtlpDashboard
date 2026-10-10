@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { useLivePolling } from '~/composables/useLivePolling'
 import type { TraceService } from '~/services/TraceService'
-import type { TimeWindow, TraceSummaryDto } from '~/services/types'
+import type { ServiceInstancesDto, TimeWindow, TraceSummaryDto } from '~/services/types'
 import type { DurationRange, TraceStatusFilter } from '~/types/filters'
 import { isKnownPresetKey, presetToWindow } from '~/lib/timeRangePresets'
 
@@ -79,7 +79,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
   const noApplications = ref<boolean>(options.initialNoApplications === true)
   const serviceMatch = ref<'root' | 'any'>(options.initialServiceMatch ?? 'root')
   const noServiceFilter = ref<boolean>(options.initialNoService === true)
-  const availableServices = ref<string[]>([])
+  const availableServices = ref<ServiceInstancesDto[]>([])
   const limit = ref(options.initialLimit ?? DEFAULT_LIMIT)
   const items = ref<TraceSummaryDto[]>([])
   const cursor = ref<string | null>(null)
@@ -288,7 +288,7 @@ export function useTracesPage(service: TraceService, options: UseTracesPageOptio
     }
     if (noServiceFilter.value) q.noService = 'true'
     else if (noApplications.value) q.noApplications = 'true'
-    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value.join(',')
+    else if (serviceFilter.value.length > 0) q.services = serviceFilter.value
     if (serviceMatch.value === 'any') q.serviceMatch = 'any'
     if (statusFilter.value !== 'any') q.status = statusFilter.value
     if (durationFilter.value.minMs != null) q.minMs = String(durationFilter.value.minMs)
