@@ -79,7 +79,7 @@ internal sealed class LogTools
         }
 
         var names = new SortedSet<string>(StringComparer.Ordinal);
-        await foreach (var name in reader.GetDistinctServiceNamesAsync(fromValue, toValue, cancellationToken).ConfigureAwait(false))
+        await foreach (var (name, _) in reader.GetDistinctServicesAsync(fromValue, toValue, cancellationToken).ConfigureAwait(false))
         {
             names.Add(name);
         }

@@ -72,7 +72,7 @@ describe('LogsService', () => {
     })
   })
 
-  it('forwards services allow-list joined as CSV', async () => {
+  it('forwards services allow-list as repeated keys', async () => {
     const http = stubHttp()
     const service = new LogsService(http)
 
@@ -88,7 +88,7 @@ describe('LogsService', () => {
       limit: undefined,
       cursor: undefined,
       traceId: undefined,
-      services: 'frontend,auth'
+      services: ['frontend', 'auth']
     })
   })
 
@@ -109,7 +109,7 @@ describe('LogsService', () => {
 
   it('listServices GETs /v1/logs/services with the window', async () => {
     const http = stubHttp()
-    http.get.mockResolvedValueOnce(['a', 'b'])
+    http.get.mockResolvedValueOnce([{ service: 'a', instances: ['a-1', 'a-2'] }, { service: 'b', instances: [] }])
     const service = new LogsService(http)
 
     const out = await service.listServices({
@@ -117,7 +117,7 @@ describe('LogsService', () => {
       to: '2030-01-01T01:00:00Z'
     })
 
-    expect(out).toEqual(['a', 'b'])
+    expect(out).toEqual([{ service: 'a', instances: ['a-1', 'a-2'] }, { service: 'b', instances: [] }])
     expect(http.get).toHaveBeenCalledWith('/v1/logs/services', {
       from: '2030-01-01T00:00:00Z',
       to: '2030-01-01T01:00:00Z'

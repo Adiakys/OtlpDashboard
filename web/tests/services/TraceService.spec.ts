@@ -31,7 +31,7 @@ describe('TraceService', () => {
     }), undefined)
   })
 
-  it('listTraces forwards the services allow-list as CSV', async () => {
+  it('listTraces forwards the services allow-list as repeated keys', async () => {
     const http = stubHttp()
     const service = new TraceService(http)
 
@@ -42,7 +42,7 @@ describe('TraceService', () => {
     })
 
     expect(http.get).toHaveBeenCalledWith('/v1/traces', expect.objectContaining({
-      services: 'api,auth'
+      services: ['api', 'auth']
     }), undefined)
   })
 
@@ -57,7 +57,7 @@ describe('TraceService', () => {
 
   it('listServices GETs /v1/traces/services with the window', async () => {
     const http = stubHttp()
-    http.get.mockResolvedValueOnce(['one', 'two'])
+    http.get.mockResolvedValueOnce([{ service: 'one', instances: ['i-1'] }, { service: 'two', instances: [] }])
     const service = new TraceService(http)
 
     const out = await service.listServices({
@@ -65,7 +65,7 @@ describe('TraceService', () => {
       to: '2030-01-01T01:00:00Z'
     })
 
-    expect(out).toEqual(['one', 'two'])
+    expect(out).toEqual([{ service: 'one', instances: ['i-1'] }, { service: 'two', instances: [] }])
     expect(http.get).toHaveBeenCalledWith('/v1/traces/services', {
       from: '2030-01-01T00:00:00Z',
       to: '2030-01-01T01:00:00Z'

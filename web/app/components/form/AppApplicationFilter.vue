@@ -1,29 +1,36 @@
 <script setup lang="ts">
 /**
- * Multi-select picker over `service.name` values. Three pages of state:
- *  - "all" → no filter applied (modelValue is empty AND noneSelected is false)
- *  - "none" → user explicitly cleared every box (noneSelected is true)
- *  - "subset" → modelValue is a non-empty allow-list
- *
- * The "none" state is distinct from "all" because users asked for the
- * literal checkbox semantics: ticking "All applications" off should
- * actually hide every row, not silently fall back to no-filter. The
- * popover layout otherwise mirrors AppSeveritySelect so the toolbar
- * reads as one family of filters.
+ * Multi-select picker over `service.name` values, with a collapsible list of
+ * `service.instance.id` values under each service that reports more than one.
+ * The model mixes service names and `service:instanceId` entries, like the
+ * `services=` API parameter. Three states: "all" (no filter, empty model and
+ * noneSelected false), "none" (noneSelected true, every row hidden) and an
+ * explicit subset. The selection rules live in `~/lib/applicationSelection`.
  */
+import type { ServiceInstancesDto } from '~/services/types'
+import {
+  allState,
+  isInstanceChecked,
+  onlyInstance,
+  onlyService,
+  selectedInstanceCount,
+  serviceState,
+  summarize,
+  toggleAll as toggleAllSelection,
+  toggleInstance as toggleInstanceSelection,
+  toggleService as toggleServiceSelection,
+  toList,
+  toSelection,
+  type ApplicationSelection,
+  type CheckState
+} from '~/lib/applicationSelection'
+
 const props = defineProps<{
   modelValue: string[]
-  options: string[]
-  /** True when the user has explicitly deselected every application —
-   *  distinct from the implicit "all" state that empty `modelValue`
-   *  alone encodes. Pages that want the deselect-all affordance bind
-   *  this; pages that don't can omit it and the picker behaves as a
-   *  plain "all ↔ subset" toggle. */
+  options: ServiceInstancesDto[]
   noneSelected?: boolean
-  /** Optional any-span / root match mode binding. When omitted the
-   *  toggle row in the popover is hidden and the filter stays
-   *  root-anchored — pages that don't surface the alternative don't
-   *  pay for the extra UI. */
+  /** Optional any-span / root match mode binding; the toggle row is
+   *  hidden when omitted. */
   matchMode?: 'root' | 'any'
   disabled?: boolean
 }>()
@@ -36,65 +43,55 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const isOpen = ref(false)
+const expanded = ref(new Set<string>())
 
-const allSelected = computed(() => !props.noneSelected && props.modelValue.length === 0)
-const noneSelected = computed(() => props.noneSelected === true)
+const selection = computed(() => toSelection(props.modelValue, props.noneSelected === true, props.options))
 
-function isChecked(name: string): boolean {
-  if (noneSelected.value) return false
-  return allSelected.value || props.modelValue.includes(name)
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i])
 }
 
-function emitSelection(next: string[]) {
-  // Collapse the explicit full list back to the implicit "all" form so
-  // the URL stays compact, and clear the "none" flag whenever any
-  // positive selection is emitted.
-  if (props.noneSelected) emit('update:noneSelected', false)
-  if (next.length === props.options.length) emit('update:modelValue', [])
-  else emit('update:modelValue', next)
+function apply(next: ApplicationSelection) {
+  const list = toList(next)
+  if (!sameList(list, props.modelValue)) emit('update:modelValue', list)
+  if (next.none !== (props.noneSelected === true)) emit('update:noneSelected', next.none)
 }
 
-function toggle(name: string) {
-  // Independent checkbox semantics: each click flips just that row,
-  // materialising from the implicit "all" state on first deselect and
-  // collapsing back when the explicit list re-covers every option.
-  // Toggling out of the "none" state starts a fresh single-item list.
-  if (noneSelected.value) {
-    emitSelection([name])
-    return
-  }
-  const explicit = allSelected.value ? [...props.options] : [...props.modelValue]
-  const idx = explicit.indexOf(name)
-  if (idx >= 0) explicit.splice(idx, 1)
-  else explicit.push(name)
-  if (explicit.length === 0) {
-    // Last box just got unchecked from an explicit list — treat that as
-    // the literal "deselect all" the user asked for, not as no-filter.
-    emit('update:modelValue', [])
-    emit('update:noneSelected', true)
-    return
-  }
-  emitSelection(explicit)
+function toggleExpanded(service: string) {
+  const next = new Set(expanded.value)
+  if (next.has(service)) next.delete(service)
+  else next.add(service)
+  expanded.value = next
 }
 
-function toggleAll() {
-  if (allSelected.value) {
-    // All → none: encodes the user's explicit "deselect all" intent.
-    emit('update:modelValue', [])
-    emit('update:noneSelected', true)
-  } else {
-    // Anything else (none / subset) → all: collapses to the compact
-    // implicit-all form and clears the none flag.
-    emit('update:modelValue', [])
-    if (props.noneSelected) emit('update:noneSelected', false)
-  }
+const toggleAll = () => apply(toggleAllSelection(selection.value))
+const toggleService = (service: string) => apply(toggleServiceSelection(selection.value, props.options, service))
+const toggleInstance = (service: string, instance: string) =>
+  apply(toggleInstanceSelection(selection.value, props.options, service, instance))
+const selectOnlyService = (service: string) => apply(onlyService(props.options, service))
+const selectOnlyInstance = (service: string, instance: string) => apply(onlyInstance(props.options, service, instance))
+
+function checkIcon(state: CheckState): string {
+  if (state === 'checked') return 'i-ph-check-square'
+  if (state === 'partial') return 'i-ph-minus-square'
+  return 'i-ph-square'
+}
+
+function ariaChecked(state: CheckState): 'true' | 'false' | 'mixed' {
+  if (state === 'partial') return 'mixed'
+  return state === 'checked' ? 'true' : 'false'
 }
 
 const buttonLabel = computed(() => {
-  if (noneSelected.value) return t('filter.applicationNone')
-  if (allSelected.value) return t('filter.applicationAll')
-  if (props.modelValue.length === 1) return props.modelValue[0]!
-  return t('filter.applicationCount', { count: props.modelValue.length })
+  const summary = summarize(selection.value, props.options)
+  switch (summary.kind) {
+    case 'none': return t('filter.applicationNone')
+    case 'all': return t('filter.applicationAll')
+    case 'service': return summary.service
+    case 'instance': return `${summary.service} · ${summary.instance}`
+    case 'instances': return t('filter.applicationInstancesOf', { service: summary.service, count: summary.count })
+    case 'services': return t('filter.applicationCount', { count: summary.count })
+  }
 })
 
 const supportsMatchMode = computed(() => props.matchMode !== undefined)
@@ -106,7 +103,7 @@ function toggleMatchMode() {
 </script>
 
 <template>
-  <UPopover v-model:open="isOpen">
+  <UPopover v-model:open="isOpen" :content="{ align: 'start' }">
     <button
       type="button"
       class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-default bg-default hover:bg-elevated text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -121,16 +118,18 @@ function toggleMatchMode() {
     </button>
 
     <template #content>
-      <div class="p-2 w-64 space-y-0.5 max-h-80 overflow-y-auto">
+      <div class="p-2 w-72 space-y-0.5 max-h-96 overflow-y-auto">
         <button
           type="button"
+          role="checkbox"
+          :aria-checked="ariaChecked(allState(selection))"
           class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-elevated transition-colors"
           @click="toggleAll"
         >
           <UIcon
-            :name="allSelected ? 'i-ph-check-square' : 'i-ph-square'"
-            class="size-4"
-            :class="allSelected ? 'text-primary' : 'text-muted'"
+            :name="checkIcon(allState(selection))"
+            class="size-4 shrink-0"
+            :class="allState(selection) === 'unchecked' ? 'text-muted' : 'text-primary'"
           />
           <span class="font-medium">{{ t('filter.applicationAll') }}</span>
         </button>
@@ -138,29 +137,87 @@ function toggleMatchMode() {
           v-if="options.length > 0"
           class="my-1 border-t border-default"
         />
-        <button
-          v-for="opt in options"
-          :key="opt"
-          type="button"
-          class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-elevated transition-colors"
-          @click="toggle(opt)"
-        >
-          <UIcon
-            :name="isChecked(opt) ? 'i-ph-check-square' : 'i-ph-square'"
-            class="size-4"
-            :class="isChecked(opt) ? 'text-primary' : 'text-muted'"
-          />
-          <span class="truncate font-mono text-xs">{{ opt }}</span>
-        </button>
+
+        <template v-for="opt in options" :key="opt.service">
+          <div class="group flex items-center rounded-md hover:bg-elevated transition-colors">
+            <button
+              type="button"
+              role="checkbox"
+              :aria-checked="ariaChecked(serviceState(selection, opt))"
+              class="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-left"
+              @click="toggleService(opt.service)"
+            >
+              <UIcon
+                :name="checkIcon(serviceState(selection, opt))"
+                class="size-4 shrink-0"
+                :class="serviceState(selection, opt) === 'unchecked' ? 'text-muted' : 'text-primary'"
+              />
+              <span class="truncate font-mono text-xs" :title="opt.service">{{ opt.service }}</span>
+            </button>
+            <button
+              type="button"
+              class="shrink-0 px-1.5 py-1 rounded text-[11px] text-muted hover:text-primary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+              @click="selectOnlyService(opt.service)"
+            >{{ t('filter.applicationOnly') }}</button>
+            <button
+              v-if="opt.instances.length > 1"
+              type="button"
+              class="shrink-0 mr-1 inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] tabular-nums text-muted hover:text-default hover:bg-accented transition-colors"
+              :aria-expanded="expanded.has(opt.service)"
+              :aria-label="t('filter.applicationToggleInstances', { service: opt.service })"
+              :title="t('filter.applicationInstanceCount', { count: opt.instances.length })"
+              @click="toggleExpanded(opt.service)"
+            >
+              <span :class="serviceState(selection, opt) === 'partial' ? 'text-primary' : ''">
+                {{ serviceState(selection, opt) === 'partial'
+                  ? `${selectedInstanceCount(selection, opt)}/${opt.instances.length}`
+                  : opt.instances.length }}
+              </span>
+              <UIcon
+                name="i-ph-caret-right"
+                class="size-3 transition-transform"
+                :class="expanded.has(opt.service) ? 'rotate-90' : ''"
+              />
+            </button>
+          </div>
+
+          <div
+            v-if="opt.instances.length > 1 && expanded.has(opt.service)"
+            class="ml-4 pl-1.5 border-l border-default space-y-0.5"
+          >
+            <div
+              v-for="inst in opt.instances"
+              :key="inst"
+              class="group flex items-center rounded-md hover:bg-elevated transition-colors"
+            >
+              <button
+                type="button"
+                role="checkbox"
+                :aria-checked="isInstanceChecked(selection, opt.service, inst)"
+                class="flex-1 min-w-0 flex items-center gap-2 px-2 py-1 text-left"
+                @click="toggleInstance(opt.service, inst)"
+              >
+                <UIcon
+                  :name="isInstanceChecked(selection, opt.service, inst) ? 'i-ph-check-square' : 'i-ph-square'"
+                  class="size-3.5 shrink-0"
+                  :class="isInstanceChecked(selection, opt.service, inst) ? 'text-primary' : 'text-muted'"
+                />
+                <span class="truncate font-mono text-[11px] text-toned" :title="inst">{{ inst }}</span>
+              </button>
+              <button
+                type="button"
+                class="shrink-0 mr-1 px-1.5 py-0.5 rounded text-[11px] text-muted hover:text-primary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                @click="selectOnlyInstance(opt.service, inst)"
+              >{{ t('filter.applicationOnly') }}</button>
+            </div>
+          </div>
+        </template>
+
         <div
           v-if="options.length === 0"
           class="px-2 py-1.5 text-xs text-muted"
         >{{ t('filter.applicationEmpty') }}</div>
 
-        <!-- Match-mode toggle: opt-in for pages that wire `matchMode`.
-             Default (root) keeps the column-aligned semantics the user
-             expects from a checkbox; `any` re-enables the discovery
-             behaviour for cross-service traces. -->
         <template v-if="supportsMatchMode">
           <div class="my-1 border-t border-default" />
           <button

@@ -1499,6 +1499,70 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
+    private static OtlpResource InstanceResource(string service, string? instanceId)
+    {
+        var resource = new OtlpResource
+        {
+            Attributes = { new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = service } } },
+        };
+        if (instanceId is not null)
+        {
+            resource.Attributes.Add(new KeyValue { Key = "service.instance.id", Value = new AnyValue { StringValue = instanceId } });
+        }
+        return resource;
+    }
+
+    private static async Task SeedInstanceLogAsync(
+        HttpClient client,
+        string service,
+        string? instanceId,
+        DateTimeOffset time,
+        string body)
+    {
+        var scopeLogs = new ScopeLogs { Scope = new InstrumentationScope { Name = "tests" } };
+        scopeLogs.LogRecords.Add(new OtlpLogRecord
+        {
+            TimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(time),
+            SeverityNumber = OpenTelemetry.Proto.Logs.V1.SeverityNumber.Info,
+            Body = new AnyValue { StringValue = body },
+        });
+        var resourceLogs = new ResourceLogs { Resource = InstanceResource(service, instanceId) };
+        resourceLogs.ScopeLogs.Add(scopeLogs);
+        var request = new ExportLogsServiceRequest();
+        request.ResourceLogs.Add(resourceLogs);
+
+        using var response = await PostProtobufAsync(client, "/v1/logs", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    private static async Task SeedInstanceSpanAsync(
+        HttpClient client,
+        string service,
+        string instanceId,
+        DateTimeOffset start,
+        byte[] traceIdBytes,
+        byte[] spanIdBytes,
+        string name)
+    {
+        var scopeSpans = new ScopeSpans { Scope = new InstrumentationScope { Name = "tests" } };
+        scopeSpans.Spans.Add(new OtlpSpan
+        {
+            TraceId = ByteString.CopyFrom(traceIdBytes),
+            SpanId = ByteString.CopyFrom(spanIdBytes),
+            Name = name,
+            Kind = OtlpSpan.Types.SpanKind.Server,
+            StartTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(start),
+            EndTimeUnixNano = (ulong)UnixNanoTime.ToUnixNanoseconds(start.AddMilliseconds(20)),
+        });
+        var resourceSpans = new ResourceSpans { Resource = InstanceResource(service, instanceId) };
+        resourceSpans.ScopeSpans.Add(scopeSpans);
+        var request = new ExportTraceServiceRequest();
+        request.ResourceSpans.Add(resourceSpans);
+
+        using var response = await PostProtobufAsync(client, "/v1/traces", request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
     private static async Task<HttpResponseMessage> PostProtobufAsync<T>(HttpClient client, string path, T message)
         where T : IMessage<T>
     {
@@ -1629,14 +1693,131 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         var from = anchor.AddMinutes(-5);
         var to = anchor.AddMinutes(5);
 
-        var services = await client.GetFromJsonAsync<string[]>(
+        var services = await client.GetFromJsonAsync<ServiceInstancesItem[]>(
             new Uri($"/api/v1/logs/services?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
             JsonOptions);
 
         services.ShouldNotBeNull();
-        var ours = services!.Where(s => s.Contains(suffix, StringComparison.Ordinal)).ToList();
+        var ours = services!.Select(s => s.Service).Where(s => s.Contains(suffix, StringComparison.Ordinal)).ToList();
         ours.Count.ShouldBe(2);
         ours.ShouldBeInOrder(SortDirection.Ascending);
+    }
+
+    [Fact]
+    public async Task GetLogServices_Groups_Instances_Per_Service()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 10, 2, 12, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var multi = $"inst-multi-{suffix}";
+        var single = $"inst-none-{suffix}";
+
+        await SeedInstanceLogAsync(client, multi, "b-2", anchor, $"b2-{suffix}");
+        await SeedInstanceLogAsync(client, multi, "a-1", anchor.AddSeconds(1), $"a1-{suffix}");
+        await SeedInstanceLogAsync(client, single, instanceId: null, anchor.AddSeconds(2), $"none-{suffix}");
+        await WaitForAsync(async ctx => await ctx.Logs.CountAsync(l => l.Body!.EndsWith(suffix)) == 3);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var services = await client.GetFromJsonAsync<ServiceInstancesItem[]>(
+            new Uri($"/api/v1/logs/services?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+
+        var ours = services!.Where(s => s.Service.EndsWith(suffix, StringComparison.Ordinal)).ToList();
+        ours.Select(s => s.Service).ShouldBe([multi, single]);
+        ours[0].Instances.ShouldBe(["a-1", "b-2"]);
+        ours[1].Instances.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetLogs_Services_Accepts_Instance_Entries()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 10, 3, 12, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var api = $"inst-api-{suffix}";
+        var worker = $"inst-worker-{suffix}";
+        var other = $"inst-other-{suffix}";
+
+        await SeedInstanceLogAsync(client, api, "host:8080", anchor, $"api-1-{suffix}");
+        await SeedInstanceLogAsync(client, api, "host:8081", anchor.AddSeconds(1), $"api-2-{suffix}");
+        await SeedInstanceLogAsync(client, worker, "w-1", anchor.AddSeconds(2), $"worker-{suffix}");
+        await SeedInstanceLogAsync(client, other, "host:8080", anchor.AddSeconds(3), $"other-{suffix}");
+        await WaitForAsync(async ctx => await ctx.Logs.CountAsync(l => l.Body!.EndsWith(suffix)) == 4);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var onlyInstance = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString($"{api}:host:8080")}&limit=100", UriKind.Relative),
+            JsonOptions);
+        onlyInstance!.Items.Where(i => i.Body!.EndsWith(suffix, StringComparison.Ordinal)).Select(i => i.Body)
+            .ShouldBe([$"api-1-{suffix}"]);
+
+        var combined = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString(worker)}&services={Uri.EscapeDataString($"{api}:host:8081")}&limit=100", UriKind.Relative),
+            JsonOptions);
+        combined!.Items.Where(i => i.Body!.EndsWith(suffix, StringComparison.Ordinal)).Select(i => i.Body)
+            .ShouldBe([$"worker-{suffix}", $"api-2-{suffix}"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task GetLogs_Services_Handles_Colons_In_Service_And_Instance()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 10, 5, 12, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var service = $"ns:api-{suffix}";
+
+        await SeedInstanceLogAsync(client, service, "host:8080", anchor, $"first-{suffix}");
+        await SeedInstanceLogAsync(client, service, "host:8081", anchor.AddSeconds(1), $"second-{suffix}");
+        await WaitForAsync(async ctx => await ctx.Logs.CountAsync(l => l.Body!.EndsWith(suffix)) == 2);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var byService = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString(service)}&limit=100", UriKind.Relative),
+            JsonOptions);
+        byService!.Items.Count(i => i.Body!.EndsWith(suffix, StringComparison.Ordinal)).ShouldBe(2);
+
+        var byInstance = await client.GetFromJsonAsync<PagedLogsResponse>(
+            new Uri($"/api/v1/logs?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString($"{service}:host:8081")}&limit=100", UriKind.Relative),
+            JsonOptions);
+        byInstance!.Items.Where(i => i.Body!.EndsWith(suffix, StringComparison.Ordinal)).Select(i => i.Body)
+            .ShouldBe([$"second-{suffix}"]);
+    }
+
+    [Fact]
+    public async Task GetTraces_Service_Instance_Filter_Anchors_On_Root()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 10, 4, 12, 0, 0, TimeSpan.Zero);
+        var suffix = Guid.NewGuid().ToString("N");
+        var api = $"inst-trace-api-{suffix}";
+
+        await SeedInstanceSpanAsync(client, api, "i-1", anchor, RandomBytes(16), RandomBytes(8), $"root-1.{suffix}");
+        await SeedInstanceSpanAsync(client, api, "i-2", anchor.AddSeconds(1), RandomBytes(16), RandomBytes(8), $"root-2.{suffix}");
+        await WaitForAsync(async ctx => await ctx.Spans.CountAsync(s => s.Name.EndsWith(suffix)) == 2);
+
+        var from = anchor.AddMinutes(-5);
+        var to = anchor.AddMinutes(5);
+
+        var traces = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?from={Iso(from)}&to={Iso(to)}&services={Uri.EscapeDataString($"{api}:i-2")}", UriKind.Relative),
+            JsonOptions);
+        traces!.Items.Where(t => t.RootSpanName.EndsWith(suffix, StringComparison.Ordinal)).Select(t => t.RootSpanName)
+            .ShouldBe([$"root-2.{suffix}"]);
+
+        var instances = await client.GetFromJsonAsync<ServiceInstancesItem[]>(
+            new Uri($"/api/v1/traces/services?from={Iso(from)}&to={Iso(to)}", UriKind.Relative),
+            JsonOptions);
+        instances!.Single(s => s.Service == api).Instances.ShouldBe(["i-1", "i-2"]);
     }
 
     [Fact]
@@ -1791,6 +1972,7 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
         throw new TimeoutException($"Trace '{traceIdHex}' did not reach {expectedSpans} span(s) in time.");
     }
 
+    private sealed record ServiceInstancesItem(string Service, IReadOnlyList<string> Instances);
     private sealed record PagedLogsResponse(IReadOnlyList<LogItem> Items, string? NextCursor);
     private sealed record LogItem(DateTimeOffset Time, string? Body, string? SeverityText, string? ServiceName);
 

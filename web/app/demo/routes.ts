@@ -11,7 +11,8 @@ import {
   type SeverityBucket
 } from '~/types/filters'
 import { DEMO_LIBRARIES, DEMO_PACKS } from './data/libraries'
-import { DEMO_SERVICES } from './data/services'
+import { DEMO_SERVICES, demoInstanceOf, demoServiceInstances } from './data/services'
+import { parseServicesParam } from '~/lib/applicationSelection'
 import {
   INSTRUMENT_CATALOG,
   findInstrumentByHash
@@ -102,7 +103,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
 
   // ------------- /v1/traces ---------------------------------------
   if (method === 'GET' && path === '/v1/traces/services') {
-    return [...DEMO_SERVICES].sort()
+    return demoServiceInstances()
   }
   if (method === 'GET' && path === '/v1/service-map') {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 60 * 60_000
@@ -262,20 +263,19 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
       // The generator narrows scenario selection to a single seed
       // service for performance; the multi-value allow-list is then
       // enforced post-generation below.
-      service: services && services.length === 1 ? services[0]! : null,
+      service: services?.length === 1 && !services[0]!.includes(':') ? services[0]! : null,
       cursor: optionalString(query, 'cursor')
     })
-    if (services && services.length > 0) {
-      const allow = new Set(services)
+    if (services) {
       // Default match anchors on the root (the summary's serviceName);
       // `serviceMatch=any` widens the test to every service the trace
       // touched (root + otherServiceNames), matching the real
       // backend's discovery semantics.
       result.items = result.items.filter(t => {
-        const summary = t as { serviceName: string; otherServiceNames?: string[] }
-        if (allow.has(summary.serviceName)) return true
+        const summary = t as { traceId: string; serviceName: string; otherServiceNames?: string[] }
+        if (matchesSelection(summary.serviceName, summary.traceId, services)) return true
         if (serviceMatch === 'any') {
-          return summary.otherServiceNames?.some(s => allow.has(s)) ?? false
+          return summary.otherServiceNames?.some(s => matchesSelection(s, summary.traceId, services)) ?? false
         }
         return false
       })
@@ -316,7 +316,7 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
 
   // ------------- /v1/logs -----------------------------------------
   if (method === 'GET' && path === '/v1/logs/services') {
-    return [...DEMO_SERVICES].sort()
+    return demoServiceInstances()
   }
   if (method === 'GET' && path === '/v1/logs') {
     const fromMs = parseTimeParam(query.from) ?? Date.now() - 15 * 60_000
@@ -327,19 +327,19 @@ export function dispatch(req: DemoRequest, deps: DemoRouterDeps): unknown {
     const bodyContains = optionalString(query, 'bodyContains')
     const filters = attrPairs(query)
     const hasPostFilters = severities.size > 0 || !!bodyContains || filters.length > 0
-      || (services !== undefined && services.length > 1)
+      || (services !== undefined && (services.length > 1 || services.some(s => s.includes(':'))))
     const fetchLimit = hasPostFilters ? Math.max(limit * 4, 200) : limit
     const result = generateLogList({
       fromMs,
       toMs,
       limit: fetchLimit,
-      service: services && services.length === 1 ? services[0]! : null,
+      service: services?.length === 1 && !services[0]!.includes(':') ? services[0]! : null,
       minSeverity: numberParam(query, 'minSeverity'),
       traceIdFilter: optionalString(query, 'traceId')
     })
-    if (services && services.length > 0) {
-      const allow = new Set(services)
-      result.items = result.items.filter(l => l.serviceName != null && allow.has(l.serviceName))
+    if (services) {
+      result.items = result.items.filter(l =>
+        l.serviceName != null && matchesSelection(l.serviceName, `${l.time}|${l.body ?? ''}`, services))
     }
     if (severities.size > 0) {
       result.items = result.items.filter(l => severities.has(severityBucketFromNumber(l.severityNumber)))
@@ -443,9 +443,8 @@ function boolParam(query: Record<string, unknown>, key: string): boolean {
 }
 
 /**
- * Flatten the `services=` URL param (CSV or repeated) into a
- * deduplicated allow-list. Mirrors the C# `QueryValidation.CollectServiceNames`
- * so the demo and the real backend agree on incoming-request shape.
+ * Flatten the `services=` URL param into a deduplicated allow-list of names
+ * and `service:instance` entries, mirroring the C# `QueryValidation.CollectServiceNames`.
  * Returns `undefined` when nothing was supplied.
  */
 function collectServices(query: Record<string, unknown>): string[] | undefined {
@@ -453,15 +452,14 @@ function collectServices(query: Record<string, unknown>): string[] | undefined {
   const entries: string[] = Array.isArray(raw)
     ? (raw as unknown[]).filter((v): v is string => typeof v === 'string')
     : typeof raw === 'string' ? [raw] : []
-  if (entries.length === 0) return undefined
-  const out: string[] = []
-  for (const entry of entries) {
-    for (const part of entry.split(',')) {
-      const t = part.trim()
-      if (t.length > 0 && !out.includes(t)) out.push(t)
-    }
-  }
+  const out = parseServicesParam(entries)
   return out.length > 0 ? out : undefined
+}
+
+function matchesSelection(service: string, seed: string, services: string[] | undefined): boolean {
+  if (services?.includes(service)) return true
+  const instance = demoInstanceOf(service, seed)
+  return instance !== null && (services?.includes(`${service}:${instance}`) ?? false)
 }
 
 /**

@@ -32,7 +32,9 @@ public sealed record LogQuery(
     CursorPosition? After,
     TraceId? TraceId = null,
     /// <summary>Allow-list of <c>service.name</c> values; logs whose
-    /// resource matches any of them pass. <c>null</c> or empty means
+    /// resource matches any of them pass; an entry also matches a resource
+    /// whose <c>service.name:service.instance.id</c> equals it, which selects
+    /// a single instance. <c>null</c> or empty means
     /// no service filter (every service shows). Single-name URL
     /// (<c>?service=foo</c>) is collapsed to a one-element list at
     /// validation time, so consumers only ever see this shape.</summary>

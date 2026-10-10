@@ -260,10 +260,10 @@ internal static class QueryValidation
     /// <summary>
     /// Flatten the <c>services=</c> array into a deduplicated allow-list.
     /// Both repeated-key (<c>services=a&amp;services=b</c>) and CSV
-    /// (<c>services=a,b</c>) shapes are supported — ASP.NET binds repeated
-    /// keys to the array, the comma split is done here. Returns
-    /// <c>null</c> when nothing was supplied so the reader treats that
-    /// as "no service filter".
+    /// (<c>services=a,b</c>) shapes are supported, except that an entry
+    /// containing a colon is a <c>name:instanceId</c> key and is kept whole,
+    /// since instance ids may contain commas. Returns <c>null</c> when
+    /// nothing was supplied so the reader treats that as "no service filter".
     /// </summary>
     internal static IReadOnlyList<string>? CollectServiceNames(string[]? services)
     {
@@ -271,13 +271,13 @@ internal static class QueryValidation
         var list = new List<string>();
         foreach (var entry in services)
         {
-            if (entry is null) continue;
-            foreach (var part in entry.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (string.IsNullOrWhiteSpace(entry)) continue;
+            var parts = entry.Contains(':', StringComparison.Ordinal)
+                ? [entry.Trim()]
+                : entry.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var part in parts)
             {
-                if (part.Length > 0 && !list.Contains(part, StringComparer.Ordinal))
-                {
-                    list.Add(part);
-                }
+                if (!list.Contains(part, StringComparer.Ordinal)) list.Add(part);
             }
         }
         return list.Count == 0 ? null : list;
