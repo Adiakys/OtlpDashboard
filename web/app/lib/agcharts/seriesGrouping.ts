@@ -94,6 +94,12 @@ export function formatLegend(template: string, group: SeriesGroup, groupCount: n
   return label || describeGroup(group.attrs)
 }
 
+/** Label for a group: the user's legend template when set, else the default. */
+export function groupLabel(template: string | null | undefined, group: SeriesGroup, groupCount: number): string {
+  const t = template?.trim()
+  return t ? formatLegend(t, group, groupCount) : describeGroup(group.attrs)
+}
+
 function pickAttributes(
   attrs: Record<string, unknown>,
   splitBy: SplitBy

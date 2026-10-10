@@ -220,7 +220,7 @@
       "splitByHint": "Chiave attributo (es. http.method). Vuoto = tutti gli attributi.",
       "legend": "Legenda",
       "legendHint": "Usa {'{'}attributo{'}'} per il suo valore, es. Richieste {'{'}http.request.method{'}'}. Vuoto mantiene l'etichetta predefinita.",
-      "legendPlaceholder": "Predefinita: nome della metrica e attributi",
+      "legendPlaceholder": "Etichetta predefinita",
       "htmlNoMetricBindings": "Questo widget non ha binding metrici — niente da configurare.",
       "htmlTemplatePreview": "Visualizza template (sola lettura)",
       "htmlParameters": "Parametri",

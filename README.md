@@ -206,9 +206,10 @@ a whole bucket.
 
 ### Custom legend labels
 
-Line widgets label each series with the metric name and its attributes,
-which can get long. To shorten it, open the widget's config drawer and fill
-the **Legend** field next to each selected metric. Use `{attribute}` to
+Line, Pie, Bar gauge and Heatmap widgets label their series, slices, bars or
+rows with the metric's attributes (Line adds the metric name when it shows
+several), which can get long. To shorten them, open the widget's config drawer and fill the
+**Legend** field (one per selected metric on Line). Use `{attribute}` to
 insert an attribute value, e.g. `Requests {http.request.method}` renders as
 `Requests POST`. Leave it empty to keep the default label. In pack JSON the
 same value is the `legend` field of the metric binding.

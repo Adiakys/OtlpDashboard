@@ -64,6 +64,18 @@ function asNullableNumber(v: unknown): number | null {
       />
     </UFormField>
 
+    <UFormField
+      v-if="modelValue.metric"
+      :label="t('dashboard.config.legend')"
+      :description="t('dashboard.config.legendHint')"
+    >
+      <UInput
+        :model-value="modelValue.metric.legend ?? ''"
+        :placeholder="t('dashboard.config.legendPlaceholder')"
+        @update:model-value="(v) => patch({ metric: { ...modelValue.metric!, legend: v ? String(v) : undefined } })"
+      />
+    </UFormField>
+
     <div class="grid grid-cols-2 gap-3">
       <UFormField :label="t('dashboard.config.calc.label')">
         <CalcSelect

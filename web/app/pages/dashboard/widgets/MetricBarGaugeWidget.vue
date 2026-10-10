@@ -10,7 +10,7 @@ import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
-import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { groupLabel, groupPoints } from '~/lib/agcharts/seriesGrouping'
 
 const props = withDefaults(defineProps<{
   config: MetricBarGaugeConfig
@@ -65,7 +65,7 @@ const bars = computed<Bar[]>(() => {
   for (const g of groups) {
     const v = reduce(g.points.map(p => Number(p.value)), calc.value)
     if (v === null) continue
-    reduced.push({ key: g.key, label: describeGroup(g.attrs), value: v })
+    reduced.push({ key: g.key, label: groupLabel(props.config.metric?.legend, g, groups.length), value: v })
   }
   reduced.sort((a, b) => b.value - a.value)
   const top = reduced.slice(0, topN.value)

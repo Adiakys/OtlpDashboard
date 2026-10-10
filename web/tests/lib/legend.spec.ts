@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildChartOptions } from '~/lib/agcharts/chartStrategy'
-import { formatLegend, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { formatLegend, groupLabel, groupPoints } from '~/lib/agcharts/seriesGrouping'
 import type { InstrumentDto, MetricPointDto, MetricSeriesDto } from '~/services/types'
 
 function point(attributes: Record<string, unknown>, value = 1): MetricPointDto {
@@ -32,6 +32,15 @@ describe('formatLegend', () => {
   it('falls back to the group description when the result is empty', () => {
     const [get] = groupPoints(points, ['method'])
     expect(formatLegend('{missing}', get!, 2)).toBe('{method=GET}')
+  })
+})
+
+describe('groupLabel', () => {
+  it('uses the template when set and the default label otherwise', () => {
+    const [get] = groupPoints(points, ['method'])
+    expect(groupLabel('{method}', get!, 2)).toBe('GET')
+    expect(groupLabel('  ', get!, 2)).toBe('{method=GET}')
+    expect(groupLabel(undefined, get!, 2)).toBe('{method=GET}')
   })
 })
 
