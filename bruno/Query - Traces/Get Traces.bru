@@ -27,6 +27,7 @@ params:query {
 
 docs {
   - `serviceMatch`: `root` (default) o `any`.
+  - `services` accetta nomi in CSV o chiavi ripetute; una voce `servizio:istanza` seleziona la singola istanza e va passata come chiave a sé (`?services=a,b&services=api:host:8080`). Ancorato come indicato da `serviceMatch`.
   - `noService=true` ignora la lista `services` e restituisce le trace il cui root span ha resource senza `service.name`.
   - `status`: `ok` | `error` | `unset`.
 }

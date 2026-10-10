@@ -19,8 +19,9 @@ internal sealed record TraceQueryParameters(
     [FromQuery(Name = "limit")] int? Limit,
     [FromQuery(Name = "cursor")] string? Cursor,
     // Multi-value service allow-list. Accepts repeated keys
-    // (`services=A&services=B`) and CSV (`services=A,B`). Empty / absent
-    // disables the filter.
+    // (`services=A&services=B`) and CSV (`services=A,B`); a
+    // `name:instanceId` entry selects a single instance and is never
+    // CSV-split. Empty / absent disables the filter.
     [FromQuery(Name = "services")] string[]? Services = null,
     // Match anchor for `services` and `noService`. Default `root` —
     // the trace's root span must be on the matching resource — keeps

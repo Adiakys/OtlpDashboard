@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using OpenTelemetryDashboard.Api.Contracts;
 using OpenTelemetryDashboard.Core.Abstractions;
 
 namespace OpenTelemetryDashboard.Api.Endpoints;
@@ -16,13 +17,13 @@ internal sealed record ServicesQueryParameters(
     [FromQuery(Name = "to")] DateTimeOffset? To);
 
 /// <summary>
-/// HTTP handlers that drive the "Application" filter in the UI. Each one
-/// returns the distinct, alphabetically-sorted, non-null set of
-/// <c>service.name</c> values currently visible to its domain reader.
+/// HTTP handlers that drive the "Application" filter in the UI. Logs and
+/// traces return each <c>service.name</c> in the window with its
+/// <c>service.instance.id</c> values; metrics return plain names.
 /// </summary>
 internal static class ServicesEndpoints
 {
-    public static async Task<Results<Ok<IReadOnlyList<string>>, ValidationProblem>> GetLogServicesAsync(
+    public static async Task<Results<Ok<IReadOnlyList<ServiceInstancesDto>>, ValidationProblem>> GetLogServicesAsync(
         [AsParameters] ServicesQueryParameters parameters,
         ILogReader reader,
         IOptions<QueryApiOptions> options,
@@ -33,16 +34,11 @@ internal static class ServicesEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var names = new SortedSet<string>(StringComparer.Ordinal);
-        await foreach (var name in reader.GetDistinctServiceNamesAsync(from, to, cancellationToken).ConfigureAwait(false))
-        {
-            names.Add(name);
-        }
-
-        return TypedResults.Ok<IReadOnlyList<string>>([.. names]);
+        return TypedResults.Ok(await GroupInstancesAsync(
+            reader.GetDistinctServicesAsync(from, to, cancellationToken)).ConfigureAwait(false));
     }
 
-    public static async Task<Results<Ok<IReadOnlyList<string>>, ValidationProblem>> GetTraceServicesAsync(
+    public static async Task<Results<Ok<IReadOnlyList<ServiceInstancesDto>>, ValidationProblem>> GetTraceServicesAsync(
         [AsParameters] ServicesQueryParameters parameters,
         ITraceReader reader,
         IOptions<QueryApiOptions> options,
@@ -53,13 +49,25 @@ internal static class ServicesEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var names = new SortedSet<string>(StringComparer.Ordinal);
-        await foreach (var name in reader.GetDistinctServiceNamesAsync(from, to, cancellationToken).ConfigureAwait(false))
+        return TypedResults.Ok(await GroupInstancesAsync(
+            reader.GetDistinctServicesAsync(from, to, cancellationToken)).ConfigureAwait(false));
+    }
+
+    private static async Task<IReadOnlyList<ServiceInstancesDto>> GroupInstancesAsync(
+        IAsyncEnumerable<(string ServiceName, string? InstanceId)> rows)
+    {
+        var byService = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        await foreach (var (serviceName, instanceId) in rows.ConfigureAwait(false))
         {
-            names.Add(name);
+            if (!byService.TryGetValue(serviceName, out var instances))
+            {
+                instances = new SortedSet<string>(StringComparer.Ordinal);
+                byService[serviceName] = instances;
+            }
+            if (!string.IsNullOrEmpty(instanceId)) instances.Add(instanceId);
         }
 
-        return TypedResults.Ok<IReadOnlyList<string>>([.. names]);
+        return [.. byService.Select(kv => new ServiceInstancesDto(kv.Key, [.. kv.Value]))];
     }
 
     public static async Task<Ok<IReadOnlyList<string>>> GetMetricServicesAsync(

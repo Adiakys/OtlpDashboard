@@ -203,4 +203,14 @@ public sealed class QueryValidationTests
         key.ShouldNotBeNull();
         window.ShouldNotBeNull();
     }
+
+    [Fact]
+    public void Services_Keep_Instance_Keys_Whole()
+    {
+        var parameters = new TraceQueryParameters(T(0), T(1), null, null,
+            Services: ["worker,legacy", "api:host:8080", " api:a,b ", "worker"]);
+
+        QueryValidation.TryBuildTraceQuery(parameters, Options, out var query, out _).ShouldBeTrue();
+        query!.ServiceNames.ShouldBe(["worker", "legacy", "api:host:8080", "api:a,b"]);
+    }
 }

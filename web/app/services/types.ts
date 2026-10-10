@@ -126,6 +126,13 @@ export interface ServiceMapDto {
   edges: ServiceMapEdgeDto[]
 }
 
+/** One `service.name` seen in the window with its sorted
+ *  `service.instance.id` values (empty when none was reported). */
+export interface ServiceInstancesDto {
+  service: string
+  instances: string[]
+}
+
 export interface TimeWindow {
   from: string
   to: string
@@ -137,8 +144,9 @@ export interface PageQuery extends TimeWindow {
   /** Optional log filter: restrict to records correlated with this trace. */
   traceId?: string
   /** Optional filter: restrict to rows whose resource `service.name`
-   *  is in this allow-list. Empty/undefined disables the filter. The
-   *  HTTP layer joins with commas as `services=A,B,C`. */
+   *  is in this allow-list; a `service:instanceId` entry selects a single
+   *  instance. Empty/undefined disables the filter. Sent as repeated
+   *  `services=` keys. */
   services?: string[]
   /** Optional trace filter: restrict to traces touching at least one
    *  span whose Resource has no `service.name` (null or empty). Used

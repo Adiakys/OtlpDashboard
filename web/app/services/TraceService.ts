@@ -2,6 +2,7 @@ import type { HttpClientService, RequestOptions } from './HttpClientService'
 import type {
   PageQuery,
   PagedResponse,
+  ServiceInstancesDto,
   TimeWindow,
   TraceAggregationMetric,
   TraceAggregationsResponse,
@@ -30,7 +31,7 @@ export class TraceService {
       to: query.to,
       limit: query.limit,
       cursor: query.cursor,
-      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
+      services: query.services && query.services.length > 0 ? query.services : undefined,
       serviceMatch: query.serviceMatch === 'any' ? 'any' : undefined,
       noService: query.noService ? true : undefined,
       status: query.status,
@@ -55,14 +56,14 @@ export class TraceService {
       to: query.to,
       metric: query.metric,
       limit: query.limit,
-      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
+      services: query.services && query.services.length > 0 ? query.services : undefined,
       attr: query.attr && query.attr.length > 0 ? query.attr : undefined
     })
   }
 
-  /** Distinct, alphabetically-sorted `service.name` values touched by traces in the window. */
-  listServices(window: TimeWindow): Promise<string[]> {
-    return this.http.get<string[]>('/v1/traces/services', {
+  /** Services touched by traces in the window, sorted, each with its instance ids. */
+  listServices(window: TimeWindow): Promise<ServiceInstancesDto[]> {
+    return this.http.get<ServiceInstancesDto[]>('/v1/traces/services', {
       from: window.from,
       to: window.to
     })

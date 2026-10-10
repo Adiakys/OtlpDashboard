@@ -37,10 +37,11 @@ public interface ITraceReader
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Returns the distinct, non-null <c>service.name</c> values attached to
-    /// traces whose earliest span falls inside the window.
+    /// Returns the distinct (<c>service.name</c>, <c>service.instance.id</c>)
+    /// pairs attached to spans starting inside the window, skipping
+    /// resources without a <c>service.name</c>.
     /// </summary>
-    IAsyncEnumerable<string> GetDistinctServiceNamesAsync(
+    IAsyncEnumerable<(string ServiceName, string? InstanceId)> GetDistinctServicesAsync(
         DateTimeOffset fromTime,
         DateTimeOffset toTime,
         CancellationToken cancellationToken);

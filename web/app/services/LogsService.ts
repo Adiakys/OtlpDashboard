@@ -1,5 +1,5 @@
 import type { HttpClientService } from './HttpClientService'
-import type { LogRecordDto, PageQuery, PagedResponse, TimeWindow } from './types'
+import type { LogRecordDto, PageQuery, PagedResponse, ServiceInstancesDto, TimeWindow } from './types'
 
 /**
  * Reads logs from the Query API. Pure wrapper around the HTTP client — no
@@ -15,7 +15,7 @@ export class LogsService {
       limit: query.limit,
       cursor: query.cursor,
       traceId: query.traceId,
-      services: query.services && query.services.length > 0 ? query.services.join(',') : undefined,
+      services: query.services && query.services.length > 0 ? query.services : undefined,
       minSeverity: query.minSeverity,
       // Comma-separated list — the server accepts both repeated keys and a
       // single comma-joined string. The single string keeps the URL short
@@ -26,9 +26,9 @@ export class LogsService {
     })
   }
 
-  /** Distinct, alphabetically-sorted `service.name` values seen in the window. */
-  listServices(window: TimeWindow): Promise<string[]> {
-    return this.http.get<string[]>('/v1/logs/services', {
+  /** Services seen in the window, sorted, each with its instance ids. */
+  listServices(window: TimeWindow): Promise<ServiceInstancesDto[]> {
+    return this.http.get<ServiceInstancesDto[]>('/v1/logs/services', {
       from: window.from,
       to: window.to
     })

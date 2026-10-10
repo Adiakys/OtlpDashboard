@@ -22,10 +22,11 @@ public interface ILogReader
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Returns the distinct, non-null <c>service.name</c> values attached to
-    /// log records inside the given window. Used to populate the UI filter.
+    /// Returns the distinct (<c>service.name</c>, <c>service.instance.id</c>)
+    /// pairs attached to log records inside the given window, skipping
+    /// resources without a <c>service.name</c>. Used to populate the UI filter.
     /// </summary>
-    IAsyncEnumerable<string> GetDistinctServiceNamesAsync(
+    IAsyncEnumerable<(string ServiceName, string? InstanceId)> GetDistinctServicesAsync(
         DateTimeOffset fromTime,
         DateTimeOffset toTime,
         CancellationToken cancellationToken);
