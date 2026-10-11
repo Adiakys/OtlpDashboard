@@ -11,7 +11,7 @@ import type { MetricPieConfig } from '../types'
 import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
-import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { groupLabel, groupPoints } from '~/lib/agcharts/seriesGrouping'
 import { escapeHtml } from '~/lib/escapeHtml'
 
 const props = withDefaults(defineProps<{
@@ -60,7 +60,7 @@ const slices = computed<Slice[]>(() => {
   for (const g of groups) {
     const v = reduce(g.points.map(p => Number(p.value)), calc.value)
     if (v === null || v <= 0) continue
-    out.push({ label: describeGroup(g.attrs), value: v })
+    out.push({ label: groupLabel(props.config.metric?.legend, g, groups.length), value: v })
   }
   return out
 })

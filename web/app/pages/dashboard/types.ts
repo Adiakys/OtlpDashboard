@@ -112,6 +112,9 @@ export interface MetricBinding {
   /** Display-only fallback for unit and description. */
   unit?: string | null
   description?: string | null
+  /** Legend label template for multi-series widgets; `{key}` placeholders
+   *  take the attribute value. Empty = `instrument {attrs}`. */
+  legend?: string | null
 }
 
 export type RangePreset = 'last-5m' | 'last-15m' | 'last-1h' | 'last-6h' | 'last-24h'

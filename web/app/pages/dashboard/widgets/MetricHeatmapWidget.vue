@@ -10,7 +10,7 @@ import { WIDGET_REGISTRY } from '../registry'
 import { reduce, type CalcMode } from '~/lib/units/calc'
 import { formatValue, type UnitKind } from '~/lib/units/format'
 import { pickThreshold } from '~/lib/units/thresholds'
-import { describeGroup, groupPoints } from '~/lib/agcharts/seriesGrouping'
+import { groupLabel, groupPoints } from '~/lib/agcharts/seriesGrouping'
 import { dateTimeFormat } from '~/lib/dateTimeFormat'
 
 const props = withDefaults(defineProps<{
@@ -101,7 +101,7 @@ const heatmap = computed<HeatmapData>(() => {
       if (r < globalMin) globalMin = r
       if (r > globalMax) globalMax = r
     }
-    rawRows.push({ label: describeGroup(g.attrs), perBucket: reduced })
+    rawRows.push({ label: groupLabel(props.config.metric?.legend, g, groups.length), perBucket: reduced })
   }
   if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax)) {
     return { rows: [], bucketStarts, minValue: 0, maxValue: 0 }

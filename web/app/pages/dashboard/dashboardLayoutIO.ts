@@ -91,7 +91,7 @@ export class DashboardLayoutIO {
         unresolved++
         return binding
       }
-      return bindingFromInstrument(match)
+      return { ...bindingFromInstrument(match), legend: binding.legend }
     }
 
     return {
