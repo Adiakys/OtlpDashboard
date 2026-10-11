@@ -16,7 +16,7 @@
 #   docker run --rm -p 8080:8080 oteldash-demo
 
 # ---- Build the static bundle ----------------------------------------
-FROM node:22-alpine AS web-build
+FROM node:24-alpine AS web-build
 WORKDIR /repo
 ENV CI=1
 

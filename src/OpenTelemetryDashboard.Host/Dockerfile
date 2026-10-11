@@ -27,7 +27,7 @@ FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./OpenTelemetryDashboard.Host.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-FROM node:22-alpine AS web-build
+FROM node:24-alpine AS web-build
 WORKDIR /web
 ENV CI=1
 COPY web/package.json web/pnpm-lock.yaml ./
