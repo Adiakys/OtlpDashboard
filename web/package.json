@@ -15,28 +15,33 @@
     "generate:demo": "pnpm sync-demo-fixtures && VITE_DEMO_MODE=true nuxt generate"
   },
   "dependencies": {
-    "@fontsource-variable/geist": "^5.2.8",
-    "@fontsource-variable/geist-mono": "^5.2.7",
-    "@nuxt/ui": "^4.8.1",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@nuxt/ui": "^4.11.3",
     "@nuxtjs/i18n": "^10.6.0",
     "@types/d3-force": "^3.0.10",
-    "ag-charts-community": "^11.0.0",
-    "ag-charts-vue3": "^11.0.0",
+    "ag-charts-community": "^11.3.2",
+    "ag-charts-vue3": "^11.3.2",
     "ag-grid-community": "^33.3.2",
     "ag-grid-vue3": "^33.3.2",
     "d3-force": "^3.0.0",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.4.16",
     "grid-layout-plus": "^1.1.1",
-    "nuxt": "^4.5.1",
-    "tailwindcss": "^4.2.2"
+    "nuxt": "^4.6.1",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "@iconify-json/lucide": "^1.2.0",
+    "@iconify-json/lucide": "^1.2.142",
     "@iconify-json/ph": "^1.2.2",
-    "typescript": "^5.6.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.11",
-    "vue": "^3.5.33",
-    "vue-tsc": "^3.2.6"
+    "vue": "^3.5.43",
+    "vue-tsc": "^3.3.13"
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "overrides": {
+      "fontless>esbuild": "^0.28.1"
+    }
+  }
 }
