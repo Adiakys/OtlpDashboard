@@ -46,10 +46,12 @@ jobs:
         id: ref
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            ref="${{ inputs.tag }}"
           else
-            echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+            ref="${{ github.event.release.tag_name }}"
           fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -103,6 +105,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.ref.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
