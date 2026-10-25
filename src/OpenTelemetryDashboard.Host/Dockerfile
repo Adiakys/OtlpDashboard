@@ -6,6 +6,7 @@ EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
+ARG VERSION=0.0.0-dev
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
 COPY .config/ ./.config/
@@ -21,11 +22,12 @@ COPY ["src/OpenTelemetryDashboard.Api/OpenTelemetryDashboard.Api.csproj", "src/O
 RUN dotnet restore "src/OpenTelemetryDashboard.Host/OpenTelemetryDashboard.Host.csproj"
 COPY . .
 WORKDIR "/src/src/OpenTelemetryDashboard.Host"
-RUN dotnet build "./OpenTelemetryDashboard.Host.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./OpenTelemetryDashboard.Host.csproj" -c $BUILD_CONFIGURATION -o /app/build -p:Version=$VERSION
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./OpenTelemetryDashboard.Host.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+ARG VERSION=0.0.0-dev
+RUN dotnet publish "./OpenTelemetryDashboard.Host.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -p:Version=$VERSION
 
 FROM node:24-alpine AS web-build
 WORKDIR /web
