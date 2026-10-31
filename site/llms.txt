@@ -1,0 +1,51 @@
+# OtlpDashboard
+
+> OtlpDashboard (also called OpenTelemetry Dashboard) is an open-source, self-hosted OTLP receiver and viewer for OpenTelemetry traces, logs and metrics. It runs as a single Docker container, stores telemetry in SQLite, PostgreSQL or SQL Server, and includes custom dashboards and a read-only MCP server for AI assistants. Licence: GPL-3.0.
+
+It sits between the .NET Aspire dashboard (in-memory, no custom dashboards) and a full Grafana, Tempo, Loki and Prometheus stack (many services to run). It is a good fit for development teams, side projects and small to medium production workloads that want persistent telemetry without operating an observability platform. It has no alerting.
+
+Key facts:
+
+- Ingestion: OTLP over gRPC on port 4317 and OTLP over HTTP/Protobuf on port 4318. The web app is served on port 4318 too.
+- Signals: traces (span tree and flame view), logs (linked to traces), metrics (grouped by service and instance), and a service map built from spans.
+- Storage: SQLite by default; PostgreSQL or SQL Server via `Dashboard__Storage__Provider`.
+- Retention: per signal, in days (defaults: logs 30, traces 7, metrics 7), enforced by a background sweep.
+- Auth: two optional bearer tokens, `DASHBOARD__BROWSERTOKEN` for the web app, API and MCP, and `DASHBOARD__OTLP__APIKEY` for ingestion.
+- Dashboards: widgets on a 12-column grid (stat, line, sparkline, gauge, bar gauge, pie, heatmap, recent traces, top traces, logs stream, text), user-saved widgets, and packs of widgets and dashboards installed from Git.
+- MCP: set `Dashboard__Mcp__Enabled=true` to mount a Model Context Protocol server at `/mcp` with tools `query_logs`, `query_traces`, `get_trace`, `list_metrics`, `query_metric_points` and others.
+- Stack: .NET 10 and EF Core backend, Nuxt 4 / Vue 3 single-page app.
+
+Quick start:
+
+```bash
+docker run -d --name otlp-dashboard -p 4317:4317 -p 4318:4318 -v otlp-data:/app/data ghcr.io/adiakys/otlpdashboard:latest
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+```
+
+Then open http://localhost:4318. With Docker Compose:
+
+```yaml
+services:
+  otlp-dashboard:
+    image: ghcr.io/adiakys/otlpdashboard:latest
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - otlp-data:/app/data
+    restart: unless-stopped
+volumes:
+  otlp-data:
+```
+
+Other services in the same Compose project send telemetry to `http://otlp-dashboard:4317`.
+
+## Links
+
+- [Website](https://adiakys.github.io/OtlpDashboard/): overview, comparison with Aspire, Jaeger, Grafana and SigNoz, FAQ
+- [Live demo](https://adiakys.github.io/OtlpDashboard/demo/): in-browser demo with generated data, any password works
+- [README](https://github.com/Adiakys/OtlpDashboard#readme): configuration, storage, retention, MCP, widgets and packs
+- [Source code](https://github.com/Adiakys/OtlpDashboard)
+- [Releases](https://github.com/Adiakys/OtlpDashboard/releases)
+- [Docker image](https://github.com/Adiakys/OtlpDashboard/pkgs/container/otlpdashboard): `ghcr.io/adiakys/otlpdashboard`
+- [Default widget pack](https://github.com/Adiakys/OtlpDashboard-default-pack)
