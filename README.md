@@ -11,7 +11,9 @@ A self-hosted OTLP receiver and viewer for traces, logs, and metrics.
 PostgreSQL, or SQL Server. Speaks OTLP gRPC on `:4317` and OTLP
 HTTP/Protobuf on `:4318` (the same port also serves the SPA).
 
-**Live demo:** [adiakys.github.io/OtlpDashboard](https://adiakys.github.io/OtlpDashboard/) — static build with mock telemetry, no backend required. Login accepts any password (e.g. `demo`).
+**Website:** [adiakys.github.io/OtlpDashboard](https://adiakys.github.io/OtlpDashboard/)
+
+**Live demo:** [adiakys.github.io/OtlpDashboard/demo](https://adiakys.github.io/OtlpDashboard/demo/) — static build with mock telemetry, no backend required. Login accepts any password (e.g. `demo`).
 
 > The demo runs against an in-browser **mock** backend (a tiny TS shim
 > that intercepts every API call and returns generated DTOs) — not the

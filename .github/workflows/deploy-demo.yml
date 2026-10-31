@@ -1,9 +1,9 @@
-# Build the SPA in demo mode and publish to GitHub Pages.
+# Publish the static landing page (`site/`) to the GitHub Pages root and
+# the SPA, built in demo mode, under `/demo/`.
 #
 # The demo build sets VITE_DEMO_MODE=true (the SPA's plugin swaps in a
 # DemoFetcher that serves mock telemetry from `web/app/demo/`) and
-# NUXT_APP_BASE_URL=/<repo>/ so URLs resolve under the project Pages
-# subpath.
+# NUXT_APP_BASE_URL=/<repo>/demo/ so URLs resolve under that subpath.
 #
 # Pages must be enabled in repo settings → Pages → Source: GitHub Actions.
 
@@ -12,6 +12,11 @@ name: Deploy demo to GitHub Pages
 on:
   release:
     types: [published]
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-demo.yml'
   workflow_dispatch:
 
 permissions:
@@ -54,18 +59,31 @@ jobs:
       - name: Build static demo bundle
         env:
           VITE_DEMO_MODE: 'true'
-          NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
+          NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/demo/
         run: pnpm generate:demo
 
-      # SPA fallback: GitHub Pages serves 404.html when a path doesn't map
-      # to a file. Pointing it at the SPA's index.html lets deep links
-      # (e.g. /<repo>/dashboard/<id>) survive a hard refresh.
+      - name: Assemble site
+        working-directory: .
+        run: |
+          mkdir -p _site
+          cp -r site/. _site/
+          cp -r web/.output/public _site/demo
+
+      # GitHub Pages only serves the root 404.html. Making it the SPA's
+      # index.html lets demo deep links survive a hard refresh; paths
+      # outside /demo/ (links to the demo from before it moved) are
+      # redirected into it.
       - name: Add SPA 404 fallback
-        run: cp .output/public/index.html .output/public/404.html
+        working-directory: .
+        env:
+          BASE: /${{ github.event.repository.name }}/
+        run: |
+          redirect="<script>(function(){var b='${BASE}',p=location.pathname;if(p.indexOf(b)!==0||p.indexOf(b+'demo/')===0)return;location.replace(b+'demo/'+p.slice(b.length)+location.search+location.hash)})()</script>"
+          sed "s#<head>#<head>${redirect}#" _site/demo/index.html > _site/404.html
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: web/.output/public
+          path: _site
 
   deploy:
     needs: build
