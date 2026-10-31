@@ -12,11 +12,6 @@ name: Deploy demo to GitHub Pages
 on:
   release:
     types: [published]
-  push:
-    branches: [main]
-    paths:
-      - 'site/**'
-      - '.github/workflows/deploy-demo.yml'
   workflow_dispatch:
 
 permissions:
