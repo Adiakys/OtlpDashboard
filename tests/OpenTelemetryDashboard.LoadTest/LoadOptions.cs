@@ -14,11 +14,13 @@ internal sealed record LoadOptions
     public double TargetRequestsPerSecond { get; init; }
     public IReadOnlyList<string> Signals { get; init; } = ["traces", "logs", "metrics"];
     public int Services { get; init; } = 10;
+    public int SpreadMinutes { get; init; }
     public int? Pid { get; init; }
     public string Label { get; init; } = "run";
     public string OutputDirectory { get; init; } = "results";
     public int QueryIterations { get; init; } = 30;
     public bool SkipQuery { get; init; }
+    public bool SkipIngest { get; init; }
 
     public static LoadOptions Parse(string[] args)
     {
@@ -50,11 +52,13 @@ internal sealed record LoadOptions
             TargetRequestsPerSecond = values.TryGetValue("rate", out var rate) ? double.Parse(rate, CultureInfo.InvariantCulture) : 0,
             Signals = values.TryGetValue("signals", out var signals) ? signals.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : defaults.Signals,
             Services = Int(values, "services", defaults.Services),
+            SpreadMinutes = Int(values, "spread-minutes", defaults.SpreadMinutes),
             Pid = values.TryGetValue("pid", out var pid) ? int.Parse(pid, CultureInfo.InvariantCulture) : null,
             Label = values.GetValueOrDefault("label") ?? defaults.Label,
             OutputDirectory = values.GetValueOrDefault("out") ?? defaults.OutputDirectory,
             QueryIterations = Int(values, "query-iterations", defaults.QueryIterations),
             SkipQuery = flags.Contains("skip-query"),
+            SkipIngest = flags.Contains("skip-ingest"),
         };
     }
 

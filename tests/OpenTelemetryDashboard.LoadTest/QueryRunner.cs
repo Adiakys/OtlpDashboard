@@ -29,6 +29,7 @@ internal sealed class QueryRunner(HttpClient http, int iterations, IReadOnlyList
             ("logs.errors", $"/api/v1/logs?{window}&limit=100&minSeverity=17"),
             ("logs.bodyContains", $"/api/v1/logs?{window}&limit=100&bodyContains=Cache%20miss"),
             ("logs.byService", $"/api/v1/logs?{window}&limit=100&services={service}"),
+            ("logs.services", $"/api/v1/logs/services?{window}"),
             ("metrics.instruments", $"/api/v1/metrics?{window}"),
             ("serviceMap", $"/api/v1/service-map?{window}"),
         };

@@ -23,25 +23,31 @@ var idle = sampler?.Sample();
 
 var probe = new TraceProbe(client, http, options.Services);
 var startedAt = DateTimeOffset.UtcNow;
-Console.WriteLine($"Ingesting {string.Join('+', options.Signals)} for {options.DurationSeconds}s with {options.Workers} workers, {options.BatchSize} items per request...");
-var ingest = await new IngestRunner(options, client, probe, sampler).RunAsync();
+IngestResult? ingest = null;
+double? drainSeconds = null;
+if (!options.SkipIngest)
+{
+    Console.WriteLine($"Ingesting {string.Join('+', options.Signals)} for {options.DurationSeconds}s with {options.Workers} workers, {options.BatchSize} items per request...");
+    ingest = await new IngestRunner(options, client, probe, sampler).RunAsync();
 
-Console.WriteLine("Waiting for the writer to drain...");
-var drainWatch = Stopwatch.StartNew();
-var drained = await probe.MeasureAsync(TimeSpan.FromMinutes(10));
-var drainSeconds = drained is null ? (double?)null : Math.Round(drainWatch.Elapsed.TotalSeconds, 2);
+    Console.WriteLine("Waiting for the writer to drain...");
+    var drainWatch = Stopwatch.StartNew();
+    var drained = await probe.MeasureAsync(TimeSpan.FromMinutes(10));
+    drainSeconds = drained is null ? null : Math.Round(drainWatch.Elapsed.TotalSeconds, 2);
+}
 var afterIngest = sampler?.Sample();
 
-var acceptedItems = ingest.Signals.Values.Sum(s => s.AcceptedItems);
-var persistedPerSecond = drainSeconds is double d ? Math.Round(acceptedItems / (ingest.SendSeconds + d), 0) : (double?)null;
+var acceptedItems = ingest?.Signals.Values.Sum(s => s.AcceptedItems) ?? 0;
+var persistedPerSecond = ingest is not null && drainSeconds is double d ? Math.Round(acceptedItems / (ingest.SendSeconds + d), 0) : (double?)null;
 
 List<QueryResult> queries = [];
 if (!options.SkipQuery)
 {
-    Console.WriteLine("Running queries...");
+    Console.WriteLine("Running queries over the last hour, the SPA default window...");
     var serviceNames = new OtlpPayloadFactory(seed: 0, options.Services).ServiceNames;
+    var now = DateTimeOffset.UtcNow;
     queries = await new QueryRunner(http, options.QueryIterations, serviceNames)
-        .RunAsync(startedAt.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(1));
+        .RunAsync(now.AddHours(-1), now);
 }
 var afterQueries = sampler?.Sample();
 
@@ -67,17 +73,20 @@ Directory.CreateDirectory(options.OutputDirectory);
 var file = Path.Combine(options.OutputDirectory, $"{startedAt:yyyyMMdd-HHmmss}-{options.Label}.json");
 await File.WriteAllTextAsync(file, JsonSerializer.Serialize(result, JsonOutput.Options));
 
-Console.WriteLine();
-Console.WriteLine($"{"signal",-10} {"items/s",10} {"accepted",12} {"rejected",9} {"failed",7} {"p50 ms",8} {"p95 ms",8} {"p99 ms",8}");
-foreach (var (signal, s) in ingest.Signals)
+if (ingest is not null)
 {
-    Console.WriteLine($"{signal,-10} {s.ItemsPerSecond,10:N0} {s.AcceptedItems,12:N0} {s.RejectedRequests,9:N0} {s.FailedRequests,7:N0} {s.ExportLatencyMs.P50,8:N1} {s.ExportLatencyMs.P95,8:N1} {s.ExportLatencyMs.P99,8:N1}");
-    if (s.LastError is not null) Console.WriteLine($"  last error: {s.LastError}");
+    Console.WriteLine();
+    Console.WriteLine($"{"signal",-10} {"items/s",10} {"accepted",12} {"rejected",9} {"failed",7} {"p50 ms",8} {"p95 ms",8} {"p99 ms",8}");
+    foreach (var (signal, s) in ingest.Signals)
+    {
+        Console.WriteLine($"{signal,-10} {s.ItemsPerSecond,10:N0} {s.AcceptedItems,12:N0} {s.RejectedRequests,9:N0} {s.FailedRequests,7:N0} {s.ExportLatencyMs.P50,8:N1} {s.ExportLatencyMs.P95,8:N1} {s.ExportLatencyMs.P99,8:N1}");
+        if (s.LastError is not null) Console.WriteLine($"  last error: {s.LastError}");
+    }
+    Console.WriteLine();
+    Console.WriteLine($"Accepted total: {acceptedItems:N0} items in {ingest.SendSeconds:N1}s, drain {drainSeconds?.ToString("N1", System.Globalization.CultureInfo.InvariantCulture) ?? "timeout"}s, persisted {persistedPerSecond:N0} items/s");
+    Console.WriteLine($"Freshness (ingest to query): p50 {ingest.FreshnessMs.P50:N0} ms, p95 {ingest.FreshnessMs.P95:N0} ms, samples {ingest.FreshnessMs.Count}");
 }
-Console.WriteLine();
-Console.WriteLine($"Accepted total: {acceptedItems:N0} items in {ingest.SendSeconds:N1}s, drain {drainSeconds?.ToString("N1", System.Globalization.CultureInfo.InvariantCulture) ?? "timeout"}s, persisted {persistedPerSecond:N0} items/s");
-Console.WriteLine($"Freshness (ingest to query): p50 {ingest.FreshnessMs.P50:N0} ms, p95 {ingest.FreshnessMs.P95:N0} ms, samples {ingest.FreshnessMs.Count}");
-if (sampler is not null)
+if (sampler is not null && ingest is not null)
 {
     var peak = ingest.Timeline.Where(t => t.RssMb is not null).Select(t => t.RssMb!.Value).DefaultIfEmpty().Max();
     var avgCpu = ingest.Timeline.Where(t => t.CpuPercent is not null).Select(t => t.CpuPercent!.Value).DefaultIfEmpty().Average();

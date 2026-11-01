@@ -56,6 +56,8 @@ Any option after the provider goes to the load test:
 | `--rate` | 0 | Total requests per second across workers; 0 means as fast as accepted |
 | `--signals` | `traces,logs,metrics` | Signals to send, round robin per worker |
 | `--services` | 10 | Distinct `service.name` resources |
+| `--spread-minutes` | 0 | Spread timestamps over the last N minutes, to fill a time window like real traffic |
+| `--skip-ingest` | | Only run the queries, against data from a previous run kept with `DATA_DIR` |
 | `--query-iterations` | 30 | Repetitions of each read query after ingest |
 | `--skip-query` | | Skip the query phase |
 

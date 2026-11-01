@@ -2,6 +2,8 @@
 # Usage: tests/OpenTelemetryDashboard.LoadTest/run.sh [sqlite|postgres] [load test options...]
 # Publishes the host in Release, starts it on ports 14317/14318 against a
 # fresh database, runs the load test against it and tears everything down.
+# DATA_DIR keeps the database there (SQLite file or PostgreSQL data directory)
+# instead of a temp dir, to rerun queries against the same data with --skip-ingest.
 set -euo pipefail
 
 provider="${1:-sqlite}"
@@ -11,14 +13,15 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 out="$here/.out"
 host_dir="$out/host"
-data_dir="$(mktemp -d)"
+data_dir="${DATA_DIR:-$(mktemp -d)}"
+mkdir -p "$data_dir"
 pg_container="oteldash-bench-pg"
 host_pid=""
 
 cleanup() {
   [[ -n "$host_pid" ]] && kill "$host_pid" 2>/dev/null && wait "$host_pid" 2>/dev/null || true
   [[ "$provider" == "postgres" ]] && docker rm -f "$pg_container" >/dev/null 2>&1 || true
-  rm -rf "$data_dir"
+  [[ -z "${DATA_DIR:-}" ]] && rm -rf "$data_dir" || true
 }
 trap cleanup EXIT
 
@@ -42,7 +45,9 @@ case "$provider" in
     ;;
   postgres)
     docker rm -f "$pg_container" >/dev/null 2>&1 || true
-    docker run -d --name "$pg_container" -p 55432:5432 -e POSTGRES_USER=otel -e POSTGRES_PASSWORD=otel -e POSTGRES_DB=oteldash postgres:16-alpine >/dev/null
+    pg_volume=()
+    [[ -n "${DATA_DIR:-}" ]] && pg_volume=(-v "$data_dir/pg:/var/lib/postgresql/data")
+    docker run -d --name "$pg_container" -p 55432:5432 "${pg_volume[@]}" -e POSTGRES_USER=otel -e POSTGRES_PASSWORD=otel -e POSTGRES_DB=oteldash postgres:16-alpine >/dev/null
     until docker exec "$pg_container" pg_isready -U otel -d oteldash >/dev/null 2>&1; do sleep 0.5; done
     sleep 1
     export Dashboard__Storage__Provider=PostgreSql

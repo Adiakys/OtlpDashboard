@@ -38,6 +38,7 @@ internal sealed class IngestRunner(LoadOptions options, OtlpGrpcClient client, T
     private async Task WorkerAsync(int index, CancellationToken ct)
     {
         var factory = new OtlpPayloadFactory(seed: 1000 + index, options.Services);
+        var spread = new Random(2000 + index);
         var interval = options.TargetRequestsPerSecond > 0
             ? TimeSpan.FromSeconds(options.Workers / options.TargetRequestsPerSecond)
             : TimeSpan.Zero;
@@ -48,7 +49,7 @@ internal sealed class IngestRunner(LoadOptions options, OtlpGrpcClient client, T
         {
             var signal = options.Signals[turn++ % options.Signals.Count];
             var counters = _counters[signal];
-            var now = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow.AddMinutes(-spread.NextDouble() * options.SpreadMinutes);
             var started = Stopwatch.GetTimestamp();
             try
             {
