@@ -1,9 +1,9 @@
 name: CI
 
+# PRs only: branch protection requires them to be up to date with main, so
+# the PR run already tested the exact merge result.
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
 
 permissions:
