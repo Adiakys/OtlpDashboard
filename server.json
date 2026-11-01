@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Adiakys/otlpdashboard",
+  "title": "OtlpDashboard",
+  "description": "Query OpenTelemetry logs, traces and metrics from a self-hosted OTLP dashboard",
+  "websiteUrl": "https://adiakys.github.io/OtlpDashboard/",
+  "repository": {
+    "url": "https://github.com/Adiakys/OtlpDashboard",
+    "source": "github"
+  },
+  "version": "0.0.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/adiakys/otlpdashboard:0.0.0",
+      "runtimeHint": "docker",
+      "runtimeArguments": [
+        { "type": "named", "name": "-p", "value": "4317:4317", "description": "OTLP gRPC ingestion" },
+        { "type": "named", "name": "-p", "value": "4318:4318", "description": "OTLP HTTP ingestion, web app and MCP endpoint" },
+        { "type": "named", "name": "-v", "value": "otlp-data:/app/data", "description": "Volume that keeps the telemetry database across restarts" }
+      ],
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:4318/mcp",
+        "headers": [
+          {
+            "name": "Authorization",
+            "description": "Bearer followed by DASHBOARD__BROWSERTOKEN, when that token is set",
+            "isRequired": false,
+            "isSecret": true
+          }
+        ]
+      },
+      "environmentVariables": [
+        {
+          "name": "Dashboard__Mcp__Enabled",
+          "description": "Mounts the MCP server at /mcp",
+          "isRequired": true,
+          "default": "true"
+        },
+        {
+          "name": "DASHBOARD__BROWSERTOKEN",
+          "description": "Bearer token for the web app, read API and MCP endpoint. Leave empty for open access",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
