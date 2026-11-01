@@ -39,25 +39,21 @@ public sealed class EfCoreTraceRetentionPolicy : ITraceRetentionPolicy
         var totalRemoved = 0;
         while (true)
         {
-            // Two-step (see EfCoreLogRetentionPolicy) — works on every provider
-            // and keeps the DELETE statement bounded.
-            var ids = await context.Spans
+            // Batches end at a timestamp, not an id list (see EfCoreLogRetentionPolicy).
+            var boundary = await context.Spans
                 .Where(s => s.StartUnixNano < cutoffNano)
                 .OrderBy(s => s.StartUnixNano)
-                .Select(s => EF.Property<long>(s, "Id"))
-                .Take(BatchSize)
-                .ToListAsync(cancellationToken)
+                .Skip(BatchSize)
+                .Select(s => (long?)s.StartUnixNano)
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (ids.Count == 0) break;
-
-            var removed = await context.Spans
-                .Where(s => ids.Contains(EF.Property<long>(s, "Id")))
-                .ExecuteDeleteAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var removed = boundary is { } end
+                ? await context.Spans.Where(s => s.StartUnixNano <= end).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false)
+                : await context.Spans.Where(s => s.StartUnixNano < cutoffNano).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
             totalRemoved += removed;
-            if (ids.Count < BatchSize) break;
+            if (boundary is null) break;
         }
         return totalRemoved;
     }
