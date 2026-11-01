@@ -9,6 +9,14 @@ public sealed class TelemetryChannelOptions
     [Range(1, int.MaxValue)]
     public int Capacity { get; set; } = 10_000;
 
+    /// <summary>
+    /// Spans, log records and metric points accepted but not yet persisted.
+    /// Bounds memory: <see cref="Capacity"/> counts requests, whose size
+    /// varies by orders of magnitude between exporters.
+    /// </summary>
+    [Range(1, int.MaxValue)]
+    public int MaxPendingItems { get; set; } = 100_000;
+
     [Range(1, 10_000)]
     public int MaxBatchSize { get; set; } = 512;
 

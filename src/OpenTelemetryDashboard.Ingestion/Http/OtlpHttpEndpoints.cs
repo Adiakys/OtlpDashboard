@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using OpenTelemetry.Proto.Collector.Logs.V1;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 using OpenTelemetry.Proto.Collector.Trace.V1;
@@ -35,7 +34,6 @@ public static class OtlpHttpEndpoints
         HttpContext context,
         OtlpTraceTranslator translator,
         TelemetryChannel channel,
-        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         if (!IsSupportedContentType(context.Request.ContentType))
@@ -63,7 +61,6 @@ public static class OtlpHttpEndpoints
 
         if (!channel.TryWrite(batch))
         {
-            loggerFactory.CreateLogger("OtlpHttp.Traces").HttpChannelFull();
             context.Response.Headers.RetryAfter = "1";
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
@@ -75,7 +72,6 @@ public static class OtlpHttpEndpoints
         HttpContext context,
         OtlpLogTranslator translator,
         TelemetryChannel channel,
-        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         if (!IsSupportedContentType(context.Request.ContentType))
@@ -103,7 +99,6 @@ public static class OtlpHttpEndpoints
 
         if (!channel.TryWrite(batch))
         {
-            loggerFactory.CreateLogger("OtlpHttp.Logs").HttpChannelFull();
             context.Response.Headers.RetryAfter = "1";
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
@@ -115,7 +110,6 @@ public static class OtlpHttpEndpoints
         HttpContext context,
         OtlpMetricTranslator translator,
         TelemetryChannel channel,
-        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         if (!IsSupportedContentType(context.Request.ContentType))
@@ -143,7 +137,6 @@ public static class OtlpHttpEndpoints
 
         if (!channel.TryWrite(batch))
         {
-            loggerFactory.CreateLogger("OtlpHttp.Metrics").HttpChannelFull();
             context.Response.Headers.RetryAfter = "1";
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
@@ -213,11 +206,4 @@ public static class OtlpHttpEndpoints
         return media.Equals(ProtobufContentType, StringComparison.OrdinalIgnoreCase)
             || media.Equals(GoogleProtobufContentType, StringComparison.OrdinalIgnoreCase);
     }
-}
-
-internal static partial class OtlpHttpEndpointsLogs
-{
-    [LoggerMessage(EventId = 1, Level = LogLevel.Warning,
-        Message = "HTTP OTLP export rejected: telemetry channel is full")]
-    public static partial void HttpChannelFull(this ILogger logger);
 }

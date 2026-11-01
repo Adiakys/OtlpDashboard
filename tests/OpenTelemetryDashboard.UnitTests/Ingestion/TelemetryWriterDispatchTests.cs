@@ -18,9 +18,9 @@ public sealed class TelemetryWriterDispatchTests
 
         await host.Writer.StartAsync(cts.Token);
 
-        await host.Channel.WriteAsync(new TraceBatch([], []), cts.Token);
-        await host.Channel.WriteAsync(new LogBatch([], []), cts.Token);
-        await host.Channel.WriteAsync(new MetricBatch([], []), cts.Token);
+        host.Channel.TryWrite(new TraceBatch([], [])).ShouldBeTrue();
+        host.Channel.TryWrite(new LogBatch([], [])).ShouldBeTrue();
+        host.Channel.TryWrite(new MetricBatch([], [])).ShouldBeTrue();
 
         await host.StopAndDrainAsync(TimeSpan.FromSeconds(5));
 
@@ -40,15 +40,16 @@ public sealed class TelemetryWriterDispatchTests
         // Enqueue while writer is active; shutdown will drain the tail.
         for (var i = 0; i < 3; i++)
         {
-            await host.Channel.WriteAsync(new MetricBatch([], [BuildSample(i)]), cts.Token);
+            host.Channel.TryWrite(new MetricBatch([], [BuildSample(i)])).ShouldBeTrue();
         }
 
         await host.StopAndDrainAsync(TimeSpan.FromSeconds(5));
 
         host.MetricSink.TotalSamples.ShouldBe(3);
+        host.Channel.PendingItems.ShouldBe(0);
     }
 
-    private static MetricSample BuildSample(int index)
+    internal static MetricSample BuildSample(int index)
     {
         var key = InstrumentKey.Create(new byte[32], "tests", $"m.{index}", InstrumentKind.Gauge);
         return new MetricSample(key, new Instrument { Name = $"m.{index}" }, new DataPoint { Value = index });
@@ -67,7 +68,7 @@ public sealed class TelemetryWriterDispatchTests
             DrainTimeoutSeconds = 5,
         });
 
-        var channel = new TelemetryChannel(channelOptions, NullLogger<TelemetryChannel>.Instance);
+        var channel = new TelemetryChannel(channelOptions, NullLogger<TelemetryChannel>.Instance, TimeProvider.System);
         var traceSink = new RecordingTraceSink();
         var logSink = new RecordingLogSink();
         var metricSink = new RecordingMetricSink();

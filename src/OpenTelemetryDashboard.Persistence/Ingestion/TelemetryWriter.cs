@@ -126,6 +126,18 @@ public sealed class TelemetryWriter : BackgroundService
 
     private async Task DispatchAsync(List<TelemetryBatch> batches, CancellationToken cancellationToken)
     {
+        try
+        {
+            await DispatchToSinksAsync(batches, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _channel.Release(batches);
+        }
+    }
+
+    private async Task DispatchToSinksAsync(List<TelemetryBatch> batches, CancellationToken cancellationToken)
+    {
         List<TraceBatch>? traceBatches = null;
         List<LogBatch>? logBatches = null;
         List<MetricBatch>? metricBatches = null;
