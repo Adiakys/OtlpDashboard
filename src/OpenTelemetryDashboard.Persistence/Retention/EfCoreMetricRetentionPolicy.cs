@@ -41,24 +41,21 @@ public sealed class EfCoreMetricRetentionPolicy : IMetricRetentionPolicy
         var dropped = 0;
         while (true)
         {
-            // Two-step (see EfCoreLogRetentionPolicy).
-            var ids = await context.MetricPoints
+            // Batches end at a timestamp, not an id list (see EfCoreLogRetentionPolicy).
+            var boundary = await context.MetricPoints
                 .Where(p => p.TimeUnixNano < cutoffNano)
                 .OrderBy(p => p.TimeUnixNano)
-                .Select(p => p.Id)
-                .Take(BatchSize)
-                .ToListAsync(cancellationToken)
+                .Skip(BatchSize)
+                .Select(p => (long?)p.TimeUnixNano)
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (ids.Count == 0) break;
-
-            var removed = await context.MetricPoints
-                .Where(p => ids.Contains(p.Id))
-                .ExecuteDeleteAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var removed = boundary is { } end
+                ? await context.MetricPoints.Where(p => p.TimeUnixNano <= end).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false)
+                : await context.MetricPoints.Where(p => p.TimeUnixNano < cutoffNano).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
             dropped += removed;
-            if (ids.Count < BatchSize) break;
+            if (boundary is null) break;
         }
 
         // Orphan instrument cleanup: drop dimension rows that lost all their

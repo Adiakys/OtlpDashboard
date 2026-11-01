@@ -35,8 +35,10 @@ internal static class HighVolumeRetentionAssertions
 
     public static async Task AssertRetention(ProviderTestHostFixture host)
     {
+        // Unique per run: the multi-provider containers are reused across runs and keep their rows.
+        var service = $"retention-svc-{Guid.NewGuid():N}";
         var resourceHash = ResourceHasher.Compute(
-            serviceName: "retention-svc",
+            serviceName: service,
             serviceInstanceId: null,
             schemaUrl: null,
             droppedAttributesCount: 0,
@@ -45,7 +47,7 @@ internal static class HighVolumeRetentionAssertions
         var resource = new Resource
         {
             Hash = resourceHash,
-            ServiceName = "retention-svc",
+            ServiceName = service,
         };
 
         // Now and "1 hour ago" — generate timestamps clustered around them.
@@ -82,7 +84,7 @@ internal static class HighVolumeRetentionAssertions
 
         var factory = host.Services.GetRequiredService<IDbContextFactory<TelemetryDbContext>>();
         await using var ctx = await factory.CreateDbContextAsync();
-        var totalBefore = await ctx.Logs.CountAsync();
+        var totalBefore = await ctx.Logs.CountAsync(l => l.ResourceHash == resourceHash);
         totalBefore.ShouldBe(OldCount + NewCount);
 
         var policy = host.Services.GetRequiredService<ILogRetentionPolicy>();
@@ -90,9 +92,9 @@ internal static class HighVolumeRetentionAssertions
         // I log "old" hanno timestamp ~1 ora fa => verranno eliminati.
         // I log "new" hanno timestamp ~now => sopravvivono.
         var deleted = await policy.EnforceAsync(TimeSpan.FromMinutes(30), CancellationToken.None);
-        deleted.ShouldBe(OldCount);
+        deleted.ShouldBeGreaterThanOrEqualTo(OldCount);
 
-        var totalAfter = await ctx.Logs.CountAsync();
+        var totalAfter = await ctx.Logs.CountAsync(l => l.ResourceHash == resourceHash);
         totalAfter.ShouldBe(NewCount);
     }
 }

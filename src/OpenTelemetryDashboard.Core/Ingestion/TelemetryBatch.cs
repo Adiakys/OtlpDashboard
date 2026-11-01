@@ -14,22 +14,33 @@ public abstract record TelemetryBatch(IReadOnlyList<Resource> Resources)
     /// channel boundary.
     /// </summary>
     public ActivityContext IngestActivityContext { get; init; }
+
+    public abstract int ItemCount { get; }
 }
 
 public sealed record TraceBatch(
     IReadOnlyList<Resource> Resources,
     IReadOnlyList<Span> Spans)
-    : TelemetryBatch(Resources);
+    : TelemetryBatch(Resources)
+{
+    public override int ItemCount => Spans.Count;
+}
 
 public sealed record LogBatch(
     IReadOnlyList<Resource> Resources,
     IReadOnlyList<LogRecord> Records)
-    : TelemetryBatch(Resources);
+    : TelemetryBatch(Resources)
+{
+    public override int ItemCount => Records.Count;
+}
 
 public sealed record MetricBatch(
     IReadOnlyList<Resource> Resources,
     IReadOnlyList<MetricSample> Samples)
-    : TelemetryBatch(Resources);
+    : TelemetryBatch(Resources)
+{
+    public override int ItemCount => Samples.Count;
+}
 
 public sealed record MetricSample(
     InstrumentKey Key,

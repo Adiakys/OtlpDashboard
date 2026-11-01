@@ -9,6 +9,9 @@ namespace OpenTelemetryDashboard.Persistence.Readers;
 
 public sealed class EfCoreTraceReader : ITraceReader
 {
+    private const long InitialSliceNano = 30L * 1_000_000_000;
+    private const double MaxSliceGrowth = 4;
+
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
 
     public EfCoreTraceReader(IDbContextFactory<TelemetryDbContext> contextFactory)
@@ -215,46 +218,8 @@ public sealed class EfCoreTraceReader : ITraceReader
             }
         }
 
-        var aggregateQuery = baseSpans
-            .GroupBy(s => s.TraceId)
-            .Select(g => new TraceAggregate
-            {
-                TraceId = g.Key,
-                Start = g.Min(x => x.StartUnixNano),
-                End = g.Max(x => x.EndUnixNano),
-                Count = g.Count(),
-                // MinSpanId is globally unique across traces (shadow Id is
-                // monotonic). Using it as the cursor secondary key gives a
-                // stable (Start, MinSpanId) DESC ordering.
-                MinSpanId = g.Min(x => EF.Property<long>(x, "Id")),
-            });
-
-        // Duration filter on the aggregate (translates to a HAVING-style
-        // predicate). Bounds are inclusive in milliseconds; we convert to
-        // nanoseconds once here so the comparison stays integer-only.
-        if (query.MinDurationMs is { } minMs)
-        {
-            var minNano = (long)(minMs * 1_000_000.0);
-            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start >= minNano);
-        }
-        if (query.MaxDurationMs is { } maxMs)
-        {
-            var maxNano = (long)(maxMs * 1_000_000.0);
-            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start <= maxNano);
-        }
-
-        if (query.After is { } cursor)
-        {
-            aggregateQuery = aggregateQuery.Where(a =>
-                a.Start < cursor.Time ||
-                (a.Start == cursor.Time && a.MinSpanId < cursor.SecondaryKey));
-        }
-
-        var aggregates = await aggregateQuery
-            .OrderByDescending(a => a.Start)
-            .ThenByDescending(a => a.MinSpanId)
-            .Take(query.Limit + 1)
-            .ToListAsync(cancellationToken)
+        var upperNano = query.After is { } after ? Math.Min(toNano, after.Time + 1) : toNano;
+        var aggregates = await LoadNewestAggregatesAsync(context, baseSpans, query, fromNano, upperNano, cancellationToken)
             .ConfigureAwait(false);
 
         if (aggregates.Count == 0)
@@ -446,15 +411,12 @@ public sealed class EfCoreTraceReader : ITraceReader
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        var query = context.Spans
+        // Resources are few: probing each for one span in the window beats scanning every span in it.
+        var query = context.Resources
             .AsNoTracking()
-            .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
-            .Join(
-                context.Resources.AsNoTracking(),
-                s => s.ResourceHash,
-                r => r.Hash,
-                (_, r) => new { r.ServiceName, r.ServiceInstanceId })
-            .Where(x => x.ServiceName != null)
+            .Where(r => r.ServiceName != null && context.Spans.Any(s =>
+                s.ResourceHash == r.Hash && s.StartUnixNano >= fromNano && s.StartUnixNano < toNano))
+            .Select(r => new { r.ServiceName, r.ServiceInstanceId })
             .Distinct()
             .AsAsyncEnumerable();
 
@@ -462,6 +424,110 @@ public sealed class EfCoreTraceReader : ITraceReader
         {
             yield return (row.ServiceName!, row.ServiceInstanceId);
         }
+    }
+
+    /// <summary>
+    /// Resolves the page from a recent slice of the window before scanning all of it.
+    /// Every trace starting inside the slice has a span there, so the traces found in
+    /// the slice and aggregated over the whole window include all those starting in
+    /// it; once they fill the page, no trace starting earlier can outrank them. The
+    /// slice ends at the newest span, so a quiet spell at the end of the window costs
+    /// nothing, and grows by the shortfall of the last one until the page is full,
+    /// ending with the whole window.
+    /// </summary>
+    private static async Task<List<TraceAggregate>> LoadNewestAggregatesAsync(
+        TelemetryDbContext context,
+        IQueryable<Span> windowSpans,
+        TraceQuery query,
+        long fromNano,
+        long upperNano,
+        CancellationToken cancellationToken)
+    {
+        var newest = await context.Spans
+            .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < upperNano)
+            .MaxAsync(s => (long?)s.StartUnixNano, cancellationToken)
+            .ConfigureAwait(false);
+        if (newest is null)
+        {
+            return [];
+        }
+        upperNano = newest.Value + 1;
+
+        for (var slice = InitialSliceNano; ;)
+        {
+            var sliceFrom = upperNano - slice;
+            var whole = sliceFrom <= fromNano;
+
+            var spans = windowSpans;
+            if (!whole)
+            {
+                var recentTraceIds = context.Spans
+                    .Where(s => s.StartUnixNano >= sliceFrom && s.StartUnixNano < upperNano)
+                    .Select(s => s.TraceId);
+                spans = spans.Where(s => recentTraceIds.Contains(s.TraceId));
+            }
+
+            var aggregates = AggregateTraces(spans, query);
+            if (!whole)
+            {
+                aggregates = aggregates.Where(a => a.Start >= sliceFrom);
+            }
+
+            var page = await aggregates
+                .OrderByDescending(a => a.Start)
+                .ThenByDescending(a => a.MinSpanId)
+                .Take(query.Limit + 1)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (whole || page.Count > query.Limit)
+            {
+                return page;
+            }
+
+            var growth = page.Count == 0 ? MaxSliceGrowth : Math.Min(MaxSliceGrowth, 1.25 * (query.Limit + 1) / page.Count);
+            slice = (long)(slice * growth);
+        }
+    }
+
+    private static IQueryable<TraceAggregate> AggregateTraces(IQueryable<Span> spans, TraceQuery query)
+    {
+        var aggregateQuery = spans
+            .GroupBy(s => s.TraceId)
+            .Select(g => new TraceAggregate
+            {
+                TraceId = g.Key,
+                Start = g.Min(x => x.StartUnixNano),
+                End = g.Max(x => x.EndUnixNano),
+                Count = g.Count(),
+                // MinSpanId is globally unique across traces (shadow Id is
+                // monotonic). Using it as the cursor secondary key gives a
+                // stable (Start, MinSpanId) DESC ordering.
+                MinSpanId = g.Min(x => EF.Property<long>(x, "Id")),
+            });
+
+        // Duration filter on the aggregate (translates to a HAVING-style
+        // predicate). Bounds are inclusive in milliseconds; we convert to
+        // nanoseconds once here so the comparison stays integer-only.
+        if (query.MinDurationMs is { } minMs)
+        {
+            var minNano = (long)(minMs * 1_000_000.0);
+            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start >= minNano);
+        }
+        if (query.MaxDurationMs is { } maxMs)
+        {
+            var maxNano = (long)(maxMs * 1_000_000.0);
+            aggregateQuery = aggregateQuery.Where(a => a.End - a.Start <= maxNano);
+        }
+
+        if (query.After is { } cursor)
+        {
+            aggregateQuery = aggregateQuery.Where(a =>
+                a.Start < cursor.Time ||
+                (a.Start == cursor.Time && a.MinSpanId < cursor.SecondaryKey));
+        }
+
+        return aggregateQuery;
     }
 
     /// <summary>

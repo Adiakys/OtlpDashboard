@@ -65,7 +65,12 @@ public sealed class SpanConfiguration : IEntityTypeConfiguration<Span>
 
         builder.HasIndex(s => s.TraceId);
         builder.HasIndex(s => s.StartUnixNano);
-        builder.HasIndex(s => s.ResourceHash);
+        // Lets "which services sent spans in this window" seek per resource instead of scanning the window.
+        builder.HasIndex(s => new { s.ResourceHash, s.StartUnixNano });
+        // Root spans only: covers the per-operation aggregations without touching child spans.
+        builder.HasIndex(s => new { s.StartUnixNano, s.Name, s.StatusCode, s.EndUnixNano })
+            .HasDatabaseName("ix_spans_roots")
+            .HasFilter("parent_span_id IS NULL");
 
         builder.OwnsMany(s => s.Events, events =>
         {

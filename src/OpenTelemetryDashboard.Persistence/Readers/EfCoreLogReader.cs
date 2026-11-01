@@ -153,15 +153,12 @@ public sealed class EfCoreLogReader : ILogReader
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        var query = context.Logs
+        // Resources are few: probing each for one record in the window beats scanning every record in it.
+        var query = context.Resources
             .AsNoTracking()
-            .Where(l => l.TimeUnixNano >= fromNano && l.TimeUnixNano < toNano)
-            .Join(
-                context.Resources.AsNoTracking(),
-                l => l.ResourceHash,
-                r => r.Hash,
-                (_, r) => new { r.ServiceName, r.ServiceInstanceId })
-            .Where(x => x.ServiceName != null)
+            .Where(r => r.ServiceName != null && context.Logs.Any(l =>
+                l.ResourceHash == r.Hash && l.TimeUnixNano >= fromNano && l.TimeUnixNano < toNano))
+            .Select(r => new { r.ServiceName, r.ServiceInstanceId })
             .Distinct()
             .AsAsyncEnumerable();
 

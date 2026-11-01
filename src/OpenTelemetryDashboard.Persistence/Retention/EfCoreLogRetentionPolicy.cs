@@ -43,27 +43,25 @@ public sealed class EfCoreLogRetentionPolicy : ILogRetentionPolicy
         var totalRemoved = 0;
         while (true)
         {
-            // Two-step: SELECT a bounded id batch, then DELETE by id list.
-            // SQLite ships without SQLITE_ENABLE_UPDATE_DELETE_LIMIT, so a
-            // direct `Take(...).ExecuteDelete()` would fail there. The id
-            // fetch is cheap because (TimeUnixNano) is indexed.
-            var ids = await context.Logs
+            // Batches end at the timestamp of the row past the batch size, read
+            // from the (TimeUnixNano) index. SQLite ships without
+            // SQLITE_ENABLE_UPDATE_DELETE_LIMIT, so `Take(...).ExecuteDelete()`
+            // fails there, and a DELETE by id list binds one parameter per id,
+            // over the SQLite (32,766) and SQL Server (2,100) limits.
+            var boundary = await context.Logs
                 .Where(l => l.TimeUnixNano < cutoffNano)
                 .OrderBy(l => l.TimeUnixNano)
-                .Select(l => EF.Property<long>(l, "Id"))
-                .Take(BatchSize)
-                .ToListAsync(cancellationToken)
+                .Skip(BatchSize)
+                .Select(l => (long?)l.TimeUnixNano)
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (ids.Count == 0) break;
-
-            var removed = await context.Logs
-                .Where(l => ids.Contains(EF.Property<long>(l, "Id")))
-                .ExecuteDeleteAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var removed = boundary is { } end
+                ? await context.Logs.Where(l => l.TimeUnixNano <= end).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false)
+                : await context.Logs.Where(l => l.TimeUnixNano < cutoffNano).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
             totalRemoved += removed;
-            if (ids.Count < BatchSize) break;
+            if (boundary is null) break;
         }
         return totalRemoved;
     }

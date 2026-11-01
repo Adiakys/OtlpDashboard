@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
 using OpenTelemetry.Proto.Collector.Logs.V1;
 using OpenTelemetryDashboard.Core.Ingestion;
 using OpenTelemetryDashboard.Ingestion.Translators;
@@ -11,20 +10,16 @@ public sealed class OtlpLogsService : LogsService.LogsServiceBase
 {
     private readonly OtlpLogTranslator _translator;
     private readonly TelemetryChannel _channel;
-    private readonly ILogger<OtlpLogsService> _logger;
 
     public OtlpLogsService(
         OtlpLogTranslator translator,
-        TelemetryChannel channel,
-        ILogger<OtlpLogsService> logger)
+        TelemetryChannel channel)
     {
         ArgumentNullException.ThrowIfNull(translator);
         ArgumentNullException.ThrowIfNull(channel);
-        ArgumentNullException.ThrowIfNull(logger);
 
         _translator = translator;
         _channel = channel;
-        _logger = logger;
     }
 
     public override Task<ExportLogsServiceResponse> Export(
@@ -44,7 +39,6 @@ public sealed class OtlpLogsService : LogsService.LogsServiceBase
 
         if (!_channel.TryWrite(batch))
         {
-            _logger.LogsChannelFull();
             throw new RpcException(new Status(
                 StatusCode.ResourceExhausted,
                 "Ingestion queue is full; retry after backoff."));
@@ -52,11 +46,4 @@ public sealed class OtlpLogsService : LogsService.LogsServiceBase
 
         return Task.FromResult(new ExportLogsServiceResponse());
     }
-}
-
-internal static partial class OtlpLogsServiceLogs
-{
-    [LoggerMessage(EventId = 1, Level = LogLevel.Warning,
-        Message = "gRPC log export rejected: telemetry channel is full")]
-    public static partial void LogsChannelFull(this ILogger logger);
 }

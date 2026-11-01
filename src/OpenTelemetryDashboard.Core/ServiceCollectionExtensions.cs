@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetryDashboard.Core.Ingestion;
 
 namespace OpenTelemetryDashboard.Core;
@@ -31,6 +32,7 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<TelemetryChannel>();
 
         return services;

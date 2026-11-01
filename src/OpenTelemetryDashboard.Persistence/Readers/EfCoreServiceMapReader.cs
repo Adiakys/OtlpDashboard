@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using OpenTelemetryDashboard.Core.Abstractions;
@@ -16,6 +18,9 @@ namespace OpenTelemetryDashboard.Persistence.Readers;
 /// </summary>
 public sealed class EfCoreServiceMapReader : IServiceMapReader
 {
+    private static readonly MethodInfo JsonAttributeValueMethod =
+        typeof(TelemetryDbFunctions).GetMethod(nameof(TelemetryDbFunctions.JsonAttributeValue))!;
+
     private readonly IDbContextFactory<TelemetryDbContext> _contextFactory;
     private readonly IOptionsMonitor<ServiceMapOptions> _serviceMapOptions;
 
@@ -61,30 +66,42 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
             .ToList();
 
         // Edges: self-join on (TraceId, ParentSpanId == SpanId). Self-
-        // loops (parent and child on the same service) are dropped at
-        // SQL — they're inherent to traces of one service and add only
-        // visual noise to the graph. Both sides are filtered by the
-        // window so the planner can use the StartUnixNano index on each.
-        var edgeQuery =
-            from child in context.Spans.AsNoTracking()
-            where child.StartUnixNano >= fromNano && child.StartUnixNano < toNano
-               && child.ParentSpanId != null
-            from parent in context.Spans.AsNoTracking()
-            where parent.TraceId == child.TraceId
-               && parent.SpanId == child.ParentSpanId
-               && parent.StartUnixNano >= fromNano && parent.StartUnixNano < toNano
-            join cr in context.Resources.AsNoTracking() on child.ResourceHash equals cr.Hash
-            join pr in context.Resources.AsNoTracking() on parent.ResourceHash equals pr.Hash
-            where pr.ServiceName != null && cr.ServiceName != null
-               && pr.ServiceName != cr.ServiceName
-            group child.StatusCode by new { From = pr.ServiceName!, To = cr.ServiceName! } into g
-            select new ServiceMapEdge(
-                g.Key.From,
-                g.Key.To,
-                g.Count(),
-                g.Count(x => x == SpanStatusCode.Error));
+        // loops (parent and child on the same service) are dropped —
+        // they're inherent to traces of one service and add only visual
+        // noise to the graph. Both sides are filtered by the window so
+        // the planner can use the StartUnixNano index on each. Grouping
+        // by resource pair and naming services afterwards keeps the
+        // resources table out of the join, where PostgreSQL otherwise
+        // picks a nested loop over every joined row.
+        var edgeRows = await (
+                from child in context.Spans.AsNoTracking()
+                where child.StartUnixNano >= fromNano && child.StartUnixNano < toNano
+                   && child.ParentSpanId != null
+                from parent in context.Spans.AsNoTracking()
+                where parent.TraceId == child.TraceId
+                   && parent.SpanId == child.ParentSpanId
+                   && parent.StartUnixNano >= fromNano && parent.StartUnixNano < toNano
+                   && parent.ResourceHash != child.ResourceHash
+                group child.StatusCode by new { From = parent.ResourceHash, To = child.ResourceHash } into g
+                select new
+                {
+                    g.Key.From,
+                    g.Key.To,
+                    Count = (long)g.Count(),
+                    ErrorCount = (long)g.Count(x => x == SpanStatusCode.Error),
+                })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
-        var serviceEdges = await edgeQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
+        var edgeServices = await LoadServiceNamesAsync(
+                context, edgeRows.SelectMany(r => new[] { r.From, r.To }), cancellationToken)
+            .ConfigureAwait(false);
+        var serviceEdges = edgeRows
+            .Select(r => (From: edgeServices.GetValueOrDefault(r.From), To: edgeServices.GetValueOrDefault(r.To), r.Count, r.ErrorCount))
+            .Where(e => e.From is not null && e.To is not null && e.From != e.To)
+            .GroupBy(e => (From: e.From!, To: e.To!))
+            .Select(g => new ServiceMapEdge(g.Key.From, g.Key.To, g.Sum(x => x.Count), g.Sum(x => x.ErrorCount)))
+            .ToList();
 
         // External-dependency synthesis: a remote endpoint that doesn't
         // run an OTel SDK never emits spans of its own. The
@@ -98,71 +115,22 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
         //
         // Per-span priority: <c>DependencyAttributes</c> is a priority
         // list. For each Client span the reader credits *exactly one*
-        // attribute, the first non-null in priority order. Lower-
-        // priority queries explicitly filter out spans that have any
-        // higher-priority key set. This stops a single span from
-        // producing two dependency nodes — e.g. the EF Core
-        // instrumentation often emits both `db.system=postgresql` and
-        // `peer.service=5432`; without the priority filter we'd render
-        // one "postgresql" node *and* one "5432" node for the same
-        // call. With the default order (`service.peer.name` first,
-        // then the kind discriminators, with `peer.service` last),
-        // the kind-named node wins and the port number is suppressed.
+        // attribute, the first non-null in priority order (COALESCE for
+        // the value, CASE for which key matched), in a single pass over
+        // the window. This stops a single span from producing two
+        // dependency nodes — e.g. the EF Core instrumentation often
+        // emits both `db.system=postgresql` and `peer.service=5432`;
+        // without the priority we'd render one "postgresql" node *and*
+        // one "5432" node for the same call. With the default order
+        // (`service.peer.name` first, then the kind discriminators, with
+        // `peer.service` last), the kind-named node wins and the port
+        // number is suppressed.
         var depKeys = _serviceMapOptions.CurrentValue.DependencyAttributes
             ?.Where(k => !string.IsNullOrEmpty(k))
             ?.Distinct(StringComparer.Ordinal)
             ?.ToArray() ?? [];
 
-        var deps = new List<(string Host, string DepName, string AttributeKey, long Count, long ErrorCount)>();
-        for (var i = 0; i < depKeys.Length; i++)
-        {
-            // Closure-captured `key` is lifted by EF as a parameter,
-            // so each iteration emits its own parameterised SQL plan.
-            var attributeKey = depKeys[i];
-            var higherPriorityKeys = i == 0 ? Array.Empty<string>() : depKeys[..i];
-
-            // Base set: Client spans in the window with a resolvable
-            // host service name.
-            IQueryable<Span> spans = context.Spans.AsNoTracking()
-                .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano)
-                .Where(s => s.Kind == SpanKind.Client);
-
-            // Cumulative IS NULL exclusions for every higher-priority
-            // key. Each Where() folds into the SQL WHERE chain as an
-            // additional AND clause, parameterised on the key string —
-            // so SQLite / PG / SQL Server all see the same shape.
-            foreach (var higherKey in higherPriorityKeys)
-            {
-                var captured = higherKey;
-                spans = spans.Where(s =>
-                    TelemetryDbFunctions.JsonAttributeValue(
-                        EF.Property<string>(s, nameof(Span.Attributes)),
-                        captured) == null);
-            }
-
-            var depQuery =
-                from s in spans
-                join r in context.Resources.AsNoTracking() on s.ResourceHash equals r.Hash
-                where r.ServiceName != null
-                let depValue = TelemetryDbFunctions.JsonAttributeValue(
-                    EF.Property<string>(s, nameof(Span.Attributes)),
-                    attributeKey)
-                where depValue != null
-                group s.StatusCode by new { Host = r.ServiceName!, DepValue = depValue! } into g
-                select new
-                {
-                    g.Key.Host,
-                    g.Key.DepValue,
-                    Count = (long)g.Count(),
-                    ErrorCount = (long)g.Count(x => x == SpanStatusCode.Error)
-                };
-
-            var rows = await depQuery.ToListAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var r in rows)
-            {
-                deps.Add((r.Host, r.DepValue, attributeKey, r.Count, r.ErrorCount));
-            }
-        }
+        var deps = await LoadDependenciesAsync(context, fromNano, toNano, depKeys, cancellationToken).ConfigureAwait(false);
 
         // Roll up dependency rows by value into a single node per
         // distinct kind (e.g. one `postgresql` node even when called
@@ -217,5 +185,95 @@ public sealed class EfCoreServiceMapReader : IServiceMapReader
         }
 
         return new ServiceMapResult(nodes, edges);
+    }
+
+    private static async Task<List<(string Host, string DepName, string AttributeKey, long Count, long ErrorCount)>> LoadDependenciesAsync(
+        TelemetryDbContext context,
+        long fromNano,
+        long toNano,
+        string[] depKeys,
+        CancellationToken cancellationToken)
+    {
+        if (depKeys.Length == 0)
+        {
+            return [];
+        }
+
+        var rows = await context.Spans
+            .AsNoTracking()
+            .Where(s => s.StartUnixNano >= fromNano && s.StartUnixNano < toNano && s.Kind == SpanKind.Client)
+            .Select(DependencyProjection(depKeys))
+            .Where(d => d.Value != null)
+            .GroupBy(d => new { d.ResourceHash, d.KeyIndex, d.Value })
+            .Select(g => new
+            {
+                g.Key.ResourceHash,
+                g.Key.KeyIndex,
+                g.Key.Value,
+                Count = (long)g.Count(),
+                ErrorCount = (long)g.Count(x => x.StatusCode == SpanStatusCode.Error),
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var serviceByHash = await LoadServiceNamesAsync(context, rows.Select(r => r.ResourceHash), cancellationToken)
+            .ConfigureAwait(false);
+
+        var deps = new List<(string Host, string DepName, string AttributeKey, long Count, long ErrorCount)>(rows.Count);
+        foreach (var row in rows)
+        {
+            if (serviceByHash.TryGetValue(row.ResourceHash, out var host))
+            {
+                deps.Add((host, row.Value!, depKeys[row.KeyIndex], row.Count, row.ErrorCount));
+            }
+        }
+        return deps;
+    }
+
+    private static async Task<Dictionary<byte[], string>> LoadServiceNamesAsync(
+        TelemetryDbContext context,
+        IEnumerable<byte[]> resourceHashes,
+        CancellationToken cancellationToken)
+    {
+        var hashes = resourceHashes.Distinct(ByteArrayEqualityComparer.Instance).ToArray();
+        return await context.Resources
+            .AsNoTracking()
+            .Where(r => hashes.Contains(r.Hash) && r.ServiceName != null)
+            .Select(r => new { r.Hash, r.ServiceName })
+            .ToDictionaryAsync(x => x.Hash, x => x.ServiceName!, ByteArrayEqualityComparer.Instance, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static Expression<Func<Span, DependencyRow>> DependencyProjection(string[] depKeys)
+    {
+        var span = Expression.Parameter(typeof(Span), "s");
+        var attributes = Expression.Call(
+            typeof(EF), nameof(EF.Property), [typeof(string)], span, Expression.Constant(nameof(Span.Attributes)));
+        var noValue = Expression.Constant(null, typeof(string));
+
+        Expression value = noValue;
+        Expression keyIndex = Expression.Constant(-1);
+        for (var i = depKeys.Length - 1; i >= 0; i--)
+        {
+            var extract = Expression.Call(JsonAttributeValueMethod, attributes, Expression.Constant(depKeys[i]));
+            value = Expression.Coalesce(extract, value);
+            keyIndex = Expression.Condition(Expression.NotEqual(extract, noValue), Expression.Constant(i), keyIndex);
+        }
+
+        var body = Expression.MemberInit(
+            Expression.New(typeof(DependencyRow)),
+            Expression.Bind(typeof(DependencyRow).GetProperty(nameof(DependencyRow.ResourceHash))!, Expression.Property(span, nameof(Span.ResourceHash))),
+            Expression.Bind(typeof(DependencyRow).GetProperty(nameof(DependencyRow.StatusCode))!, Expression.Property(span, nameof(Span.StatusCode))),
+            Expression.Bind(typeof(DependencyRow).GetProperty(nameof(DependencyRow.KeyIndex))!, keyIndex),
+            Expression.Bind(typeof(DependencyRow).GetProperty(nameof(DependencyRow.Value))!, value));
+        return Expression.Lambda<Func<Span, DependencyRow>>(body, span);
+    }
+
+    private sealed class DependencyRow
+    {
+        public byte[] ResourceHash { get; init; } = [];
+        public SpanStatusCode StatusCode { get; init; }
+        public int KeyIndex { get; init; }
+        public string? Value { get; init; }
     }
 }

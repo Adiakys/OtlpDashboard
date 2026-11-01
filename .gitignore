@@ -498,3 +498,7 @@ $RECYCLE.BIN/
 
 # Local docker-compose override (per-dev: e.g. wwwroot bind-mount for Rider fast-mode debug)
 docker-compose.override.yml
+
+## Load test: published host and local results
+tests/OpenTelemetryDashboard.LoadTest/.out/
+tests/OpenTelemetryDashboard.LoadTest/results/

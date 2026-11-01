@@ -24,7 +24,9 @@
     <Project Path="src/OpenTelemetryDashboard.Persistence/OpenTelemetryDashboard.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/OpenTelemetryDashboard.Benchmarks/OpenTelemetryDashboard.Benchmarks.csproj" />
     <Project Path="tests/OpenTelemetryDashboard.IntegrationTests/OpenTelemetryDashboard.IntegrationTests.csproj" />
+    <Project Path="tests/OpenTelemetryDashboard.LoadTest/OpenTelemetryDashboard.LoadTest.csproj" />
     <Project Path="tests/OpenTelemetryDashboard.UnitTests/OpenTelemetryDashboard.UnitTests.csproj" />
   </Folder>
 </Solution>

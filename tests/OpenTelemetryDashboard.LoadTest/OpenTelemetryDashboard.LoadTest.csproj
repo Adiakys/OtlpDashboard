@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!--
+      CA5394: Random is fine for synthetic payloads
+      CA1303: console output is not localized
+      CA1031: the load generator records any failure instead of crashing
+    -->
+    <NoWarn>$(NoWarn);CA5394;CA1303;CA1031</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.Net.Client" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Ingestion\OpenTelemetryDashboard.Ingestion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\OpenTelemetryDashboard.Benchmarks\OtlpPayloadFactory.cs" Link="OtlpPayloadFactory.cs" />
+  </ItemGroup>
+
+</Project>
