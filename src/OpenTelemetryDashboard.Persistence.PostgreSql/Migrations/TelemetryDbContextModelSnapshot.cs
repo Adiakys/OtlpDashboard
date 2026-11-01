@@ -97,9 +97,6 @@ namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_log_records");
 
-                    b.HasIndex("ResourceHash")
-                        .HasDatabaseName("ix_log_records_resource_hash");
-
                     b.HasIndex("SeverityNumber")
                         .HasDatabaseName("ix_log_records_severity_number");
 
@@ -108,6 +105,9 @@ namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
 
                     b.HasIndex("TraceId")
                         .HasDatabaseName("ix_log_records_trace_id");
+
+                    b.HasIndex("ResourceHash", "TimeUnixNano")
+                        .HasDatabaseName("ix_log_records_resource_hash_time_unix_nano");
 
                     b.ToTable("log_records", (string)null);
                 });
@@ -245,14 +245,18 @@ namespace OpenTelemetryDashboard.Persistence.PostgreSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_spans");
 
-                    b.HasIndex("ResourceHash")
-                        .HasDatabaseName("ix_spans_resource_hash");
-
                     b.HasIndex("StartUnixNano")
                         .HasDatabaseName("ix_spans_start_unix_nano");
 
                     b.HasIndex("TraceId")
                         .HasDatabaseName("ix_spans_trace_id");
+
+                    b.HasIndex("ResourceHash", "StartUnixNano")
+                        .HasDatabaseName("ix_spans_resource_hash_start_unix_nano");
+
+                    b.HasIndex("StartUnixNano", "Name", "StatusCode", "EndUnixNano")
+                        .HasDatabaseName("ix_spans_roots")
+                        .HasFilter("parent_span_id IS NULL");
 
                     b.ToTable("spans", (string)null);
                 });

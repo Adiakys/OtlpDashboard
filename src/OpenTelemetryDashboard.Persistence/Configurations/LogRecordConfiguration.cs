@@ -55,6 +55,6 @@ public sealed class LogRecordConfiguration : IEntityTypeConfiguration<LogRecord>
         builder.HasIndex(l => l.TimeUnixNano);
         builder.HasIndex(l => l.SeverityNumber);
         builder.HasIndex(l => l.TraceId);
-        builder.HasIndex(l => l.ResourceHash);
+        builder.HasIndex(l => new { l.ResourceHash, l.TimeUnixNano });
     }
 }

@@ -914,6 +914,46 @@ public sealed class QueryApiTests : IClassFixture<TestHostFixture>
     }
 
     [Fact]
+    public async Task GetTraces_Orders_Long_Traces_By_Their_Start_Not_Their_Latest_Span()
+    {
+        using var client = _fixture.CreateClient();
+
+        var anchor = new DateTimeOffset(2030, 4, 12, 9, 0, 0, TimeSpan.Zero);
+        var service = $"slice-svc-{Guid.NewGuid():N}";
+        var recentTrace = RandomBytes(16);
+        var middleTrace = RandomBytes(16);
+        var longTrace = RandomBytes(16);
+        var longerTrace = RandomBytes(16);
+
+        // Both long traces have a span in the newest part of the window but start before the middle one.
+        await SeedSpansAsync(client, service, anchor.AddSeconds(40), recentTrace, "recent.root", spanCount: 1);
+        await SeedSpansAsync(client, service, anchor.AddMinutes(-5), middleTrace, "middle.root", spanCount: 1);
+        await SeedLongTraceAsync(longTrace, anchor.AddMinutes(-10), anchor.AddSeconds(50));
+        await SeedLongTraceAsync(longerTrace, anchor.AddMinutes(-12), anchor.AddSeconds(55));
+
+        var expected = new[] { recentTrace, middleTrace, longTrace, longerTrace }.Select(b => TraceId.FromBytes(b)).ToArray();
+        await WaitForAsync(async ctx => await ctx.Spans.CountAsync(s => expected.Contains(s.TraceId)) == 6);
+
+        var window = $"from={Iso(anchor.AddMinutes(-30))}&to={Iso(anchor.AddMinutes(1))}&services={service}";
+        var first = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?{window}&limit=2", UriKind.Relative), JsonOptions);
+        var second = await client.GetFromJsonAsync<PagedTracesResponse>(
+            new Uri($"/api/v1/traces?{window}&limit=2&cursor={Uri.EscapeDataString(first!.NextCursor!)}", UriKind.Relative), JsonOptions);
+
+        first.Items.Select(t => t.TraceId).ShouldBe(expected.Take(2).Select(id => id.ToString()));
+        second!.Items.Select(t => t.TraceId).ShouldBe(expected.Skip(2).Select(id => id.ToString()));
+        second.Items.ShouldAllBe(t => t.SpanCount == 2);
+        second.NextCursor.ShouldBeNull();
+
+        async Task SeedLongTraceAsync(byte[] traceId, DateTimeOffset start, DateTimeOffset lateChild)
+        {
+            var root = RandomBytes(8);
+            await SeedSpanWithParentAsync(client, service, start, traceId, root, null, "long.root");
+            await SeedSpanWithParentAsync(client, service, lateChild, traceId, RandomBytes(8), root, "long.late-child");
+        }
+    }
+
+    [Fact]
     public async Task GetTrace_Returns_All_Spans_For_Trace()
     {
         using var client = _fixture.CreateClient();

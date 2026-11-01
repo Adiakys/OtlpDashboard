@@ -144,6 +144,16 @@ Dashboard__Storage__Provider=SqlServer
 ConnectionStrings__SqlServer="Server=...;Database=telemetry;User Id=...;Password=...;TrustServerCertificate=True"
 ```
 
+On PostgreSQL backed by SSD storage, set `random_page_cost = 1.1` (the
+default of 4 assumes spinning disks). Trace list filters look up the
+spans of a few recent traces by `trace_id`; with the default cost the
+planner prefers scanning the whole time window instead, which is several
+times slower:
+
+```sql
+ALTER DATABASE telemetry SET random_page_cost = 1.1;
+```
+
 ---
 
 ## MCP server (read-only)
