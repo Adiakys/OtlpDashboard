@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!--
+      CA1822: BenchmarkDotNet requires instance benchmark methods
+      CA5394: Random is fine for synthetic payloads
+    -->
+    <NoWarn>$(NoWarn);CA1822;CA5394</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Ingestion\OpenTelemetryDashboard.Ingestion.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence.Sqlite\OpenTelemetryDashboard.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\OpenTelemetryDashboard.Persistence.PostgreSql\OpenTelemetryDashboard.Persistence.PostgreSql.csproj" />
+  </ItemGroup>
+
+</Project>
