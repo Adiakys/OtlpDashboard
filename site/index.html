@@ -42,7 +42,7 @@
       "downloadUrl": "https://github.com/Adiakys/OtlpDashboard/releases",
       "codeRepository": "https://github.com/Adiakys/OtlpDashboard",
       "license": "https://www.gnu.org/licenses/gpl-3.0.html",
-      "screenshot": "https://adiakys.github.io/OtlpDashboard/assets/shot-trace.webp",
+      "screenshot": "https://adiakys.github.io/OtlpDashboard/assets/view-trace.webp",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "keywords": "OpenTelemetry, OTLP, observability, tracing, logs, metrics, self-hosted, Aspire dashboard alternative, Jaeger alternative, MCP"
     },
@@ -174,7 +174,7 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
 
 /* Hero */
 .hero {
-  display: grid; grid-template-columns: 11fr 9fr; gap: var(--gap);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
   padding: 0 var(--m); min-height: calc(100svh - 80px);
 }
 .hero-card {
@@ -196,7 +196,7 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
 .hero-body > :nth-child(4) { animation-delay: .22s; }
 @keyframes rise { from { opacity: 0; transform: translateY(20px); } }
 .hero-mark { width: clamp(72px, 7vw, 104px); height: auto; margin-bottom: 36px; }
-.hero h1 { font-size: var(--t-display); }
+.hero h1 { font-size: clamp(36px, 3.4vw, 60px); }
 .hero .lead { font-size: var(--t-lead); line-height: 1.45; color: var(--ink); max-width: 36ch; margin-top: 36px; }
 .hero .btn { margin-top: 40px; }
 .hero-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 32px; font-size: 16px; color: var(--muted); }
@@ -205,16 +205,16 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
   background: var(--accent); position: sticky; top: var(--m);
   height: calc(100svh - 80px - var(--m)); overflow: hidden;
 }
-.stage-frames { position: absolute; left: 9%; top: 50%; width: 175%; aspect-ratio: 1200 / 674; transform: translateY(-50%); }
+.stage-frames { position: absolute; left: 5%; top: 46%; width: 90%; aspect-ratio: 1600 / 1250; transform: translateY(-50%); }
 .stage-frames img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   opacity: 0; transition: opacity 1.6s ease-in-out;
 }
 .stage-frames img.on { opacity: 1; }
 .stage-frames.drift { animation: drift 24s ease-in-out infinite alternate; }
-@keyframes drift { from { transform: translateY(-50%) scale(1); } to { transform: translate(-3%, -50%) scale(1.04); } }
+@keyframes drift { from { transform: translateY(-50%) scale(1); } to { transform: translateY(-51.5%) scale(1.025); } }
 .stage-caption {
-  position: absolute; left: 9%; bottom: 28px; right: 24px;
+  position: absolute; left: 5%; bottom: 28px; right: 24px;
   color: var(--accent-ink); font-size: 17px; font-weight: 500;
 }
 
@@ -222,17 +222,16 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
 .section { padding-top: var(--section); }
 .section--tight { padding-top: clamp(72px, 7vw, 112px); }
 .showcase {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
+  display: grid; grid-template-columns: 3fr 2fr; gap: var(--gap);
   margin: 0 var(--m); background: var(--surface); min-height: 88svh;
 }
 .plate { padding: 40px; display: flex; align-items: center; }
-.plate-frame { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: var(--ground); }
+.plate-frame { position: relative; width: 100%; aspect-ratio: 1600 / 1250; overflow: hidden; background: var(--ground); }
 .plate-frame img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: left top;
   opacity: 0; transition: opacity .45s ease, transform .9s var(--ease-out); transform: scale(1.03);
 }
 .plate-frame img.on { opacity: 1; transform: scale(1); }
-.plate-frame img[data-pos="center"] { object-position: 42% 55%; }
 .showcase-text { display: flex; flex-direction: column; justify-content: space-between; padding: 40px 40px 40px 0; gap: 40px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px 28px; }
 .tabs button {
@@ -445,10 +444,9 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
   .nav ul { display: none; }
   .nav .btn { margin-left: auto; }
   .hero { grid-template-columns: 1fr; min-height: 0; }
-  .stage { order: -1; position: relative; top: 0; height: 48svh; }
-  .stage-frames { left: 6%; width: 190%; }
+  .stage { order: -1; position: relative; top: 0; height: auto; aspect-ratio: 1 / 0.86; }
+  .stage-frames { top: 47%; }
   .stage-caption { display: none; }
-  .stage-frames { top: 46%; }
   .hero-card { margin: -24px 16px 0; position: relative; padding: 0 16px 32px; }
   .waterfall { padding-top: 24px; }
   .waterfall .span-bar { --h: 8px; }
@@ -578,13 +576,13 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
 
   <div class="stage">
     <div class="stage-frames drift" id="frames">
-      <img class="on" src="assets/view-dashboard.webp" width="1200" height="674" alt="Dashboard with .NET runtime, PostgreSQL and HTTP request widgets" fetchpriority="high">
-      <img src="assets/view-trace.webp" width="1200" height="674" alt="Trace waterfall for POST /counter/random with five spans" loading="lazy">
-      <img src="assets/view-logs.webp" width="1200" height="674" alt="Log stream filtered by application and severity" loading="lazy">
-      <img src="assets/view-metrics.webp" width="1200" height="674" alt="Metric explorer showing a PostgreSQL database size chart" loading="lazy">
-      <img src="assets/view-service-map.webp" width="1200" height="674" alt="Service map linking client, server, Redis and PostgreSQL" loading="lazy">
+      <img class="on" src="assets/view-trace.webp" width="1600" height="1250" alt="Trace waterfall for POST /counter/batch with eleven spans and the selected span's attributes" fetchpriority="high">
+      <img src="assets/view-dashboard.webp" width="1600" height="1250" alt="Dashboard with PostgreSQL widgets, top operations and request rate charts" loading="lazy">
+      <img src="assets/view-logs.webp" width="1600" height="1250" alt="Log stream with severity histogram and linked trace IDs" loading="lazy">
+      <img src="assets/view-metrics.webp" width="1600" height="1250" alt="Metric explorer charting PostgreSQL database size" loading="lazy">
+      <img src="assets/view-service-map.webp" width="1600" height="1250" alt="Service map linking client, server, Redis and PostgreSQL" loading="lazy">
     </div>
-    <p class="stage-caption" id="frame-caption" aria-live="off">Dashboard, from the live demo</p>
+    <p class="stage-caption" id="frame-caption" aria-live="off">Trace waterfall, from the live demo</p>
   </div>
 </section>
 
@@ -592,11 +590,11 @@ code, pre { font-family: "Geist Mono", ui-monospace, monospace; }
   <div class="showcase" id="views" data-snap>
     <div class="plate">
       <div class="plate-frame" id="plate">
-        <img class="on" data-view="traces" src="assets/shot-trace.webp" width="1600" height="1185" alt="Trace detail: span tree with durations for each service call" loading="lazy">
-        <img data-view="logs" src="assets/shot-logs.webp" width="1600" height="1185" alt="Logs table with severity, scope and linked trace IDs" loading="lazy">
-        <img data-view="metrics" src="assets/view-metrics.webp" width="1200" height="674" alt="Metric tree grouped by service with a line chart" loading="lazy">
-        <img data-view="map" data-pos="center" src="assets/shot-service-map.webp" width="1600" height="1185" alt="Service map built from trace data" loading="lazy">
-        <img data-view="dash" src="assets/view-dashboard.webp" width="1200" height="674" alt="Custom dashboard on a 12-column grid" loading="lazy">
+        <img class="on" data-view="traces" src="assets/view-trace.webp" width="1600" height="1250" alt="Trace detail: span tree with durations and the attributes of the selected span" loading="lazy">
+        <img data-view="logs" src="assets/view-logs.webp" width="1600" height="1250" alt="Logs table with severity, scope and linked trace IDs" loading="lazy">
+        <img data-view="metrics" src="assets/view-metrics.webp" width="1600" height="1250" alt="Metric tree grouped by service with a line chart" loading="lazy">
+        <img data-view="map" src="assets/view-service-map.webp" width="1600" height="1250" alt="Service map built from trace data" loading="lazy">
+        <img data-view="dash" src="assets/view-dashboard.webp" width="1600" height="1250" alt="Custom dashboard with tables and charts on a 12-column grid" loading="lazy">
       </div>
     </div>
     <div class="showcase-text" data-reveal>
@@ -891,7 +889,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=grpc</pre>
 
   const frames = [...document.querySelectorAll('#frames img')];
   const caption = document.getElementById('frame-caption');
-  const names = ['Dashboard', 'Trace waterfall', 'Logs', 'Metrics', 'Service map'];
+  const names = ['Trace waterfall', 'Dashboard', 'Logs', 'Metrics', 'Service map'];
   let current = 0, timer = null;
   const step = () => {
     frames[current].classList.remove('on');
