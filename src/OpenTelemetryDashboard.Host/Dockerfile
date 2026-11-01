@@ -38,6 +38,7 @@ COPY web/ ./
 RUN pnpm run generate
 
 FROM base AS final
+LABEL io.modelcontextprotocol.server.name="io.github.Adiakys/otlpdashboard"
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY --from=web-build /web/.output/public ./wwwroot
