@@ -4,6 +4,8 @@
 # fresh database, runs the load test against it and tears everything down.
 # DATA_DIR keeps the database there (SQLite file or PostgreSQL data directory)
 # instead of a temp dir, to rerun queries against the same data with --skip-ingest.
+# CPUS and MEMORY (docker --cpus / --memory values) run the host in a container
+# with those limits, like a small deployment.
 set -euo pipefail
 
 provider="${1:-sqlite}"
@@ -13,13 +15,20 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 out="$here/.out"
 host_dir="$out/host"
-data_dir="${DATA_DIR:-$(mktemp -d)}"
+mkdir -p "$out"
+data_dir="${DATA_DIR:-$(mktemp -d -p "$out" data.XXXXXX)}"
 mkdir -p "$data_dir"
 pg_container="oteldash-bench-pg"
+host_container="oteldash-bench-host"
 host_pid=""
 
 cleanup() {
-  [[ -n "$host_pid" ]] && kill "$host_pid" 2>/dev/null && wait "$host_pid" 2>/dev/null || true
+  if [[ -n "${CPUS:-}${MEMORY:-}" ]]; then
+    docker logs "$host_container" >"$out/host.log" 2>&1 || true
+    docker rm -f "$host_container" >/dev/null 2>&1 || true
+  else
+    [[ -n "$host_pid" ]] && kill "$host_pid" 2>/dev/null && wait "$host_pid" 2>/dev/null || true
+  fi
   [[ "$provider" == "postgres" ]] && docker rm -f "$pg_container" >/dev/null 2>&1 || true
   [[ -z "${DATA_DIR:-}" ]] && rm -rf "$data_dir" || true
 }
@@ -59,8 +68,24 @@ case "$provider" in
     ;;
 esac
 
-(cd "$host_dir" && exec dotnet OpenTelemetryDashboard.Host.dll >"$out/host.log" 2>&1) &
-host_pid=$!
+if [[ -n "${CPUS:-}${MEMORY:-}" ]]; then
+  limits=()
+  [[ -n "${CPUS:-}" ]] && limits+=(--cpus "$CPUS")
+  [[ -n "${MEMORY:-}" ]] && limits+=(--memory "$MEMORY" --memory-swap "$MEMORY")
+  env_args=()
+  while IFS='=' read -r name value; do env_args+=(-e "$name=$value"); done \
+    < <(env | grep -E '^(ASPNETCORE_|Logging__|Dashboard__|ConnectionStrings__)')
+  # The container user may be remapped (userns), so it needs write access by mode.
+  chmod -R a+rwX "$data_dir"
+  docker rm -f "$host_container" >/dev/null 2>&1 || true
+  docker run -d --name "$host_container" --network host --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    "${limits[@]}" "${env_args[@]}" -v "$host_dir:$host_dir" -v "$data_dir:$data_dir" -w "$host_dir" \
+    mcr.microsoft.com/dotnet/aspnet:10.0 dotnet OpenTelemetryDashboard.Host.dll >/dev/null
+  host_pid="$(docker inspect -f '{{.State.Pid}}' "$host_container")"
+else
+  (cd "$host_dir" && exec dotnet OpenTelemetryDashboard.Host.dll >"$out/host.log" 2>&1) &
+  host_pid=$!
+fi
 
 dotnet "$here/bin/Release/net10.0/OpenTelemetryDashboard.LoadTest.dll" \
   --grpc http://localhost:14317 --http http://localhost:14318 \

@@ -21,6 +21,7 @@ internal sealed record LoadOptions
     public int QueryIterations { get; init; } = 30;
     public bool SkipQuery { get; init; }
     public bool SkipIngest { get; init; }
+    public bool Overlap { get; init; }
 
     public static LoadOptions Parse(string[] args)
     {
@@ -59,6 +60,7 @@ internal sealed record LoadOptions
             QueryIterations = Int(values, "query-iterations", defaults.QueryIterations),
             SkipQuery = flags.Contains("skip-query"),
             SkipIngest = flags.Contains("skip-ingest"),
+            Overlap = flags.Contains("overlap"),
         };
     }
 

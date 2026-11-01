@@ -25,10 +25,22 @@ var probe = new TraceProbe(client, http, options.Services);
 var startedAt = DateTimeOffset.UtcNow;
 IngestResult? ingest = null;
 double? drainSeconds = null;
+List<QueryResult> queries = [];
+Task<List<QueryResult>>? overlappingQueries = null;
 if (!options.SkipIngest)
 {
     Console.WriteLine($"Ingesting {string.Join('+', options.Signals)} for {options.DurationSeconds}s with {options.Workers} workers, {options.BatchSize} items per request...");
-    ingest = await new IngestRunner(options, client, probe, sampler).RunAsync();
+    var ingestTask = new IngestRunner(options, client, probe, sampler).RunAsync();
+    if (options.Overlap && !options.SkipQuery)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(10));
+        overlappingQueries = RunQueriesAsync();
+    }
+    ingest = await ingestTask;
+    if (overlappingQueries is not null)
+    {
+        queries = await overlappingQueries;
+    }
 
     Console.WriteLine("Waiting for the writer to drain...");
     var drainWatch = Stopwatch.StartNew();
@@ -40,14 +52,9 @@ var afterIngest = sampler?.Sample();
 var acceptedItems = ingest?.Signals.Values.Sum(s => s.AcceptedItems) ?? 0;
 var persistedPerSecond = ingest is not null && drainSeconds is double d ? Math.Round(acceptedItems / (ingest.SendSeconds + d), 0) : (double?)null;
 
-List<QueryResult> queries = [];
-if (!options.SkipQuery)
+if (!options.SkipQuery && overlappingQueries is null)
 {
-    Console.WriteLine("Running queries over the last hour, the SPA default window...");
-    var serviceNames = new OtlpPayloadFactory(seed: 0, options.Services).ServiceNames;
-    var now = DateTimeOffset.UtcNow;
-    queries = await new QueryRunner(http, options.QueryIterations, serviceNames)
-        .RunAsync(now.AddHours(-1), now);
+    queries = await RunQueriesAsync();
 }
 var afterQueries = sampler?.Sample();
 
@@ -103,6 +110,14 @@ if (queries.Count > 0)
 }
 Console.WriteLine();
 Console.WriteLine($"Results written to {file}");
+
+async Task<List<QueryResult>> RunQueriesAsync()
+{
+    Console.WriteLine("Running queries over the last hour, the SPA default window...");
+    var serviceNames = new OtlpPayloadFactory(seed: 0, options.Services).ServiceNames;
+    var now = DateTimeOffset.UtcNow;
+    return await new QueryRunner(http, options.QueryIterations, serviceNames).RunAsync(now.AddHours(-1), now);
+}
 
 static async Task WaitForHealthyAsync(HttpClient http)
 {

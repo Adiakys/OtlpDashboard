@@ -46,6 +46,15 @@ tests/OpenTelemetryDashboard.LoadTest/run.sh sqlite --duration 60 --workers 8 --
 tests/OpenTelemetryDashboard.LoadTest/run.sh postgres --duration 60 --workers 8 --batch 128
 ```
 
+Set `CPUS` and `MEMORY` to run the host in a `mcr.microsoft.com/dotnet/aspnet`
+container with those limits instead of as a local process, like a small
+deployment. `DATA_DIR` keeps the database in that directory instead of a
+throwaway one, so later runs with `--skip-ingest` query the same data:
+
+```bash
+CPUS=2 MEMORY=1g tests/OpenTelemetryDashboard.LoadTest/run.sh sqlite --duration 300 --rate 2 --batch 40 --signals traces,logs --overlap
+```
+
 Any option after the provider goes to the load test:
 
 | Option | Default | Meaning |
@@ -58,6 +67,7 @@ Any option after the provider goes to the load test:
 | `--services` | 10 | Distinct `service.name` resources |
 | `--spread-minutes` | 0 | Spread timestamps over the last N minutes, to fill a time window like real traffic |
 | `--skip-ingest` | | Only run the queries, against data from a previous run kept with `DATA_DIR` |
+| `--overlap` | | Run the queries while ingesting (they start after 10 s), as in real use |
 | `--query-iterations` | 30 | Repetitions of each read query after ingest |
 | `--skip-query` | | Skip the query phase |
 
